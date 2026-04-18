@@ -1,0 +1,7 @@
+node_modules/
+API KEY OpenRouter.txt
+API TELEGRAM.txt
+API Keys _ Settings _ OpenRouter.html
+API Keys _ Settings _ OpenRouter_files/
+*.env
+.env*
