@@ -1,14 +1,17 @@
 const { Router } = require('express');
 const { body, query: qv, validationResult } = require('express-validator');
 const { Gasto } = require('../models');
+const { authenticate, requireAdmin } = require('../middleware/auth');
 
 const router = Router();
 
 const CATEGORIAS = ['aluguel', 'produtos', 'salario', 'marketing', 'manutencao', 'equipamentos', 'outros'];
 const UNIDADES_VALIDAS = ['tambore', 'mutinga'];
 
-// GET /gastos
+// GET /gastos — admin only
 router.get('/',
+  authenticate,
+  requireAdmin,
   qv('unidade').optional().isIn(UNIDADES_VALIDAS),
   qv('inicio').optional().isDate(),
   qv('fim').optional().isDate(),
@@ -26,13 +29,16 @@ router.get('/',
   }
 );
 
-// POST /gastos
+// POST /gastos — admin only
 router.post('/',
+  authenticate,
+  requireAdmin,
   body('unidade').isIn(UNIDADES_VALIDAS),
   body('categoria').trim().notEmpty(),
   body('descricao').trim().notEmpty(),
   body('valor').isFloat({ min: 0 }),
   body('data').isDate(),
+  body('valor_previsto').optional().isFloat({ min: 0 }),
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(422).json({ erros: errors.array() });

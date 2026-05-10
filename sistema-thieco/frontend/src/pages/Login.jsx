@@ -77,7 +77,7 @@ export default function Login() {
               type="text"
               autoComplete="username"
               autoFocus
-              placeholder="thieco / igor / kaua"
+              placeholder="Digite seu usuário"
               className="input-dark w-full"
               value={form.username}
               onChange={(e) => set('username', e.target.value)}
@@ -129,23 +129,6 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Hint de roles */}
-        <div className="mt-6 pt-4 border-t border-surface-border">
-          <p className="text-center text-xs text-gold-muted/50 mb-3">Perfis de acesso</p>
-          <div className="space-y-1.5">
-            {[
-              { nome: 'Thieco', role: 'Admin',    cor: 'text-gold',       desc: 'Acesso total + Gestão de Time' },
-              { nome: 'Igor',   role: 'Barbeiro',  cor: 'text-blue-400',  desc: 'Próprias vendas e comissões' },
-              { nome: 'Kauã',   role: 'Barbeiro',  cor: 'text-blue-400',  desc: 'Próprias vendas e comissões' },
-            ].map((u) => (
-              <div key={u.nome} className="flex items-center gap-2 text-xs">
-                <span className={`font-semibold w-12 ${u.cor}`}>{u.nome}</span>
-                <span className="badge-unidade text-[10px]">{u.role}</span>
-                <span className="text-gold-muted/40">{u.desc}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Rodapé */}

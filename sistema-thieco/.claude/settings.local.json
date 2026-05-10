@@ -26,7 +26,30 @@
       "PowerShell(Start-Process powershell -ArgumentList \"-NoExit\", \"-Command\", \"cd 'C:\\\\Users\\\\Willians\\\\Desktop\\\\Zion-workspace\\\\sistema-thieco\\\\frontend'; npm run dev\" -WindowStyle Normal; Write-Host \"Frontend started\")",
       "PowerShell(Start-Sleep -Seconds 5; try { $r = Invoke-WebRequest -Uri \"http://localhost:5173\" -UseBasicParsing; \"Frontend: HTTP $\\($r.StatusCode\\)\" } catch { $_.Exception.Message })",
       "PowerShell(Get-Command *)",
-      "PowerShell(git config *)"
+      "PowerShell(git config *)",
+      "Bash(node -e ' *)",
+      "PowerShell($tcp = New-Object System.Net.Sockets.TcpClient; try { $tcp.Connect\\('localhost', 5432\\); \"PostgreSQL porta 5432: ABERTA\" } catch { \"PostgreSQL porta 5432: FECHADA — $\\($_.Exception.Message\\)\" } finally { $tcp.Close\\(\\) })",
+      "PowerShell(wsl --status 2>&1 | Select-Object -First 5)",
+      "PowerShell(winget install *)",
+      "PowerShell(choco *)",
+      "PowerShell($tcp = New-Object System.Net.Sockets.TcpClient; try { $tcp.Connect\\('localhost', 5432\\); \"OK - porta 5432 aberta\" } catch { \"ERRO - $\\($_.Exception.Message\\)\" } finally { $tcp.Close\\(\\) })",
+      "PowerShell(Get-Item \"C:\\\\Users\\\\Willians DataMeet\\\\Desktop\\\\Ops\\\\sistema-thieco\\\\backend\\\\node_modules\\\\@embedded-postgres\\\\windows-x64\" | Select-Object FullName, LastWriteTime; \\(Get-ChildItem \"C:\\\\Users\\\\Willians DataMeet\\\\Desktop\\\\Ops\\\\sistema-thieco\\\\backend\\\\node_modules\\\\@embedded-postgres\\\\windows-x64\" -Force\\).Count)",
+      "PowerShell(Test-Path *)",
+      "PowerShell($tcp = New-Object System.Net.Sockets.TcpClient; try { $tcp.Connect\\('localhost', 5432\\); \"PostgreSQL OK - porta 5432 aberta\" } catch { \"ERRO: $_\" } finally { $tcp.Close\\(\\) })",
+      "PowerShell(Start-Process \"http://localhost:5173\")",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Willians DataMeet\\\\Desktop\\\\Ops\\\\sistema-thieco\" -Recurse -File | Where-Object { $_.Name -match \"\\(controle|vendas|planilha|historico|dados|sales|dados\\)\" -or $_.Extension -in @\\('.db', '.sqlite', '.sql'\\) } | ForEach-Object { \"$\\($_.FullName\\) | Tamanho: $\\([math]::Round\\($_.Length / 1MB, 2\\)\\) MB\" })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Willians DataMeet\\\\Desktop\\\\Ops\\\\sistema-thieco\" -Directory -Exclude \"node_modules\" | ForEach-Object { $_.Name })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\Willians DataMeet\\\\Desktop\\\\Ops\\\\sistema-thieco\\\\backend\" -File | Where-Object { $_.Extension -in @\\('.json', '.csv', '.xlsx', '.db', '.sqlite'\\) } | ForEach-Object { \"$\\($_.FullName\\) | Tamanho: $\\([math]::Round\\($_.Length / 1MB, 3\\)\\) MB\" })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\Willians DataMeet\\\\Desktop\\\\Ops\\\\sistema-thieco\" -File | Select-Object Name, FullName, @{Name=\"TamanhoMB\";Expression={[math]::Round\\($_.Length / 1MB, 3\\)}} | Format-List)",
+      "PowerShell(Test-NetConnection *)",
+      "PowerShell(cd \"C:\\\\Users\\\\Willians DataMeet\\\\Desktop\\\\Ops\\\\sistema-thieco\"; Invoke-RestMethod -Uri \"http://localhost:3001/profissionais\" -Headers @{Authorization=\"Bearer $\\(node -e \"const jwt=require\\('./backend/node_modules/jsonwebtoken'\\); console.log\\(jwt.sign\\({id:1,nome:'Thieco',username:'thieco',role:'admin',profissional_id:null,unidade:'tambore'},require\\('./backend/config'\\).JWT_SECRET,{expiresIn:'1h'}\\)\\)\"\\)\"} | ConvertTo-Json -Depth 5)",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3001/health\")",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:3001/catalogo\")",
+      "PowerShell(Start-Sleep -Seconds 3; $r = Invoke-RestMethod -Uri \"http://localhost:3001/catalogo\"; Write-Host \"Total: $\\($r.Count\\) itens\"; $r | Group-Object categoria | ForEach-Object { \"  $\\($_.Name\\): $\\($_.Count\\)\" })",
+      "Bash(git config *)",
+      "Bash(Select-String -Pattern \"user\\\\.\")",
+      "PowerShell(gh *)",
+      "PowerShell(winget *)"
     ]
   }
 }

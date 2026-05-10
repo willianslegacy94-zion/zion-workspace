@@ -18,6 +18,11 @@ app.use('/gastos',        require('./routes/gastos'));
 app.use('/import',        require('./routes/import'));
 app.use('/relatorios',    require('./routes/relatorios'));
 app.use('/gestao',        require('./routes/gestao'));
+app.use('/combos',        require('./routes/combos'));
+app.use('/clientes',      require('./routes/clientes'));
+app.use('/metas',         require('./routes/metas'));
+app.use('/metas-unidade', require('./routes/metas-unidade'));
+app.use('/catalogo',     require('./routes/catalogo'));
 
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
