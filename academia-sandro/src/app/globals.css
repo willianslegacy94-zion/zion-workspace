@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0F0E0A;
+  --foreground: #F7F5EF;
+
+  --surface: #161310;
+  --surface-card: #1C1A14;
+  --surface-hover: #241F16;
+  --surface-border: #2E2A1E;
+
+  color-scheme: dark;
+}
+
+.light {
+  --background: #F7F5EF;
+  --foreground: #0F0E0A;
+
+  --surface: #EDEAE0;
+  --surface-card: #F2EFE6;
+  --surface-hover: #E4E0D2;
+  --surface-border: #D8D3C0;
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: #D4AF37;
+  --color-secondary: #A9791E;
+
+  --color-surface: var(--surface);
+  --color-surface-card: var(--surface-card);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-border: var(--surface-border);
+
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-playfair);
+
+  --background-image-gold-gradient: linear-gradient(
+    135deg,
+    var(--color-secondary) 0%,
+    #F5D76E 50%,
+    var(--color-secondary) 100%
+  );
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+@layer components {
+  /* Divisor dourado ornamental */
+  .gold-divider {
+    @apply flex items-center gap-3 my-1;
+  }
+  .gold-divider::before,
+  .gold-divider::after {
+    content: '';
+    @apply flex-1 h-px bg-secondary opacity-50;
+  }
+
+  /* Texto dourado com brilho animado */
+  .text-gold-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--color-secondary) 0%,
+      #F5D76E 30%,
+      var(--color-primary) 50%,
+      #F5D76E 70%,
+      var(--color-secondary) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+
+  /* Card premium */
+  .card-premium {
+    @apply bg-surface-card rounded-xl border border-surface-border shadow-lg
+           transition-all duration-300;
+  }
+  .card-premium:hover {
+    @apply border-secondary;
+  }
+
+  /* Input escuro */
+  .input-dark {
+    @apply bg-surface-hover border border-surface-border rounded-lg px-3 py-2
+           text-foreground text-sm placeholder-foreground/30
+           focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30
+           transition-colors duration-200;
+  }
+
+  /* Botão dourado */
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm
+           bg-gold-gradient text-background
+           hover:shadow-[0_0_20px_rgba(212,175,55,0.35)] active:scale-95
+           transition-all duration-200 cursor-pointer;
+  }
+
+  /* Botão outline dourado */
+  .btn-outline-gold {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm
+           border border-primary text-primary
+           hover:bg-primary/10 active:scale-95
+           transition-all duration-200 cursor-pointer;
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out;
+}
