@@ -68,9 +68,12 @@ export function useInteligencia() {
       const params = { inicio: filtros.inicio, fim: filtros.fim };
       if (filtros.unidade) params.unidade = filtros.unidade;
 
-      const intel    = await api.inteligencia(params);
+      const [intel, fluxo] = await Promise.all([
+        api.inteligencia(params),
+        api.fluxoCaixa(params),
+      ]);
       const projecao = gerarProjecao(intel.vendas_por_dia ?? [], filtros.inicio, filtros.fim);
-      setDados({ ...intel, projecao });
+      setDados({ ...intel, projecao, entradas_por_dia: fluxo.entradas_por_dia, saidas_por_dia: fluxo.saidas_por_dia });
     } catch (e) {
       setErro(e.message);
     } finally {

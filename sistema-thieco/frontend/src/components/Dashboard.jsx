@@ -101,6 +101,8 @@ function DashboardAdmin({ dados, loading, erro, filtros, setFiltros, recarregar 
   const totalComissoes = toNum(fluxo.total_comissoes);
   const totalGastos    = toNum(fluxo.total_gastos);
   const lucroLiquido   = toNum(fluxo.saldo_periodo);
+  const totalDescontos = toNum(fluxo.total_descontos);
+  const pctDesconto    = toNum(fluxo.pct_desconto);
   const margem         = receitaBruta > 0
     ? ((lucroLiquido / receitaBruta) * 100).toFixed(1)
     : '0.0';
@@ -117,12 +119,28 @@ function DashboardAdmin({ dados, loading, erro, filtros, setFiltros, recarregar 
       )}
 
       {/* Cards de métricas */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <MetricCard titulo="Faturamento Bruto"     valor={receitaBruta}   icon={TrendingUp}  variante="default" loading={loading} sub={`${filtros.inicio} → ${filtros.fim}`} />
         <MetricCard titulo="Comissões Pagas"        valor={totalComissoes} icon={Wallet}       variante="alerta"  loading={loading} sub={receitaBruta > 0 ? `${((totalComissoes/receitaBruta)*100).toFixed(1)}% do faturamento` : '—'} />
         <MetricCard titulo="Gastos Operacionais"    valor={totalGastos}    icon={TrendingDown} variante="perigo"  loading={loading} sub={receitaBruta > 0 ? `${((totalGastos/receitaBruta)*100).toFixed(1)}% do faturamento` : '—'} />
         <MetricCard titulo="Lucro Líquido"          valor={lucroLiquido}   icon={lucroLiquido >= 0 ? TrendingUp : TrendingDown} variante={lucroLiquido >= 0 ? 'sucesso' : 'perigo'} loading={loading} sub={`Margem: ${margem}%`} />
       </section>
+
+      {/* Card de descontos */}
+      {(totalDescontos > 0 || !loading) && (
+        <section className="mb-6">
+          <div className="card-premium p-4 flex items-center justify-between">
+            <div>
+              <p className="text-[11px] text-gold-muted uppercase tracking-wider">Descontos concedidos</p>
+              <p className="text-lg font-bold text-amber-400 mt-0.5">{fmt(totalDescontos)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] text-gold-muted uppercase tracking-wider">% sobre receita bruta</p>
+              <p className="text-2xl font-bold text-amber-400">{pctDesconto.toFixed(1)}%</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Gráfico */}
       <section className="mb-6">

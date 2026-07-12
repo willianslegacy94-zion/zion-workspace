@@ -50,6 +50,51 @@ export const api = {
   criarGasto: (body) =>
     http('/gastos', { method: 'POST', body: JSON.stringify(body) }),
 
+  resumoOperador: (params) =>
+    http(`/relatorios/resumo-operador?${new URLSearchParams(params)}`),
+
+  // ── Combos ────────────────────────────────────────────────────────────────
+  combos: (params = {}) =>
+    http(`/combos?${new URLSearchParams(params)}`),
+  criarCombo: (body) =>
+    http('/combos', { method: 'POST', body: JSON.stringify(body) }),
+  atualizarCombo: (id, body) =>
+    http(`/combos/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // ── Clientes ──────────────────────────────────────────────────────────────
+  clientes: (params = {}) =>
+    http(`/clientes?${new URLSearchParams(params)}`),
+  criarCliente: (body) =>
+    http('/clientes', { method: 'POST', body: JSON.stringify(body) }),
+  atualizarCliente: (id, body) =>
+    http(`/clientes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // ── Metas ─────────────────────────────────────────────────────────────────
+  metas: (params = {}) =>
+    http(`/metas?${new URLSearchParams(params)}`),
+  criarMeta: (body) =>
+    http('/metas', { method: 'POST', body: JSON.stringify(body) }),
+  statusMetas: (params) =>
+    http(`/metas/status?${new URLSearchParams(params)}`),
+
+  // ── Metas por Unidade ─────────────────────────────────────────────────────
+  metasUnidade: (params = {}) =>
+    http(`/metas-unidade?${new URLSearchParams(params)}`),
+  criarMetaUnidade: (body) =>
+    http('/metas-unidade', { method: 'POST', body: JSON.stringify(body) }),
+  progressoMetaUnidade: (params = {}) =>
+    http(`/metas-unidade/progresso?${new URLSearchParams(params)}`),
+
+  // ── Catálogo / Estoque ───────────────────────────────────────────────────
+  catalogo: (params = {}) =>
+    http(`/catalogo?${new URLSearchParams(params)}`),
+  criarCatalogo: (body) =>
+    http('/catalogo', { method: 'POST', body: JSON.stringify(body) }),
+  atualizarCatalogo: (id, body) =>
+    http(`/catalogo/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  ajustarEstoque: (id, delta) =>
+    http(`/catalogo/${id}/quantidade`, { method: 'PATCH', body: JSON.stringify({ delta }) }),
+
   // ── Importação (admin) ────────────────────────────────────────────────────
   importar: (payload) =>
     http('/import', { method: 'POST', body: JSON.stringify(payload) }),

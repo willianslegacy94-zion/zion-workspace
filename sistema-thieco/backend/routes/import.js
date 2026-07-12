@@ -56,11 +56,29 @@ function normalizeUnidade(raw) {
   return null;
 }
 
-// Cache de profissionais para evitar N queries durante a importação
+// Cache de profissionais (inclui inativos para cobrir histórico)
 async function buildProfissionalCache() {
-  const { rows } = await Profissional.findAll();
+  const { query } = require('../db');
+  const { rows } = await query('SELECT * FROM profissionais ORDER BY ativo DESC, id ASC');
   const cache = {};
-  for (const p of rows) cache[p.nome.toLowerCase()] = p;
+
+  function norm(s) {
+    return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  }
+
+  const STOPWORDS = new Set(['dos', 'das', 'des', 'de', 'da', 'do', 'e']);
+
+  for (const p of rows) {
+    const nomeNorm = norm(p.nome);
+    // índice pelo nome completo normalizado
+    if (!cache[nomeNorm]) cache[nomeNorm] = p;
+    // índice por cada token do nome (ativos têm prioridade — inseridos primeiro)
+    nomeNorm.split(/\s+/).forEach(token => {
+      if (token.length > 2 && !STOPWORDS.has(token) && !cache[token]) {
+        cache[token] = p;
+      }
+    });
+  }
   return cache;
 }
 
@@ -107,9 +125,13 @@ router.post('/', async (req, res) => {
     const profCache = await buildProfissionalCache();
 
     // ── Preparar vendas
+    function normKey(s) {
+      return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    }
+
     const vendasPreparadas = vendas.map((v) => {
       const profissional = v.profissional
-        ? profCache[String(v.profissional).toLowerCase()]
+        ? profCache[normKey(v.profissional)]
         : null;
 
       const valor = parseFloat(v.valor);

@@ -51,7 +51,7 @@ router.get('/fluxo-caixa', authenticate, requireAdmin, periodoValidators, async 
     `, [inicio, fim]);
 
     const totaisEntrada = await query(`
-      SELECT SUM(valor) AS receita_bruta, SUM(comissao) AS total_comissoes
+      SELECT SUM(valor) AS receita_bruta, SUM(comissao) AS total_comissoes, SUM(desconto) AS total_descontos
       FROM vendas WHERE data BETWEEN $1 AND $2 ${unidadeFiltro}
     `, [inicio, fim]);
 
@@ -60,15 +60,23 @@ router.get('/fluxo-caixa', authenticate, requireAdmin, periodoValidators, async 
       WHERE data BETWEEN $1 AND $2 ${unidadeFiltro}
     `, [inicio, fim]);
 
-    const receitaBruta   = toNum(totaisEntrada.rows[0].receita_bruta);
-    const totalComissoes = toNum(totaisEntrada.rows[0].total_comissoes);
-    const totalGastos    = toNum(totaisSaida.rows[0].total_gastos);
-    const receitaLiquida = receitaBruta - totalComissoes;
-    const saldoPeriodo   = receitaLiquida - totalGastos;
+    const receitaBruta    = toNum(totaisEntrada.rows[0].receita_bruta);
+    const totalComissoes  = toNum(totaisEntrada.rows[0].total_comissoes);
+    const totalDescontos  = toNum(totaisEntrada.rows[0].total_descontos);
+    const totalGastos     = toNum(totaisSaida.rows[0].total_gastos);
+    const receitaLiquida  = receitaBruta - totalComissoes;
+    const saldoPeriodo    = receitaLiquida - totalGastos;
+    const pctDesconto     = (receitaBruta + totalDescontos) > 0
+      ? parseFloat(((totalDescontos / (receitaBruta + totalDescontos)) * 100).toFixed(2))
+      : 0;
 
     res.json({
       periodo: { inicio, fim, unidade: unidade ?? 'todas' },
-      totais: { receita_bruta: receitaBruta, total_comissoes: totalComissoes, receita_liquida: receitaLiquida, total_gastos: totalGastos, saldo_periodo: saldoPeriodo },
+      totais: {
+        receita_bruta: receitaBruta, total_comissoes: totalComissoes,
+        receita_liquida: receitaLiquida, total_gastos: totalGastos, saldo_periodo: saldoPeriodo,
+        total_descontos: totalDescontos, pct_desconto: pctDesconto,
+      },
       entradas_por_dia: entradasQ.rows,
       saidas_por_dia:   saidasQ.rows,
     });
@@ -296,6 +304,55 @@ router.get('/inteligencia', authenticate, requireAdmin, periodoValidators, async
     });
   } catch (err) {
     console.error('Erro em /inteligencia:', err);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// ─── Resumo Operador — operador ou admin ─────────────────────────────────────
+router.get('/resumo-operador', authenticate, periodoValidators, async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(422).json({ erros: errors.array() });
+
+  const { role, unidade: unidadeJWT } = req.user;
+  if (role !== 'admin' && role !== 'operador')
+    return res.status(403).json({ erro: 'Acesso negado.' });
+
+  const { inicio, fim } = req.query;
+  // Operador sempre vê apenas sua unidade; admin pode filtrar
+  const unidade = role === 'operador' ? unidadeJWT : (req.query.unidade ?? null);
+  const uf = unidade ? `AND unidade = '${unidade}'` : '';
+
+  try {
+    const totalDia = await query(`
+      SELECT COALESCE(SUM(valor), 0) AS total, COUNT(*) AS qtd
+      FROM vendas WHERE data = CURRENT_DATE ${uf}
+    `);
+
+    const totalMes = await query(`
+      SELECT COALESCE(SUM(valor), 0) AS total, COUNT(*) AS qtd
+      FROM vendas WHERE data BETWEEN $1 AND $2 ${uf}
+    `, [inicio, fim]);
+
+    const servicosPopulares = await query(`
+      SELECT servico, COUNT(*) AS qtd, SUM(valor) AS total
+      FROM vendas WHERE data BETWEEN $1 AND $2 ${uf}
+      GROUP BY servico ORDER BY qtd DESC LIMIT 8
+    `, [inicio, fim]);
+
+    const vendasPorDia = await query(`
+      SELECT data::text, COUNT(*) AS qtd, SUM(valor) AS total
+      FROM vendas WHERE data BETWEEN $1 AND $2 ${uf}
+      GROUP BY data ORDER BY data
+    `, [inicio, fim]);
+
+    res.json({
+      periodo: { inicio, fim, unidade: unidade ?? 'todas' },
+      hoje: { total: toNum(totalDia.rows[0].total), qtd: parseInt(totalDia.rows[0].qtd) },
+      mes:  { total: toNum(totalMes.rows[0].total), qtd: parseInt(totalMes.rows[0].qtd) },
+      servicos_populares: servicosPopulares.rows,
+      vendas_por_dia:     vendasPorDia.rows,
+    });
+  } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });

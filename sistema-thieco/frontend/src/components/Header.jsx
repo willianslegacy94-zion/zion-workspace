@@ -1,8 +1,39 @@
+import { LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+
+const ROLE_LABEL = { admin: 'Admin', operador: 'Operador', barbeiro: 'Barbeiro' };
+const ROLE_COR   = { admin: 'text-gold', operador: 'text-blue-400', barbeiro: 'text-blue-400' };
+
 export default function Header() {
+  const { user, logout, isAuthenticated } = useAuth();
+
   return (
     <header className="relative border-b border-surface-border bg-onix-200/80 backdrop-blur-sm">
       {/* Linha dourada topo */}
       <div className="h-0.5 w-full bg-gold-gradient" />
+
+      {/* Nome do usuário + botão sair — canto superior direito */}
+      {isAuthenticated && user && (
+        <div className="absolute top-3 right-4 flex items-center gap-2.5 z-10">
+          <div className="flex flex-col items-end">
+            <span className="text-xs font-semibold text-gold-light leading-none">{user.nome}</span>
+            <span className={`text-[10px] uppercase tracking-wider font-bold leading-none mt-0.5 ${ROLE_COR[user.role] ?? 'text-gold-muted'}`}>
+              {ROLE_LABEL[user.role] ?? user.role}
+            </span>
+          </div>
+          <button
+            onClick={logout}
+            title="Sair"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-gold-muted
+                       border border-surface-border rounded-lg
+                       hover:text-red-400 hover:border-red-500/40 hover:bg-red-500/5
+                       transition-all duration-200"
+          >
+            <LogOut size={13} />
+            <span>Sair</span>
+          </button>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col items-center gap-1">
         {/* BARBEARIA */}
