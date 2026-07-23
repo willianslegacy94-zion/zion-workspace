@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Órbita Black · Funil de Prospecção</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span class="brand-name">Órbita Black</span>
+      </div>
+
+      <div class="search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" class="search-input" id="searchInput" placeholder="Buscar por nome, empresa ou telefone…" autocomplete="off" />
+      </div>
+
+      <div class="topbar-actions">
+        <span class="live-dot" id="liveDot" title="Atualização automática ativa"></span>
+        <span class="topbar-meta" id="leadCount">— leads</span>
+        <button class="btn-ghost" id="testChatBtn">💬 Testar agente</button>
+        <button class="btn-primary" id="newLeadBtn">+ Novo lead</button>
+      </div>
+    </header>
+
+    <main class="board" id="board" aria-live="polite">
+      <!-- colunas geradas via JS -->
+    </main>
+  </div>
+
+  <!-- Drawer de detalhe do lead -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-inner">
+      <button class="drawer-close" id="drawerClose" aria-label="Fechar">✕</button>
+      <div id="drawerContent"></div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- Chat de teste com o agente -->
+  <aside class="drawer chat-drawer" id="chatDrawer">
+    <div class="drawer-inner chat-inner">
+      <button class="drawer-close" id="chatClose" aria-label="Fechar">✕</button>
+      <h2 class="lead-title">💬 Testar agente</h2>
+      <p class="lead-sub">Simula uma conversa de WhatsApp. O lead criado aqui aparece no funil.</p>
+      <div class="chat-messages" id="chatMessages"></div>
+      <form class="chat-form" id="chatForm">
+        <input type="text" id="chatInput" placeholder="Digite como se fosse o lead…" autocomplete="off" required />
+        <button type="submit" class="btn-primary">Enviar</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Modal novo lead -->
+  <div class="modal" id="modal">
+    <form class="modal-card" id="newLeadForm">
+      <h2>Novo lead</h2>
+      <label>Nome<input name="name" required placeholder="Ana Souza" /></label>
+      <label>Telefone (WhatsApp)<input name="phone" required placeholder="+55 11 91234-5678" /></label>
+      <label>Empresa<input name="company" placeholder="Acme Ltda." /></label>
+      <label>Cargo<input name="role" placeholder="Head de Vendas" /></label>
+      <label>Origem<input name="source" placeholder="site, indicação, evento…" /></label>
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" id="cancelNewLead">Cancelar</button>
+        <button type="submit" class="btn-primary">Criar lead</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
