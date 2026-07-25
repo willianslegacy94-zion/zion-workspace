@@ -5,3 +5,38 @@ API Keys _ Settings _ OpenRouter.html
 API Keys _ Settings _ OpenRouter_files/
 *.env
 .env*
+
+# Environment & Secrets (AIOX)
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+
+# Dependencies (AIOX)
+node_modules
+
+# Build & Logs (AIOX)
+dist/
+build/
+*.log
+logs/
+
+# IDE & OS (AIOX)
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# AIOX Local (AIOX)
+.aiox-core/local/
+.claude/settings.local.json
+.aiox/install-log.txt
+
+# Holding de Robôs — serviços Python (Cortex, Horizon, Pulsar, Quasar)
+__pycache__/
+*.pyc
+orbita-cortex/orbita_cortex.db
+orbita-horizon/orbita_horizon.db
+orbita-pulsar/orbita_pulsar.db
+orbita-quasar/orbita_quasar.db
