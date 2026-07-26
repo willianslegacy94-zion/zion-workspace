@@ -13,6 +13,8 @@ from conectores.thieco import buscar_cliente_thieco
 # Busca o .env global na raiz do workspace
 load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "http://localhost:8081")
+EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
 
 app = FastAPI(title="Órbita Cortex — Central Inteligente da Agência")
 
@@ -124,6 +126,45 @@ async def atendimento_cliente(tenant_id: str, contato: str, unidade: str | None 
         return {"status": "nao_encontrado"}
 
     return {"status": "ok", "cliente": cliente}
+
+# Instância Evolution API por tenant, dedicada ao número pessoal do gestor
+# (canal 'admin' no whatsappService.js do sistema-thieco — pareado via QR
+# na própria tela de Configurações do tenant, o Cortex não gera QR nenhum).
+INSTANCIA_ADMIN_POR_TENANT = {"sistema_thieco": "thieco-admin"}
+
+class PayloadNotificarAdmin(BaseModel):
+    tenant_id: str
+    telefone: str
+    mensagem: str
+
+@app.post("/api/v1/cortex/notificar-admin")
+async def notificar_admin(payload: PayloadNotificarAdmin):
+    """
+    Cortex como mensageiro (não decisor): o tenant já gerou o conteúdo do
+    relatório (faturamento/ranking/estoque parado) — aqui só repassamos pro
+    WhatsApp do admin via Evolution API. Nenhuma chamada de IA envolvida.
+    """
+    instancia = INSTANCIA_ADMIN_POR_TENANT.get(payload.tenant_id)
+    if not instancia:
+        raise HTTPException(status_code=404, detail=f"Tenant '{payload.tenant_id}' não suportado neste endpoint.")
+    if not EVOLUTION_API_KEY:
+        return {"status": "erro", "detalhe": "EVOLUTION_API_KEY não configurada no Cortex."}
+
+    digitos = "".join(c for c in payload.telefone if c.isdigit())
+
+    try:
+        resp = requests.post(
+            f"{EVOLUTION_API_URL}/message/sendText/{instancia}",
+            headers={"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"},
+            json={"number": digitos, "text": payload.mensagem},
+            timeout=10,
+        )
+        if not resp.ok:
+            return {"status": "erro", "detalhe": f"Evolution API respondeu HTTP {resp.status_code}"}
+        print(f"🧠 CORTEX -> notificou admin do tenant '{payload.tenant_id}' via {instancia}")
+        return {"status": "ok"}
+    except Exception:
+        return {"status": "erro", "detalhe": "Falha ao notificar o admin via WhatsApp."}
 
 if __name__ == "__main__":
     import uvicorn
