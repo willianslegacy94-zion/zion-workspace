@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────────────
+#  Órbita Cortex — cérebro analítico da Holding
+#  Subir: docker compose up -d --build
+# ─────────────────────────────────────────────────────────
+services:
+  cortex:
+    build: .
+    container_name: orbita_cortex
+    restart: unless-stopped
+
+    # Carrega o .env compartilhado da raiz do workspace (RD-005) — mesma
+    # OPENROUTER_API_KEY usada por todos os agentes da Holding.
+    env_file:
+      - ../.env
+
+    environment:
+      # host.docker.internal: Evolution API e o Postgres do sistema-thieco
+      # rodam em outros docker-compose (fora deste), publicados no host —
+      # "localhost" aqui dentro do container apontaria pro próprio container.
+      EVOLUTION_API_URL: http://host.docker.internal:8081
+      THIECO_DATABASE_URL: ${THIECO_DATABASE_URL_DOCKER}
+
+    ports:
+      - "127.0.0.1:5000:5000"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

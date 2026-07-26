@@ -18,6 +18,10 @@ EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
 
 app = FastAPI(title="Órbita Cortex — Central Inteligente da Agência")
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
 class PayloadPlataforma(BaseModel):
     tenant_id: str
     email: str
