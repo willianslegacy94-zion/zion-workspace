@@ -3,17 +3,28 @@ import os
 import json
 import sqlite3
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from database import DATABASE_NAME
+from database import DATABASE_NAME, init_quasar_db
 import tools.calendar_mock as calendar_tool
 
 load_dotenv()
 app = FastAPI(title="Órbita Quasar — Engine de Agendamento Avançado")
 
+# Idempotente (CREATE TABLE IF NOT EXISTS + INSERT OR REPLACE) — garante que
+# o container tenha o schema e os tenants seed mesmo partindo de um volume
+# vazio (orbita_quasar.db não é copiado pra imagem, ver .dockerignore).
+init_quasar_db()
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 CORTEX_URL = os.getenv("CORTEX_URL", "http://127.0.0.1:5000")
+EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "http://127.0.0.1:8081")
+EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 class PayloadConversa(BaseModel):
     tenant_id: str
@@ -99,26 +110,36 @@ TOOLS_DEFINITION = [
     }
 ]
 
-@app.post("/api/v1/quasar/chat")
-async def processar_atendimento_quasar(payload: PayloadConversa):
-    config = buscar_tenant(payload.tenant_id)
+FALLBACK_RESPOSTA = "Olá! Estou otimizando meu calendário de mentorias. Poderia tentar reagendar ou enviar sua dúvida em instantes?"
+
+async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
+                                 nome_cliente: str = "Cliente", email_cliente: str = "suporte@orbita.com",
+                                 contato_cliente: str | None = None) -> str:
+    """
+    Núcleo do concierge Quasar — monta o contexto (Cortex + FAQ do tenant),
+    chama o Claude (com tool-calling se a flag do tenant permitir) e devolve
+    o texto final da resposta. Reaproveitado tanto pela rota HTTP
+    (/api/v1/quasar/chat) quanto pelo webhook de WhatsApp (/webhook/evolution)
+    — mesma lógica de atendimento, dois jeitos de chegar até ela.
+    """
+    config = buscar_tenant(tenant_id)
     if not config:
         raise HTTPException(status_code=404, detail="Tenant inválido no Quasar.")
 
     nome_empresa, faq_contexto, flag_agendamento_ia, flag_fechamento_comercial = config
 
     # Registra a entrada do usuário
-    gerenciar_memoria(payload.session_id, payload.tenant_id, "user", payload.mensagem)
-    historico = gerenciar_memoria(payload.session_id, payload.tenant_id, recuperar=True)
+    gerenciar_memoria(session_id, tenant_id, "user", mensagem)
+    historico = gerenciar_memoria(session_id, tenant_id, recuperar=True)
 
     # Contexto real do cliente vindo do Órbita Cortex (piloto "atendimento ao
     # cliente") — só é buscado quando o tenant identifica o cliente por
     # telefone em vez de e-mail. Falha ao buscar não interrompe o atendimento.
     contexto_cortex = None
-    if payload.contato_cliente:
-        contexto_cortex = buscar_contexto_cortex(payload.tenant_id, payload.contato_cliente)
+    if contato_cliente:
+        contexto_cortex = buscar_contexto_cortex(tenant_id, contato_cliente)
 
-    bloco_contexto_cliente = f"Você está atendendo o cliente: {payload.nome_cliente} (E-mail: {payload.email_cliente})."
+    bloco_contexto_cliente = f"Você está atendendo o cliente: {nome_cliente} (E-mail: {email_cliente})."
     if contexto_cortex:
         bloco_contexto_cliente = f"""Você está atendendo o cliente: {contexto_cortex['nome']} (telefone: {contexto_cortex['contato']}).
 
@@ -150,7 +171,6 @@ async def processar_atendimento_quasar(payload: PayloadConversa):
         "Content-Type": "application/json"
     }
 
-    # Prepara payload injetando as ferramentas de Function Calling se a flag estiver ativa
     payload_api = {
         "model": "anthropic/claude-3.5-sonnet",
         "messages": [{"role": "system", "content": system_prompt}] + historico,
@@ -172,15 +192,13 @@ async def processar_atendimento_quasar(payload: PayloadConversa):
             function_name = tool_call["function"]["name"]
             arguments = json.loads(tool_call["function"]["arguments"])
 
-            # Executa a função Python real de forma dinâmica
             if function_name == "checar_disponibilidade_agenda":
                 resultado_tool = calendar_tool.checar_disponibilidade_agenda(arguments["data_com_hora"])
             elif function_name == "confirmar_agendamento_call":
-                resultado_tool = calendar_tool.confirmar_agendamento_call(payload.nome_cliente, payload.email_cliente, arguments["data_com_hora"])
+                resultado_tool = calendar_tool.confirmar_agendamento_call(nome_cliente, email_cliente, arguments["data_com_hora"])
             else:
                 resultado_tool = "Ferramenta desconhecida."
 
-            # Segunda chamada: injeta o retorno da ferramenta de volta para o Claude responder o cliente
             historico_com_tool = historico + [
                 message_out,
                 {
@@ -200,15 +218,95 @@ async def processar_atendimento_quasar(payload: PayloadConversa):
             re_response = requests.post(url, headers=headers, json=payload_rechamada, timeout=20)
             resposta_final_texto = re_response.json()['choices'][0]['message']['content']
         else:
-            # Resposta conversacional direta sem uso de ferramentas
             resposta_final_texto = message_out["content"]
 
-        # Salva na memória do banco e retorna ao cliente
-        gerenciar_memoria(payload.session_id, payload.tenant_id, "assistant", resposta_final_texto)
-        return {"acao": "MANTER_NA_IA", "resposta_ia": resposta_final_texto}
+        gerenciar_memoria(session_id, tenant_id, "assistant", resposta_final_texto)
+        return resposta_final_texto
 
+    except Exception:
+        return FALLBACK_RESPOSTA
+
+@app.post("/api/v1/quasar/chat")
+async def processar_atendimento_quasar(payload: PayloadConversa):
+    resposta_final_texto = await gerar_resposta_quasar(
+        tenant_id=payload.tenant_id, session_id=payload.session_id, mensagem=payload.mensagem,
+        nome_cliente=payload.nome_cliente, email_cliente=payload.email_cliente,
+        contato_cliente=payload.contato_cliente,
+    )
+    return {"acao": "MANTER_NA_IA", "resposta_ia": resposta_final_texto}
+
+# Mapeamento instância Evolution API → tenant_id. Por ora só sistema_thieco
+# (piloto Mutinga) — extensível quando outros tenants ganharem atendimento
+# automatizado.
+INSTANCIA_PREFIXO_TENANT = {"thieco": "sistema_thieco"}
+
+def _extrair_texto_mensagem(msg: dict) -> str | None:
+    """Extrai o texto de tipos comuns de mensagem do payload da Evolution API."""
+    if not msg:
+        return None
+    return (
+        msg.get("conversation")
+        or msg.get("extendedTextMessage", {}).get("text")
+        or None
+    )
+
+@app.post("/webhook/evolution")
+async def webhook_evolution(request: Request):
+    """
+    Recebe o evento de mensagem recebida da Evolution API (configurado em
+    sistema-thieco/backend/services/whatsappService.js, evento
+    MESSAGES_UPSERT) e responde automaticamente via WhatsApp usando a mesma
+    lógica de /api/v1/quasar/chat. Nunca lança — a Evolution API só espera
+    um 200 rápido; qualquer erro fica só no log.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "ignorado", "motivo": "payload inválido"}
+
+    if body.get("event") != "messages.upsert":
+        return {"status": "ignorado", "motivo": "evento não tratado"}
+
+    data = body.get("data") or {}
+    key = data.get("key") or {}
+
+    if key.get("fromMe"):
+        return {"status": "ignorado", "motivo": "mensagem enviada por nós mesmos"}
+
+    texto = _extrair_texto_mensagem(data.get("message"))
+    if not texto:
+        return {"status": "ignorado", "motivo": "mensagem sem texto (mídia, etc.)"}
+
+    instancia = body.get("instance")
+    telefone = (key.get("remoteJid") or "").split("@")[0]
+    if not instancia or not telefone:
+        return {"status": "ignorado", "motivo": "instância ou remetente ausente"}
+
+    # thieco-mutinga -> tenant sistema_thieco (prefixo antes do primeiro '-')
+    prefixo = instancia.split("-")[0]
+    tenant_id = INSTANCIA_PREFIXO_TENANT.get(prefixo)
+    if not tenant_id:
+        return {"status": "ignorado", "motivo": f"instância '{instancia}' sem tenant mapeado"}
+
+    session_id = f"{instancia}:{telefone}"
+
+    try:
+        resposta = await gerar_resposta_quasar(
+            tenant_id=tenant_id, session_id=session_id, mensagem=texto,
+            contato_cliente=telefone,
+        )
+        if EVOLUTION_API_KEY:
+            requests.post(
+                f"{EVOLUTION_API_URL}/message/sendText/{instancia}",
+                headers={"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"},
+                json={"number": telefone, "text": resposta},
+                timeout=10,
+            )
+        print(f"🤖 QUASAR -> respondeu {telefone} via {instancia}")
+        return {"status": "ok"}
     except Exception as e:
-        return {"acao": "MANTER_NA_IA", "resposta_ia": "Olá! Estou otimizando meu calendário de mentorias. Poderia tentar reagendar ou enviar sua dúvida em instantes?"}
+        print(f"🤖 QUASAR -> falha ao processar webhook: {e}")
+        return {"status": "erro"}
 
 if __name__ == "__main__":
     import uvicorn
