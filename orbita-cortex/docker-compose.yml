@@ -14,14 +14,20 @@ services:
       - ../.env
 
     environment:
-      # host.docker.internal: Evolution API e o Postgres do sistema-thieco
-      # rodam em outros docker-compose (fora deste), publicados no host —
-      # "localhost" aqui dentro do container apontaria pro próprio container.
-      EVOLUTION_API_URL: http://host.docker.internal:8081
+      # Evolution API e o Postgres do sistema-thieco rodam em outros
+      # docker-compose (fora deste) — alcançados pelo nome do container na
+      # rede compartilhada `orbita_shared`, não por host.docker.internal
+      # (que não alcança portas 127.0.0.1-only do host em Linux puro/VPS).
+      EVOLUTION_API_URL: http://evolution_api:8080
       THIECO_DATABASE_URL: ${THIECO_DATABASE_URL_DOCKER}
 
     ports:
       - "127.0.0.1:5000:5000"
 
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - orbita_shared
+
+networks:
+  orbita_shared:
+    external: true
