@@ -21,6 +21,8 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 CORTEX_URL = os.getenv("CORTEX_URL", "http://127.0.0.1:5000")
 EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "http://127.0.0.1:8081")
 EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
+THIECO_API_URL = os.getenv("THIECO_API_URL", "http://127.0.0.1:3001")
+INTERNAL_SERVICE_KEY = os.getenv("INTERNAL_SERVICE_KEY")
 
 @app.get("/health")
 async def health():
@@ -142,6 +144,53 @@ TOOLS_DEFINITION = [
     }
 ]
 
+# Transbordo pra humano — disponível em TODO tenant, independente da flag de
+# agendamento via IA (é uma válvula de segurança do atendimento, não uma
+# capacidade de agendamento). Ver _acionar_atendimento_humano.
+TOOL_TRANSBORDO = {
+    "type": "function",
+    "function": {
+        "name": "acionar_atendimento_humano",
+        "description": "Notifica um atendente humano em tempo real. Use sempre que o cliente pedir para falar com uma pessoa, fizer uma reclamação, ou tiver uma dúvida que você não consegue responder com as informações disponíveis.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "motivo": {
+                    "type": "string",
+                    "description": "Resumo curto do que o cliente precisa, para dar contexto a quem for responder."
+                }
+            },
+            "required": ["motivo"]
+        }
+    }
+}
+
+def _acionar_atendimento_humano(unidade: str, contato_cliente: str | None, nome_cliente: str, motivo: str) -> str:
+    """
+    Notifica o admin do sistema-thieco (WhatsApp real + registro visível na
+    tela de notificações) de que um cliente precisa de atendimento humano.
+    Nunca lança — se a chamada falhar, o Claude ainda assim responde ao
+    cliente com a mensagem de transbordo (só o alerta em si que pode falhar).
+    """
+    try:
+        resp = requests.post(
+            f"{THIECO_API_URL}/notificacoes/transbordo",
+            headers={"X-Internal-Key": INTERNAL_SERVICE_KEY or "", "Content-Type": "application/json"},
+            json={
+                "unidade": unidade,
+                "contato_cliente": contato_cliente,
+                "nome_cliente": nome_cliente,
+                "motivo": motivo,
+            },
+            timeout=5,
+        )
+        if resp.ok:
+            return "Atendente humano notificado com sucesso."
+        return f"Falha ao notificar atendente humano (HTTP {resp.status_code})."
+    except Exception as e:
+        print(f"[quasar] Falha ao acionar atendimento humano: {e!r}")
+        return "Falha ao notificar atendente humano (erro de conexão)."
+
 FALLBACK_RESPOSTA = "Olá! Estou otimizando meu calendário de mentorias. Poderia tentar reagendar ou enviar sua dúvida em instantes?"
 
 async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
@@ -211,9 +260,11 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
         "temperature": 0.1
     }
 
-    if flag_agendamento_ia:
-        payload_api["tools"] = TOOLS_DEFINITION
-        payload_api["tool_choice"] = "auto"
+    # Transbordo pra humano é sempre disponível; ferramentas de agenda só
+    # entram se o tenant tiver flag_agendamento_ia ativa.
+    ferramentas_disponiveis = [TOOL_TRANSBORDO] + (TOOLS_DEFINITION if flag_agendamento_ia else [])
+    payload_api["tools"] = ferramentas_disponiveis
+    payload_api["tool_choice"] = "auto"
 
     try:
         response = requests.post(url, headers=headers, json=payload_api, timeout=20)
@@ -232,6 +283,8 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
                 resultado_tool = calendar_tool.checar_disponibilidade_agenda(arguments["data_com_hora"])
             elif function_name == "confirmar_agendamento_call":
                 resultado_tool = calendar_tool.confirmar_agendamento_call(nome_cliente, email_cliente, arguments["data_com_hora"])
+            elif function_name == "acionar_atendimento_humano":
+                resultado_tool = _acionar_atendimento_humano(unidade, contato_cliente, nome_cliente, arguments.get("motivo", ""))
             else:
                 resultado_tool = "Ferramenta desconhecida."
 
@@ -335,10 +388,14 @@ async def webhook_evolution(request: Request):
             contato_cliente=telefone, unidade=unidade,
         )
         if EVOLUTION_API_KEY:
+            # linkPreview: false — sem isso o WhatsApp gera uma prévia com
+            # thumbnail (imagem) toda vez que a resposta tem um link (Booksy,
+            # Google Maps), o que aparece pro cliente como "mensagem com
+            # imagem".
             requests.post(
                 f"{EVOLUTION_API_URL}/message/sendText/{instancia}",
                 headers={"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"},
-                json={"number": telefone, "text": resposta},
+                json={"number": telefone, "text": resposta, "linkPreview": False},
                 timeout=10,
             )
         print(f"🤖 QUASAR -> respondeu {telefone} via {instancia}")

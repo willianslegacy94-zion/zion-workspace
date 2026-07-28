@@ -22,6 +22,14 @@ services:
       EVOLUTION_API_URL: http://evolution_api:8080
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
 
+      # sistema-thieco — usado só pelo tool call acionar_atendimento_humano
+      # (transbordo pra um humano). Mesma rede orbita_shared, container
+      # thieco_api. INTERNAL_SERVICE_KEY precisa bater com o valor
+      # configurado no .env do sistema-thieco (ver middleware/auth.js,
+      # authenticateInternal).
+      THIECO_API_URL: http://thieco_api:3001
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+
     ports:
       - "127.0.0.1:5003:5003"
 
