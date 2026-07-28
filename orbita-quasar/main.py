@@ -89,8 +89,17 @@ def gerenciar_memoria(session_id: str, tenant_id: str, role: str = None, content
     with sqlite3.connect(DATABASE_NAME) as conn:
         cursor = conn.cursor()
         if recuperar:
-            cursor.execute("SELECT role, content FROM historico_conversas WHERE session_id = ? AND tenant_id = ? ORDER BY timestamp ASC LIMIT 10", (session_id, tenant_id))
-            return [{"role": r, "content": c} for r, c in cursor.fetchall()]
+            # ORDER BY id DESC pega as 10 mensagens MAIS RECENTES (id, não
+            # timestamp — CURRENT_TIMESTAMP do SQLite só tem granularidade de
+            # 1s, insuficiente pra desempatar mensagens seguidas); depois
+            # reverte pra ordem cronológica. Buscar por timestamp ASC LIMIT 10
+            # pegava sempre as 10 mais ANTIGAS, então assim que a conversa
+            # passava de 10 mensagens a nova mensagem do usuário ficava de
+            # fora e o histórico enviado à IA terminava numa fala do
+            # assistente — rejeitado pela OpenRouter ("must end with a user
+            # message"), caindo sempre no fallback dali em diante.
+            cursor.execute("SELECT role, content FROM historico_conversas WHERE session_id = ? AND tenant_id = ? ORDER BY id DESC LIMIT 10", (session_id, tenant_id))
+            return [{"role": r, "content": c} for r, c in reversed(cursor.fetchall())]
         else:
             cursor.execute("INSERT INTO historico_conversas (session_id, tenant_id, role, content) VALUES (?, ?, ?, ?)", (session_id, tenant_id, role, content))
             conn.commit()
