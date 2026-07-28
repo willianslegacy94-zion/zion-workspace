@@ -23,6 +23,9 @@ EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "http://127.0.0.1:8081")
 EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
 THIECO_API_URL = os.getenv("THIECO_API_URL", "http://127.0.0.1:3001")
 INTERNAL_SERVICE_KEY = os.getenv("INTERNAL_SERVICE_KEY")
+# Modelo usado nas chamadas à OpenRouter — configurável por env pra permitir
+# testar custo/qualidade sem precisar mexer em código a cada troca.
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-5.6-luna")
 
 @app.get("/health")
 async def health():
@@ -255,7 +258,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     }
 
     payload_api = {
-        "model": "anthropic/claude-sonnet-5",
+        "model": OPENROUTER_MODEL,
         "messages": [{"role": "system", "content": system_prompt}] + historico,
         "temperature": 0.1
     }
@@ -299,7 +302,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
             ]
 
             payload_rechamada = {
-                "model": "anthropic/claude-sonnet-5",
+                "model": OPENROUTER_MODEL,
                 "messages": [{"role": "system", "content": system_prompt}] + historico_com_tool,
                 "temperature": 0.2
             }
