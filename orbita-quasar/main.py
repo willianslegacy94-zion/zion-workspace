@@ -184,6 +184,8 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     try:
         response = requests.post(url, headers=headers, json=payload_api, timeout=20)
         res_json = response.json()
+        if response.status_code != 200 or 'choices' not in res_json:
+            print(f"[quasar] OpenRouter respondeu {response.status_code}: {res_json}")
         message_out = res_json['choices'][0]['message']
 
         # VERIFICAÇÃO: O CLAUDE DECIDIU CHAMAR UMA FERRAMENTA?
@@ -223,7 +225,8 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
         gerenciar_memoria(session_id, tenant_id, "assistant", resposta_final_texto)
         return resposta_final_texto
 
-    except Exception:
+    except Exception as e:
+        print(f"[quasar] Falha ao gerar resposta via OpenRouter: {e!r}")
         return FALLBACK_RESPOSTA
 
 @app.post("/api/v1/quasar/chat")
