@@ -199,7 +199,10 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
 
 TENANT_POR_INSTANCIA_ADMIN = {v: k for k, v in INSTANCIA_ADMIN_POR_TENANT.items()}
 
-TIPOS_RELATORIO_VALIDOS = {"faturamento", "produtos_mais_vendidos", "servicos_mais_realizados", "estoque_parado"}
+TIPOS_RELATORIO_VALIDOS = {
+    "faturamento", "produtos_mais_vendidos", "servicos_mais_realizados",
+    "ticket_medio_barbeiro", "ranking_barbeiros", "estoque_parado", "estoque_alerta",
+}
 UNIDADES_VALIDAS_RELATORIO = {"mutinga", "tambore"}
 
 # IDs das mensagens que o próprio Cortex mandou (webhook OU relatório
@@ -252,7 +255,9 @@ MENSAGEM_AJUDA_RELATORIO = (
     "• Faturamento (\"como está o faturamento hoje?\")\n"
     "• Produtos mais vendidos\n"
     "• Serviços mais realizados\n"
-    "• Estoque parado\n\n"
+    "• Ticket médio por barbeiro\n"
+    "• Ranking de barbeiros\n"
+    "• Estoque parado ou estoque com alerta (zerado/baixo)\n\n"
     "Pode falar de uma unidade (Mutinga/Tamboré) ou das duas, e de um período "
     "(hoje, essa semana, esse mês)."
 )
@@ -270,7 +275,10 @@ def _classificar_pedido_relatorio(texto: str) -> dict:
     - "faturamento": quanto faturou em dinheiro.
     - "produtos_mais_vendidos": ranking de produtos vendidos.
     - "servicos_mais_realizados": ranking de serviços realizados.
-    - "estoque_parado": produtos parados no estoque.
+    - "ticket_medio_barbeiro": valor médio por atendimento, por barbeiro.
+    - "ranking_barbeiros": ranking de barbeiros por faturamento/atendimentos.
+    - "estoque_parado": produtos cadastrados há muito tempo que nunca venderam.
+    - "estoque_alerta": produtos zerados ou com estoque baixo agora.
     Se a mensagem não pedir claramente um desses, use tipo=null.
 
     Unidade (chave "unidade"): "mutinga", "tambore", ou null se a mensagem não
