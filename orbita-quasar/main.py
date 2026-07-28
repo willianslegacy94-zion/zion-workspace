@@ -6,7 +6,7 @@ import requests
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from database import DATABASE_NAME, init_quasar_db
+from database import DATABASE_NAME, init_quasar_db, UNIDADES_INFO
 import tools.calendar_mock as calendar_tool
 
 load_dotenv()
@@ -343,6 +343,45 @@ def _extrair_texto_mensagem(msg: dict) -> str | None:
         or None
     )
 
+def _enviar_resposta_whatsapp(instancia: str, telefone: str, resposta: str, unidade: str) -> None:
+    """
+    Manda a resposta pro cliente via Evolution API. Quando a resposta traz o
+    link do Booksy ou o endereço da unidade (cliente pediu pra agendar ou
+    perguntou onde fica) e a unidade tem foto cadastrada (UNIDADES_INFO),
+    manda a foto da barbearia com a resposta como legenda em vez de só
+    texto — nos outros casos, texto puro (com linkPreview desligado).
+    """
+    info_unidade = UNIDADES_INFO.get(unidade) or {}
+    imagem_url = info_unidade.get("imagem_url")
+    menciona_agendamento_ou_endereco = (
+        info_unidade.get("booksy_url") and info_unidade["booksy_url"] in resposta
+    ) or (
+        info_unidade.get("endereco_match") and info_unidade["endereco_match"] in resposta
+    )
+
+    if imagem_url and menciona_agendamento_ou_endereco:
+        endpoint, payload = "sendMedia", {
+            "number": telefone,
+            "mediatype": "image",
+            "media": imagem_url,
+            "caption": resposta,
+            "fileName": "barbearia.jpg",
+        }
+    else:
+        # linkPreview: false — sem isso o WhatsApp gera uma prévia com
+        # thumbnail (imagem) toda vez que a resposta tem um link (Booksy,
+        # Google Maps), o que aparece pro cliente como "mensagem com imagem".
+        endpoint, payload = "sendText", {"number": telefone, "text": resposta, "linkPreview": False}
+
+    resp = requests.post(
+        f"{EVOLUTION_API_URL}/message/{endpoint}/{instancia}",
+        headers={"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"},
+        json=payload,
+        timeout=15,
+    )
+    if not resp.ok:
+        print(f"[quasar] Evolution API respondeu {resp.status_code} em {endpoint}: {resp.text}")
+
 @app.post("/webhook/evolution")
 async def webhook_evolution(request: Request):
     """
@@ -391,16 +430,7 @@ async def webhook_evolution(request: Request):
             contato_cliente=telefone, unidade=unidade,
         )
         if EVOLUTION_API_KEY:
-            # linkPreview: false — sem isso o WhatsApp gera uma prévia com
-            # thumbnail (imagem) toda vez que a resposta tem um link (Booksy,
-            # Google Maps), o que aparece pro cliente como "mensagem com
-            # imagem".
-            requests.post(
-                f"{EVOLUTION_API_URL}/message/sendText/{instancia}",
-                headers={"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"},
-                json={"number": telefone, "text": resposta, "linkPreview": False},
-                timeout=10,
-            )
+            _enviar_resposta_whatsapp(instancia, telefone, resposta, unidade)
         print(f"🤖 QUASAR -> respondeu {telefone} via {instancia}")
         return {"status": "ok"}
     except Exception as e:

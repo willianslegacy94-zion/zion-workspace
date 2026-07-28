@@ -3,6 +3,25 @@ import sqlite3
 
 DATABASE_NAME = "orbita_quasar.db"
 
+# Dados por unidade usados tanto no texto do FAQ (abaixo) quanto na decisão
+# de mandar a foto da barbearia (main.py, webhook_evolution) — mesma fonte
+# pros dois, pra não duplicar o link/endereço em lugares que podem divergir.
+# `endereco_match` é um trecho curto e estável do endereço (não o endereço
+# completo) porque o modelo parafraseia a resposta — combinar contra o
+# endereço inteiro com CEP quase nunca bateria.
+UNIDADES_INFO = {
+    "mutinga": {
+        "booksy_url": "https://booksy.com/pt-br/dl/show-business/101380",
+        "endereco_match": "Abelardo Luz",
+        "imagem_url": "https://barbeariatl.online/barbearia-mutinga.jpg",
+    },
+    "tambore": {
+        "booksy_url": "https://booksy.com/pt-br/dl/show-business/361149",
+        "endereco_match": "Av. Ceci",
+        "imagem_url": None,  # ainda sem foto cadastrada desta unidade
+    },
+}
+
 # Conteúdo de negócio da Barbearia Thieco Leandro — fonte: documento de
 # onboarding (persona, endereços, equipe, Booksy, regras de atendimento) +
 # tabela de preços real consultada em produção (catalogo.preco_venda,
@@ -38,7 +57,7 @@ Quando o cliente pedir para falar com uma pessoa, tiver uma reclamação, ou uma
 "Entendi! Vou te passar agora mesmo para o Thieco ou para o nosso gerente. Aguarde um instante que já te respondemos."
 """.strip()
 
-FAQ_THIECO_MUTINGA = """
+FAQ_THIECO_MUTINGA = f"""
 UNIDADE: Jardim Mutinga
 Você atende exclusivamente esta unidade — não fale sobre a unidade Tamboré / Alphaville.
 
@@ -56,7 +75,7 @@ ESTACIONAMENTO
 Apenas via pública ou em frente à barbearia.
 
 AGENDAMENTO (BOOKSY)
-https://booksy.com/pt-br/dl/show-business/101380
+{UNIDADES_INFO["mutinga"]["booksy_url"]}
 Links individuais por profissional não estão disponíveis — direcione sempre para o link geral acima.
 
 TABELA DE PREÇOS (serviços e combos)
@@ -74,7 +93,7 @@ Combo Novo - 4 Barbas: R$ 110,00 | Combo Novo - 2 Cortes + 2 Barbas + 2 Sobrance
 Combo Novo - 4 Cortes + 4 Sobrancelha: R$ 190,00 | Combo Novo - 4 Cortes + 4 Barbas + 4 Sobrancelha: R$ 300,00
 """.strip()
 
-FAQ_THIECO_TAMBORE = """
+FAQ_THIECO_TAMBORE = f"""
 UNIDADE: Tamboré / Alphaville
 Você atende exclusivamente esta unidade — não fale sobre a unidade Jardim Mutinga.
 
@@ -92,7 +111,7 @@ ESTACIONAMENTO
 Disponível no local.
 
 AGENDAMENTO (BOOKSY)
-https://booksy.com/pt-br/dl/show-business/361149
+{UNIDADES_INFO["tambore"]["booksy_url"]}
 Links individuais por profissional não estão disponíveis — direcione sempre para o link geral acima.
 
 TABELA DE PREÇOS (serviços e combos)
