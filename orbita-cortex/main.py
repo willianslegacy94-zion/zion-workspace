@@ -3,7 +3,7 @@ import os
 import json
 import sqlite3
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from pathlib import Path
 from dotenv import load_dotenv
@@ -15,6 +15,12 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parents[1] / ".env")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "http://localhost:8081")
 EVOLUTION_API_KEY = os.getenv("EVOLUTION_API_KEY")
+THIECO_API_URL = os.getenv("THIECO_API_URL", "http://localhost:3001")
+INTERNAL_SERVICE_KEY = os.getenv("INTERNAL_SERVICE_KEY")
+# Modelo barato pra classificar o pedido de relatório do admin — tarefa
+# curta (poucas linhas de entrada, JSON pequeno de saída), não precisa do
+# modelo mais caro que o Quasar usa pra atendimento de cliente.
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-5.6-luna")
 
 app = FastAPI(title="Órbita Cortex — Central Inteligente da Agência")
 
@@ -175,6 +181,180 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
     except Exception as e:
         print(f"🧠 CORTEX -> falha ao notificar admin via {instancia}: {e!r}")
         return {"status": "erro", "detalhe": "Falha ao notificar o admin via WhatsApp."}
+
+# ── Relatório sob demanda: admin pergunta, Cortex interpreta e responde ────
+#
+# Reaproveita as MESMAS consultas do relatório periódico (GET
+# /notificacoes/relatorio-sob-demanda no sistema-thieco) — o Cortex não
+# acessa o Postgres de vendas/catálogo diretamente, só interpreta a
+# pergunta e formata a resposta. A autorização (só o telefone cadastrado
+# como admin pode puxar relatório) é validada no lado do sistema-thieco,
+# não aqui — o Cortex só repassa o telefone de quem perguntou.
+
+TENANT_POR_INSTANCIA_ADMIN = {v: k for k, v in INSTANCIA_ADMIN_POR_TENANT.items()}
+
+TIPOS_RELATORIO_VALIDOS = {"faturamento", "produtos_mais_vendidos", "servicos_mais_realizados", "estoque_parado"}
+UNIDADES_VALIDAS_RELATORIO = {"mutinga", "tambore"}
+
+MENSAGEM_AJUDA_RELATORIO = (
+    "🥇 *Barbearia Thieco Leandro*\n\n"
+    "Não entendi o pedido. Pergunte sobre:\n"
+    "• Faturamento (\"como está o faturamento hoje?\")\n"
+    "• Produtos mais vendidos\n"
+    "• Serviços mais realizados\n"
+    "• Estoque parado\n\n"
+    "Pode falar de uma unidade (Mutinga/Tamboré) ou das duas, e de um período "
+    "(hoje, essa semana, esse mês)."
+)
+
+def _classificar_pedido_relatorio(texto: str) -> dict:
+    """
+    Interpreta a pergunta livre do admin em {tipo, unidade, periodo_dias}
+    via um modelo barato (tarefa curta, saída pequena). Nunca lança —
+    qualquer falha vira tipo=None, tratado como "não entendi".
+    """
+    system_prompt = """
+    Você classifica pedidos de relatório de um admin de barbearia, enviados por WhatsApp.
+
+    Tipos de relatório disponíveis (chave "tipo"):
+    - "faturamento": quanto faturou em dinheiro.
+    - "produtos_mais_vendidos": ranking de produtos vendidos.
+    - "servicos_mais_realizados": ranking de serviços realizados.
+    - "estoque_parado": produtos parados no estoque.
+    Se a mensagem não pedir claramente um desses, use tipo=null.
+
+    Unidade (chave "unidade"): "mutinga", "tambore", ou null se a mensagem não
+    especificar (nesse caso o relatório sai das duas).
+
+    Período (chave "periodo_dias"): quantos dias pra trás o relatório cobre.
+    "hoje"/sem período especificado = 1. "essa semana" = 7. "esse mês" = 30.
+    Interprete outras menções de prazo de forma razoável.
+
+    Responda ESTRITAMENTE um objeto JSON com as chaves tipo, unidade,
+    periodo_dias. Sem markdown, sem crases, sem explicação.
+    """
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": OPENROUTER_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": texto},
+                ],
+                "temperature": 0.0,
+            },
+            timeout=15,
+        )
+        conteudo = resp.json()["choices"][0]["message"]["content"].strip()
+        if conteudo.startswith("```"):
+            conteudo = conteudo.replace("```json", "").replace("```", "").strip()
+        dados = json.loads(conteudo)
+        tipo = dados.get("tipo")
+        if tipo not in TIPOS_RELATORIO_VALIDOS:
+            return {"tipo": None}
+        unidade = dados.get("unidade")
+        if unidade not in UNIDADES_VALIDAS_RELATORIO:
+            unidade = None
+        try:
+            periodo_dias = int(dados.get("periodo_dias") or 1)
+        except (TypeError, ValueError):
+            periodo_dias = 1
+        return {"tipo": tipo, "unidade": unidade, "periodo_dias": max(1, periodo_dias)}
+    except Exception as e:
+        print(f"🧠 CORTEX -> falha ao classificar pedido de relatório: {e!r}")
+        return {"tipo": None}
+
+def _formatar_resposta_relatorio(resultados: list) -> str:
+    partes = ["🥇 *Barbearia Thieco Leandro*", "_Relatório sob demanda_", ""]
+    for r in resultados:
+        partes.append(f"*{r['titulo']} — {r['unidade']}*")
+        partes.append(r["mensagem"])
+        partes.append("")
+    return "\n".join(partes).strip()
+
+def _extrair_texto_mensagem(msg: dict) -> str | None:
+    if not msg:
+        return None
+    return msg.get("conversation") or msg.get("extendedTextMessage", {}).get("text") or None
+
+@app.post("/webhook/evolution")
+async def webhook_evolution_admin(request: Request):
+    """
+    Recebe mensagens do canal admin (instância thieco-admin) e responde
+    relatórios sob demanda. Nunca lança — a Evolution API só espera um 200
+    rápido; qualquer erro fica só no log.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return {"status": "ignorado", "motivo": "payload inválido"}
+
+    if body.get("event") != "messages.upsert":
+        return {"status": "ignorado", "motivo": "evento não tratado"}
+
+    data = body.get("data") or {}
+    key = data.get("key") or {}
+    if key.get("fromMe"):
+        return {"status": "ignorado", "motivo": "mensagem enviada por nós mesmos"}
+
+    texto = _extrair_texto_mensagem(data.get("message"))
+    if not texto:
+        return {"status": "ignorado", "motivo": "mensagem sem texto (mídia, etc.)"}
+
+    instancia = body.get("instance")
+    telefone = (key.get("remoteJid") or "").split("@")[0]
+    tenant_id = TENANT_POR_INSTANCIA_ADMIN.get(instancia)
+    if not tenant_id or not telefone:
+        return {"status": "ignorado", "motivo": f"instância '{instancia}' sem tenant admin mapeado"}
+
+    classificacao = _classificar_pedido_relatorio(texto)
+
+    if not classificacao["tipo"]:
+        resposta = MENSAGEM_AJUDA_RELATORIO
+    else:
+        try:
+            params = {
+                "tipo": classificacao["tipo"],
+                "periodo_dias": classificacao["periodo_dias"],
+                "telefone_solicitante": telefone,
+            }
+            if classificacao["unidade"]:
+                params["unidade"] = classificacao["unidade"]
+            resp = requests.get(
+                f"{THIECO_API_URL}/notificacoes/relatorio-sob-demanda",
+                headers={"X-Internal-Key": INTERNAL_SERVICE_KEY or ""},
+                params=params,
+                timeout=10,
+            )
+            if resp.status_code == 403:
+                # Número não cadastrado como admin — não confirma nada pra
+                # quem perguntou, só ignora silenciosamente.
+                print(f"🧠 CORTEX -> pedido de relatório de numero nao autorizado: {telefone}")
+                return {"status": "ignorado", "motivo": "solicitante não autorizado"}
+            dados = resp.json()
+            if not dados.get("encontrado"):
+                resposta = "🥇 *Barbearia Thieco Leandro*\n\nNada a reportar pra esse período/unidade."
+            else:
+                resposta = _formatar_resposta_relatorio(dados["resultados"])
+        except Exception as e:
+            print(f"🧠 CORTEX -> falha ao buscar relatorio sob demanda: {e!r}")
+            resposta = "🥇 *Barbearia Thieco Leandro*\n\nDeu um erro buscando esse relatório, tenta de novo em instantes."
+
+    if EVOLUTION_API_KEY:
+        try:
+            requests.post(
+                f"{EVOLUTION_API_URL}/message/sendText/{instancia}",
+                headers={"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"},
+                json={"number": telefone, "text": resposta, "linkPreview": False},
+                timeout=10,
+            )
+        except Exception as e:
+            print(f"🧠 CORTEX -> falha ao enviar resposta do relatorio: {e!r}")
+
+    print(f"🧠 CORTEX -> respondeu relatorio sob demanda pra {telefone} via {instancia}")
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     import uvicorn

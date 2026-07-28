@@ -21,6 +21,13 @@ services:
       EVOLUTION_API_URL: http://evolution_api:8080
       THIECO_DATABASE_URL: ${THIECO_DATABASE_URL_DOCKER}
 
+      # sistema-thieco — usado pelo webhook do canal admin (relatório sob
+      # demanda). Mesma chave de servico-a-servico que o Quasar usa pro
+      # transbordo, ver middleware/auth.js (authenticateInternal) no
+      # sistema-thieco.
+      THIECO_API_URL: http://thieco_api:3001
+      INTERNAL_SERVICE_KEY: ${INTERNAL_SERVICE_KEY}
+
     ports:
       - "127.0.0.1:5000:5000"
 
