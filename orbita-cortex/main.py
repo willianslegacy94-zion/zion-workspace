@@ -167,7 +167,8 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
             return {"status": "erro", "detalhe": f"Evolution API respondeu HTTP {resp.status_code}"}
         print(f"🧠 CORTEX -> notificou admin do tenant '{payload.tenant_id}' via {instancia}")
         return {"status": "ok"}
-    except Exception:
+    except Exception as e:
+        print(f"🧠 CORTEX -> falha ao notificar admin via {instancia}: {e!r}")
         return {"status": "erro", "detalhe": "Falha ao notificar o admin via WhatsApp."}
 
 if __name__ == "__main__":
