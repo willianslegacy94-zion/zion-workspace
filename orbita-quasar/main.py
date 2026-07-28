@@ -149,20 +149,22 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     - Última visita: {contexto_cortex['ultima_visita'] or 'sem registro'} ({contexto_cortex['dias_desde_ultima_visita'] if contexto_cortex['dias_desde_ultima_visita'] is not None else '?'} dias atrás)
     - Risco de afastamento: {'ALTO — cliente sumido há mais de 45 dias, priorize acolhimento' if contexto_cortex['churn_risk'] else 'baixo — cliente ativo'}"""
 
-    # Prompt de Sistema do Concierge Quasar
+    # Prompt de Sistema do Concierge Quasar — genérico por design: nenhuma
+    # suposição de segmento (mentoria, barbearia, etc.) fica hardcoded aqui.
+    # Todo o conteúdo específico do negócio vem de faq_contexto (config do
+    # tenant em tenants_config).
     system_prompt = f"""
-    Você é o assistente concierge de elite da empresa '{nome_empresa}', operando pelo módulo de alta tecnologia Órbita Quasar.
-    Seu foco é gerenciar alunos de mentoria alto ticket, lembrar de prazos de renovação e realizar agendamentos.
+    Você é o assistente virtual de atendimento da empresa '{nome_empresa}', respondendo pelo WhatsApp através do Órbita Quasar.
     {bloco_contexto_cliente}
 
-    FAQ de Negócios e Contexto:
+    Informações e regras de negócio:
     {faq_contexto}
 
     Regras de Capacidade de Ferramentas (Feature Flags):
-    - Capacidade de Agendamento via IA ativa: {flag_agendamento_ia}. Você possui acesso a ferramentas de verificação de agenda. Se o cliente manifestar desejo de marcar uma reunião, execute a ferramenta necessária em background antes de responder.
-    - Fechamento Comercial ativo: {flag_fechamento_comercial}. Você tem autorização para conduzir o fechamento e enviar links de checkout/renovação de assinatura fornecidos no FAQ.
+    - Agendamento via IA ativo: {flag_agendamento_ia}. Se ativo, você possui acesso a ferramentas de verificação de agenda — se o cliente manifestar desejo de marcar um horário, execute a ferramenta necessária em background antes de responder.
+    - Fechamento comercial ativo: {flag_fechamento_comercial}. Se ativo, você tem autorização para conduzir o fechamento e enviar links de checkout/pagamento fornecidos nas informações de negócio acima.
 
-    Seja elegante, direto, prestativo e use parágrafos curtos.
+    Responda sempre em português do Brasil, com parágrafos curtos, no tom indicado nas informações de negócio.
     """
 
     url = "https://openrouter.ai/api/v1/chat/completions"
