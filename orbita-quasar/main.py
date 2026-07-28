@@ -35,18 +35,26 @@ class PayloadConversa(BaseModel):
     # Tenants sem e-mail como identificador (ex.: sistema_thieco, cliente é
     # identificado por telefone) preenchem este campo em vez de email_cliente.
     contato_cliente: str | None = None
+    # Tenants multi-unidade (ex.: sistema_thieco) informam a unidade pra
+    # isolar o contexto — vazio usa a linha padrão do tenant.
+    unidade: str = ""
 
-def buscar_contexto_cortex(tenant_id: str, contato_cliente: str):
+def buscar_contexto_cortex(tenant_id: str, contato_cliente: str, unidade: str | None = None):
     """
     Consulta o Órbita Cortex pelo contexto real do cliente (piloto
     "atendimento ao cliente"). Nunca deve derrubar o Quasar: qualquer falha
     (Cortex fora do ar, tenant não suportado, timeout) retorna None e o
-    concierge segue sem esse contexto extra.
+    concierge segue sem esse contexto extra. `unidade`, quando informada,
+    restringe a busca à unidade do cliente que está conversando (evita
+    trazer contexto de um cliente com mesmo telefone em outra unidade).
     """
     try:
+        params = {"tenant_id": tenant_id, "contato": contato_cliente}
+        if unidade:
+            params["unidade"] = unidade
         resp = requests.get(
             f"{CORTEX_URL}/api/v1/cortex/atendimento",
-            params={"tenant_id": tenant_id, "contato": contato_cliente},
+            params=params,
             timeout=3,
         )
         dados = resp.json()
@@ -56,10 +64,25 @@ def buscar_contexto_cortex(tenant_id: str, contato_cliente: str):
         pass
     return None
 
-def buscar_tenant(tenant_id: str):
+def buscar_tenant(tenant_id: str, unidade: str = ""):
+    """
+    Busca a config do tenant para a unidade informada. Cai para a linha
+    "padrão" (unidade='') se não existir uma linha específica pra essa
+    unidade — cobre tenants de localidade única, que só têm a linha padrão.
+    """
     with sqlite3.connect(DATABASE_NAME) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT nome_empresa, faq_contexto, flag_agendamento_ia, flag_fechamento_comercial FROM tenants_config WHERE tenant_id = ?", (tenant_id,))
+        cursor.execute(
+            "SELECT nome_empresa, faq_contexto, flag_agendamento_ia, flag_fechamento_comercial FROM tenants_config WHERE tenant_id = ? AND unidade = ?",
+            (tenant_id, unidade),
+        )
+        row = cursor.fetchone()
+        if row or not unidade:
+            return row
+        cursor.execute(
+            "SELECT nome_empresa, faq_contexto, flag_agendamento_ia, flag_fechamento_comercial FROM tenants_config WHERE tenant_id = ? AND unidade = ''",
+            (tenant_id,),
+        )
         return cursor.fetchone()
 
 def gerenciar_memoria(session_id: str, tenant_id: str, role: str = None, content: str = None, recuperar: bool = False):
@@ -114,7 +137,7 @@ FALLBACK_RESPOSTA = "Olá! Estou otimizando meu calendário de mentorias. Poderi
 
 async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
                                  nome_cliente: str = "Cliente", email_cliente: str = "suporte@orbita.com",
-                                 contato_cliente: str | None = None) -> str:
+                                 contato_cliente: str | None = None, unidade: str = "") -> str:
     """
     Núcleo do concierge Quasar — monta o contexto (Cortex + FAQ do tenant),
     chama o Claude (com tool-calling se a flag do tenant permitir) e devolve
@@ -122,7 +145,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     (/api/v1/quasar/chat) quanto pelo webhook de WhatsApp (/webhook/evolution)
     — mesma lógica de atendimento, dois jeitos de chegar até ela.
     """
-    config = buscar_tenant(tenant_id)
+    config = buscar_tenant(tenant_id, unidade)
     if not config:
         raise HTTPException(status_code=404, detail="Tenant inválido no Quasar.")
 
@@ -137,7 +160,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     # telefone em vez de e-mail. Falha ao buscar não interrompe o atendimento.
     contexto_cortex = None
     if contato_cliente:
-        contexto_cortex = buscar_contexto_cortex(tenant_id, contato_cliente)
+        contexto_cortex = buscar_contexto_cortex(tenant_id, contato_cliente, unidade)
 
     bloco_contexto_cliente = f"Você está atendendo o cliente: {nome_cliente} (E-mail: {email_cliente})."
     if contexto_cortex:
@@ -236,7 +259,7 @@ async def processar_atendimento_quasar(payload: PayloadConversa):
     resposta_final_texto = await gerar_resposta_quasar(
         tenant_id=payload.tenant_id, session_id=payload.session_id, mensagem=payload.mensagem,
         nome_cliente=payload.nome_cliente, email_cliente=payload.email_cliente,
-        contato_cliente=payload.contato_cliente,
+        contato_cliente=payload.contato_cliente, unidade=payload.unidade,
     )
     return {"acao": "MANTER_NA_IA", "resposta_ia": resposta_final_texto}
 
@@ -287,8 +310,10 @@ async def webhook_evolution(request: Request):
     if not instancia or not telefone:
         return {"status": "ignorado", "motivo": "instância ou remetente ausente"}
 
-    # thieco-mutinga -> tenant sistema_thieco (prefixo antes do primeiro '-')
-    prefixo = instancia.split("-")[0]
+    # thieco-mutinga -> tenant sistema_thieco, unidade mutinga (prefixo
+    # antes do primeiro '-' mapeia o tenant; o resto é a unidade, usada pra
+    # isolar o contexto entre as unidades do mesmo tenant).
+    prefixo, _, unidade = instancia.partition("-")
     tenant_id = INSTANCIA_PREFIXO_TENANT.get(prefixo)
     if not tenant_id:
         return {"status": "ignorado", "motivo": f"instância '{instancia}' sem tenant mapeado"}
@@ -298,7 +323,7 @@ async def webhook_evolution(request: Request):
     try:
         resposta = await gerar_resposta_quasar(
             tenant_id=tenant_id, session_id=session_id, mensagem=texto,
-            contato_cliente=telefone,
+            contato_cliente=telefone, unidade=unidade,
         )
         if EVOLUTION_API_KEY:
             requests.post(

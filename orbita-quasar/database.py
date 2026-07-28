@@ -9,33 +9,55 @@ DATABASE_NAME = "orbita_quasar.db"
 # somente leitura) em 2026-07-27. Preços do documento de onboarding foram
 # descartados por estarem desatualizados — usar sempre a consulta ao banco
 # como fonte de preço, não o PDF.
-FAQ_THIECO = """
+#
+# Separado em bloco comum + bloco por unidade: cada unidade (Mutinga,
+# Tamboré) vira uma linha própria em tenants_config, e o faq_contexto de
+# cada uma só contém os dados daquela unidade. Isso não é só uma instrução
+# no prompt — o agente conectado no número da Mutinga literalmente não
+# recebe o endereço, equipe, Booksy ou preços da Tamboré (e vice-versa).
+FAQ_THIECO_COMUM = """
 PERSONA
 - Nome do assistente: Thieco
 - Tom de voz: direto e objetivo
 - Emojis: usar com moderação, apenas para organizar o texto
 
-UNIDADES
-- Jardim Mutinga: R. Abelardo Luz, 724, Jardim Mutinga, Barueri - SP, CEP 06463-260. Mapa: https://maps.google.com/?q=R.+Abelardo+Luz,+724+Barueri+SP
-- Tamboré / Alphaville: Av. Ceci, 205, Tamboré, Alphaville - SP, CEP 06460-120. Mapa: https://maps.google.com/?q=Av.+Ceci,+205,+Tambore+Barueri+SP
-
-HORÁRIO DE FUNCIONAMENTO (ambas as unidades)
+HORÁRIO DE FUNCIONAMENTO
 Terça a quinta: 09h às 20h | Sexta e sábado: 09h às 19h | Domingo e feriados: fechado
 
+REGRAS DE ATENDIMENTO
+- Tolerância de atraso: 10 minutos. Depois disso o horário pode ser redistribuído.
+- Formas de pagamento: cartão e Pix.
+- NUNCA prometa horário sem verificar o link de agendamento do Booksy.
+- NUNCA confirme disponibilidade sem consultar o Booksy.
+- NUNCA informe preços que não estejam nesta lista.
+
+TRANSBORDO PARA HUMANO
+Quando o cliente pedir para falar com uma pessoa, responda exatamente:
+"Entendi! Vou te passar agora mesmo para o Thieco ou para o nosso gerente. Aguarde um instante que já te respondemos."
+""".strip()
+
+FAQ_THIECO_MUTINGA = """
+UNIDADE: Jardim Mutinga
+Você atende exclusivamente esta unidade — não fale sobre a unidade Tamboré / Alphaville.
+
+ENDEREÇO
+R. Abelardo Luz, 724, Jardim Mutinga, Barueri - SP, CEP 06463-260
+Mapa: https://maps.google.com/?q=R.+Abelardo+Luz,+724+Barueri+SP
+
 INSTAGRAM
-- Jardim Mutinga: @barbeariathiecoleandro
-- Tamboré: @barbeariathiecotambore_
+@barbeariathiecoleandro
 
 EQUIPE
-- Jardim Mutinga: Igor Hidalgo, Kauã dos Santos, Marcos Fernandes
-- Tamboré / Alphaville: Thieco Leandro (responsável)
+Igor Hidalgo, Kauã dos Santos, Marcos Fernandes
+
+ESTACIONAMENTO
+Apenas via pública ou em frente à barbearia.
 
 AGENDAMENTO (BOOKSY)
-- Jardim Mutinga: https://booksy.com/pt-br/dl/show-business/101380
-- Tamboré / Alphaville: https://booksy.com/pt-br/dl/show-business/361149
-Links individuais por profissional não estão disponíveis — sempre direcione o cliente para o link geral da unidade dele.
+https://booksy.com/pt-br/dl/show-business/101380
+Links individuais por profissional não estão disponíveis — direcione sempre para o link geral acima.
 
-TABELA DE PREÇOS — JARDIM MUTINGA (serviços e combos)
+TABELA DE PREÇOS (serviços e combos)
 Corte: R$ 45,00 | Corte Infantil: R$ 45,00 | Barba: R$ 35,00 | Raspar Barba: R$ 20,00 | Raspar Cabelo: R$ 30,00
 Sobrancelha: R$ 15,00 | Sobrancelha com Cera: R$ 20,00 | Risco: R$ 5,00 | Pezinho: R$ 15,00
 Hidratação: R$ 25,00 | Hidratação Barba: R$ 20,00 | Limpeza de pele (facial): R$ 40,00
@@ -48,25 +70,34 @@ Combo - Corte + Progressiva: R$ 122,00
 Dia de Princeso (Corte + Barba + Sobrancelha + Limpeza de pele e Depilação): R$ 138,25
 Combo Novo - 4 Barbas: R$ 110,00 | Combo Novo - 2 Cortes + 2 Barbas + 2 Sobrancelha: R$ 150,00
 Combo Novo - 4 Cortes + 4 Sobrancelha: R$ 190,00 | Combo Novo - 4 Cortes + 4 Barbas + 4 Sobrancelha: R$ 300,00
+""".strip()
 
-TABELA DE PREÇOS — TAMBORÉ / ALPHAVILLE (serviços e combos)
+FAQ_THIECO_TAMBORE = """
+UNIDADE: Tamboré / Alphaville
+Você atende exclusivamente esta unidade — não fale sobre a unidade Jardim Mutinga.
+
+ENDEREÇO
+Av. Ceci, 205, Tamboré, Alphaville - SP, CEP 06460-120
+Mapa: https://maps.google.com/?q=Av.+Ceci,+205,+Tambore+Barueri+SP
+
+INSTAGRAM
+@barbeariathiecotambore_
+
+EQUIPE
+Thieco Leandro (responsável)
+
+ESTACIONAMENTO
+Disponível no local.
+
+AGENDAMENTO (BOOKSY)
+https://booksy.com/pt-br/dl/show-business/361149
+Links individuais por profissional não estão disponíveis — direcione sempre para o link geral acima.
+
+TABELA DE PREÇOS (serviços e combos)
 Corte: R$ 70,00 | Barba: R$ 60,00 | Raspar barba: R$ 30,00 | Raspar Cabelo: R$ 50,00
 Sobrancelha: R$ 20,00 | Pezinho: R$ 20,00 | Hidratação: R$ 30,00 | Limpeza de pele (facial): R$ 50,00
 Selagem: R$ 80,00 | Progressiva: R$ 120,00 | Luzes: R$ 150,00 | Platinado: R$ 250,00
 Combo - Corte + Barba: R$ 130,00 | Combo - 3 Corte + 3 Barba + 3 Sobrancelha: R$ 300,00
-
-REGRAS DE ATENDIMENTO
-- Tolerância de atraso: 10 minutos. Depois disso o horário pode ser redistribuído.
-- Formas de pagamento: cartão e Pix.
-- Estacionamento: Tamboré tem estacionamento no local; Mutinga é só via pública ou em frente à barbearia.
-- NUNCA prometa horário sem verificar o link de agendamento do Booksy.
-- NUNCA confirme disponibilidade sem consultar o Booksy.
-- NUNCA informe preços que não estejam nesta lista.
-- NUNCA informe preço da unidade Tamboré pra cliente do Mutinga, nem vice-versa — se não souber qual unidade o cliente frequenta, pergunte antes de falar qualquer valor.
-
-TRANSBORDO PARA HUMANO
-Quando o cliente pedir para falar com uma pessoa, responda exatamente:
-"Entendi! Vou te passar agora mesmo para o Thieco ou para o nosso gerente. Aguarde um instante que já te respondemos."
 """.strip()
 
 
@@ -74,14 +105,19 @@ def init_quasar_db():
     conn = sqlite3.connect(DATABASE_NAME)
     cursor = conn.cursor()
 
-    # Configuração dos Tenants PME Alto Ticket
+    # Configuração dos Tenants. Chave composta (tenant_id, unidade): tenants
+    # com uma única localidade usam unidade='' (linha "padrão" do tenant);
+    # tenants com múltiplas unidades (ex.: sistema_thieco) têm uma linha por
+    # unidade, cada uma com seu próprio faq_contexto isolado.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tenants_config (
-            tenant_id TEXT PRIMARY KEY,
+            tenant_id TEXT NOT NULL,
+            unidade TEXT NOT NULL DEFAULT '',
             nome_empresa TEXT,
             faq_contexto TEXT,
             flag_agendamento_ia BOOLEAN DEFAULT 1,
-            flag_fechamento_comercial BOOLEAN DEFAULT 0
+            flag_fechamento_comercial BOOLEAN DEFAULT 0,
+            PRIMARY KEY (tenant_id, unidade)
         )
     """)
 
@@ -103,16 +139,18 @@ def init_quasar_db():
     # afastamento) vem do Órbita Cortex, não deste faq_contexto estático.
     # Agendamento e fechamento comercial ficam fora deste piloto de propósito
     # (próximas fatias reaproveitam o mesmo conector).
-    cursor.execute("""
-        INSERT OR REPLACE INTO tenants_config (tenant_id, nome_empresa, faq_contexto, flag_agendamento_ia, flag_fechamento_comercial)
-        VALUES (?, ?, ?, ?, ?)
-    """, (
-        "sistema_thieco",
-        "Barbearia Thieco Leandro",
-        FAQ_THIECO,
-        0,
-        0
-    ))
+    for unidade, faq_unidade in (("mutinga", FAQ_THIECO_MUTINGA), ("tambore", FAQ_THIECO_TAMBORE)):
+        cursor.execute("""
+            INSERT OR REPLACE INTO tenants_config (tenant_id, unidade, nome_empresa, faq_contexto, flag_agendamento_ia, flag_fechamento_comercial)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            "sistema_thieco",
+            unidade,
+            "Barbearia Thieco Leandro",
+            f"{FAQ_THIECO_COMUM}\n\n{faq_unidade}",
+            0,
+            0
+        ))
 
     conn.commit()
     conn.close()
