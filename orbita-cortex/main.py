@@ -155,6 +155,10 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
         return {"status": "erro", "detalhe": "EVOLUTION_API_KEY não configurada no Cortex."}
 
     digitos = "".join(c for c in payload.telefone if c.isdigit())
+    # Número cadastrado sem o DDI (55) faz a Evolution API recusar o envio
+    # (WhatsApp reporta o JID como inexistente) — normaliza antes de mandar.
+    if len(digitos) in (10, 11) and not digitos.startswith("55"):
+        digitos = f"55{digitos}"
 
     try:
         resp = requests.post(
