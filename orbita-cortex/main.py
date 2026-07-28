@@ -164,6 +164,7 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
             timeout=10,
         )
         if not resp.ok:
+            print(f"🧠 CORTEX -> Evolution API respondeu {resp.status_code} em {instancia}: {resp.text}")
             return {"status": "erro", "detalhe": f"Evolution API respondeu HTTP {resp.status_code}"}
         print(f"🧠 CORTEX -> notificou admin do tenant '{payload.tenant_id}' via {instancia}")
         return {"status": "ok"}
