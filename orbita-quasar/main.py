@@ -197,7 +197,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     }
 
     payload_api = {
-        "model": "anthropic/claude-3.5-sonnet",
+        "model": "anthropic/claude-sonnet-5",
         "messages": [{"role": "system", "content": system_prompt}] + historico,
         "temperature": 0.1
     }
@@ -237,7 +237,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
             ]
 
             payload_rechamada = {
-                "model": "anthropic/claude-3.5-sonnet",
+                "model": "anthropic/claude-sonnet-5",
                 "messages": [{"role": "system", "content": system_prompt}] + historico_com_tool,
                 "temperature": 0.2
             }
