@@ -36,7 +36,7 @@ UNIDADES_INFO = {
 # recebe o endereço, equipe, Booksy ou preços da Tamboré (e vice-versa).
 FAQ_THIECO_COMUM = """
 PERSONA
-- Nome do assistente: Thieco
+- Nome do assistente: Theo (o assistente digital — não confundir com o Thieco, dono/gerente real da barbearia)
 - Tom de voz: direto e objetivo
 - Emojis: usar com moderação, apenas para organizar o texto
 

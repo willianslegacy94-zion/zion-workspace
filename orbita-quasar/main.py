@@ -3,11 +3,23 @@ import os
 import json
 import sqlite3
 import requests
+from datetime import datetime
+from zoneinfo import ZoneInfo
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from database import DATABASE_NAME, init_quasar_db, UNIDADES_INFO
 import tools.calendar_mock as calendar_tool
+
+def saudacao_por_horario() -> str:
+    """Bom dia / Boa tarde / Boa noite conforme o horário de Brasília — o
+    modelo não sabe a hora real sozinho, por isso calculamos aqui."""
+    hora = datetime.now(ZoneInfo("America/Sao_Paulo")).hour
+    if hora < 12:
+        return "Bom dia"
+    if hora < 18:
+        return "Boa tarde"
+    return "Boa noite"
 
 load_dotenv()
 app = FastAPI(title="Órbita Quasar — Engine de Agendamento Avançado")
@@ -223,6 +235,18 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     if contato_cliente:
         contexto_cortex = buscar_contexto_cortex(tenant_id, contato_cliente, unidade)
 
+    # historico já inclui a mensagem recém-inserida do cliente — se não
+    # sobrou mais nada além dela, é a primeira mensagem desta conversa
+    # (session_id novo), e a apresentação só entra aqui, uma vez.
+    bloco_saudacao = ""
+    if len(historico) <= 1:
+        bloco_saudacao = (
+            f'\nEsta é a primeira mensagem desta conversa. Comece sua resposta com '
+            f'"{saudacao_por_horario()}! Aqui é o Theo, atendente digital da barbearia Thieco Leandro." '
+            f'e só depois responda o que o cliente perguntou. Não repita essa apresentação nas próximas '
+            f'mensagens desta mesma conversa.\n'
+        )
+
     bloco_contexto_cliente = f"Você está atendendo o cliente: {nome_cliente} (E-mail: {email_cliente})."
     if contexto_cortex:
         bloco_contexto_cliente = f"""Você está atendendo o cliente: {contexto_cortex['nome']} (telefone: {contexto_cortex['contato']}).
@@ -240,6 +264,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     system_prompt = f"""
     Você é o assistente virtual de atendimento da empresa '{nome_empresa}', respondendo pelo WhatsApp através do Órbita Quasar.
     {bloco_contexto_cliente}
+    {bloco_saudacao}
 
     Informações e regras de negócio:
     {faq_contexto}
