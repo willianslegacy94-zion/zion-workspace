@@ -176,6 +176,12 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
         if not resp.ok:
             print(f"🧠 CORTEX -> Evolution API respondeu {resp.status_code} em {instancia}: {resp.text}")
             return {"status": "erro", "detalhe": f"Evolution API respondeu HTTP {resp.status_code}"}
+        # Registra o id da mensagem enviada — se o canal admin for o próprio
+        # número pessoal do gestor (self-chat), esse relatório também chega
+        # de volta como evento fromMe=true no webhook; sem isso, o Cortex
+        # tentaria classificar seu próprio relatório como se fosse uma
+        # pergunta nova.
+        _registrar_envio_proprio(resp.json())
         print(f"🧠 CORTEX -> notificou admin do tenant '{payload.tenant_id}' via {instancia}")
         return {"status": "ok"}
     except Exception as e:
@@ -195,6 +201,50 @@ TENANT_POR_INSTANCIA_ADMIN = {v: k for k, v in INSTANCIA_ADMIN_POR_TENANT.items(
 
 TIPOS_RELATORIO_VALIDOS = {"faturamento", "produtos_mais_vendidos", "servicos_mais_realizados", "estoque_parado"}
 UNIDADES_VALIDAS_RELATORIO = {"mutinga", "tambore"}
+
+# IDs das mensagens que o próprio Cortex mandou (webhook OU relatório
+# periódico) — necessário porque o canal admin é pareado no número pessoal
+# do próprio gestor: quando ele manda mensagem "pra si mesmo" perguntando
+# algo, ela chega marcada fromMe=true (mesma marca de uma mensagem enviada
+# pela nossa própria API), então não dá pra usar só fromMe pra diferenciar
+# "pergunta real do admin" de "eco da nossa própria resposta". Guardamos o
+# id de tudo que a gente manda; se um evento fromMe=true chegar com um id
+# que está aqui, é eco — ignora. Se não está, é mensagem de verdade que o
+# admin escreveu. Cap simples de tamanho evita crescimento sem fim.
+IDS_ENVIADOS_PELO_CORTEX: set[str] = set()
+
+def _registrar_envio_proprio(resposta_evolution: dict) -> None:
+    try:
+        msg_id = (resposta_evolution or {}).get("key", {}).get("id")
+        if msg_id:
+            if len(IDS_ENVIADOS_PELO_CORTEX) > 200:
+                IDS_ENVIADOS_PELO_CORTEX.clear()
+            IDS_ENVIADOS_PELO_CORTEX.add(msg_id)
+    except Exception:
+        pass
+
+def _telefone_e_admin_autorizado(telefone: str) -> bool:
+    """
+    Confirma no sistema-thieco se `telefone` é o admin cadastrado, ANTES de
+    responder qualquer coisa — inclusive a mensagem de "não entendi". Sem
+    essa checagem no fallback, uma resposta de outro agente da Holding (ex.:
+    o Quasar recusando educadamente um assunto fora do escopo dele) podia
+    cair aqui, ser tratada como "não entendi" e voltar pro Quasar, que
+    respondia nao entendida de novo — loop infinito entre os dois bots, é
+    exatamente o que aconteceu no primeiro teste. Falha de rede = nega por
+    padrão (fail closed).
+    """
+    try:
+        resp = requests.get(
+            f"{THIECO_API_URL}/notificacoes/admin-autorizado",
+            headers={"X-Internal-Key": INTERNAL_SERVICE_KEY or ""},
+            params={"telefone": telefone},
+            timeout=5,
+        )
+        return bool(resp.json().get("autorizado"))
+    except Exception as e:
+        print(f"🧠 CORTEX -> falha ao checar autorizacao de {telefone}: {e!r}")
+        return False
 
 MENSAGEM_AJUDA_RELATORIO = (
     "🥇 *Barbearia Thieco Leandro*\n\n"
@@ -296,8 +346,15 @@ async def webhook_evolution_admin(request: Request):
 
     data = body.get("data") or {}
     key = data.get("key") or {}
+    msg_id = key.get("id")
+
     if key.get("fromMe"):
-        return {"status": "ignorado", "motivo": "mensagem enviada por nós mesmos"}
+        if msg_id in IDS_ENVIADOS_PELO_CORTEX:
+            IDS_ENVIADOS_PELO_CORTEX.discard(msg_id)
+            return {"status": "ignorado", "motivo": "eco da propria resposta do Cortex"}
+        # fromMe=true SEM ser eco nosso = o admin escreveu pra si mesmo no
+        # self-chat (canal admin pareado no número pessoal dele) — trata
+        # como mensagem de verdade, não ignora.
 
     texto = _extrair_texto_mensagem(data.get("message"))
     if not texto:
@@ -308,6 +365,12 @@ async def webhook_evolution_admin(request: Request):
     tenant_id = TENANT_POR_INSTANCIA_ADMIN.get(instancia)
     if not tenant_id or not telefone:
         return {"status": "ignorado", "motivo": f"instância '{instancia}' sem tenant admin mapeado"}
+
+    # Autorização SEMPRE checada antes de responder qualquer coisa — mesmo
+    # o fallback de "não entendi" (ver docstring de _telefone_e_admin_autorizado).
+    if not _telefone_e_admin_autorizado(telefone):
+        print(f"🧠 CORTEX -> mensagem de numero nao autorizado ignorada: {telefone}")
+        return {"status": "ignorado", "motivo": "solicitante não autorizado"}
 
     classificacao = _classificar_pedido_relatorio(texto)
 
@@ -344,12 +407,13 @@ async def webhook_evolution_admin(request: Request):
 
     if EVOLUTION_API_KEY:
         try:
-            requests.post(
+            resp_envio = requests.post(
                 f"{EVOLUTION_API_URL}/message/sendText/{instancia}",
                 headers={"apikey": EVOLUTION_API_KEY, "Content-Type": "application/json"},
                 json={"number": telefone, "text": resposta, "linkPreview": False},
                 timeout=10,
             )
+            _registrar_envio_proprio(resp_envio.json() if resp_envio.ok else None)
         except Exception as e:
             print(f"🧠 CORTEX -> falha ao enviar resposta do relatorio: {e!r}")
 
