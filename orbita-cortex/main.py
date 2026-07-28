@@ -281,8 +281,10 @@ def _classificar_pedido_relatorio(texto: str) -> dict:
     - "estoque_alerta": produtos zerados ou com estoque baixo agora.
     Se a mensagem não pedir claramente um desses, use tipo=null.
 
-    Unidade (chave "unidade"): "mutinga", "tambore", ou null se a mensagem não
-    especificar (nesse caso o relatório sai das duas).
+    Unidade (chave "unidade"): "mutinga" ou "tambore" APENAS se a mensagem
+    citar claramente o nome de uma unidade. Na dúvida, ou se a mensagem não
+    mencionar nenhuma unidade, use null (relatório sai das duas) — NUNCA
+    infira ou adivinhe uma unidade que não foi dita explicitamente.
 
     Período (chave "periodo_dias"): quantos dias pra trás o relatório cobre.
     "hoje"/sem período especificado = 1. "essa semana" = 7. "esse mês" = 30.
