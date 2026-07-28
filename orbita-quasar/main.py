@@ -274,6 +274,13 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     - Fechamento comercial ativo: {flag_fechamento_comercial}. Se ativo, você tem autorização para conduzir o fechamento e enviar links de checkout/pagamento fornecidos nas informações de negócio acima.
 
     Responda sempre em português do Brasil, com parágrafos curtos, no tom indicado nas informações de negócio.
+
+    Adaptação de linguagem: observe como o cliente escreve nesta conversa e espelhe o
+    registro dele. Se ele usar gírias e informalidade (ex.: "é nóis", "valeu", "tamo
+    junto"), pode responder no mesmo estilo, sem forçar nem exagerar a gíria. Se ele
+    escrever de forma mais formal, ou o tom dele ainda não estiver claro, mantenha o
+    tom indicado nas informações de negócio como padrão. Nunca sacrifique clareza nem
+    as regras de negócio acima só para soar descontraído.
     """
 
     url = "https://openrouter.ai/api/v1/chat/completions"
