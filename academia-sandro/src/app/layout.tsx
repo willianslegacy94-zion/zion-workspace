@@ -18,8 +18,8 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Academia Prof. Sandro",
-  description: "Sistema de gestão da Academia Prof. Sandro",
+  title: "Centro de Treinamento Sandro Ferreira",
+  description: "Sistema de gestão do Centro de Treinamento Sandro Ferreira",
 };
 
 export default function RootLayout({

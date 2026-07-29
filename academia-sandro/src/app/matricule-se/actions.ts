@@ -11,6 +11,7 @@ export async function criarPreCadastro(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
   const cidade = String(formData.get("cidade") ?? "").trim();
   const lesoes = String(formData.get("lesoes") ?? "").trim();
+  const modalidadeInteresse = String(formData.get("modalidadeInteresse") ?? "").trim();
 
   if (!nome || !telefone) {
     throw new Error("Preencha nome e telefone.");
@@ -25,6 +26,7 @@ export async function criarPreCadastro(formData: FormData) {
       email: email || null,
       cidade: cidade || null,
       lesoes: lesoes || null,
+      modalidadeInteresse: modalidadeInteresse || null,
     },
   });
 

@@ -23,6 +23,7 @@ export default async function PreCadastrosPage() {
           <thead className="border-b border-surface-border text-foreground/60">
             <tr>
               <th className="px-4 py-3 font-medium">Nome</th>
+              <th className="px-4 py-3 font-medium">Modalidade</th>
               <th className="px-4 py-3 font-medium">Telefone</th>
               <th className="px-4 py-3 font-medium">Cidade</th>
               <th className="px-4 py-3 font-medium">Recebido em</th>
@@ -36,6 +37,7 @@ export default async function PreCadastrosPage() {
                 className="border-b border-surface-border last:border-0"
               >
                 <td className="px-4 py-3">{pc.nome}</td>
+                <td className="px-4 py-3">{pc.modalidadeInteresse ?? "—"}</td>
                 <td className="px-4 py-3">{pc.telefone}</td>
                 <td className="px-4 py-3">{pc.cidade ?? "—"}</td>
                 <td className="px-4 py-3">
@@ -44,7 +46,7 @@ export default async function PreCadastrosPage() {
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-3">
                     <Link
-                      href={`/alunos?preCadastroId=${pc.id}`}
+                      href={`/alunos/novo?preCadastroId=${pc.id}`}
                       className="text-primary hover:underline"
                     >
                       Aprovar
@@ -64,7 +66,7 @@ export default async function PreCadastrosPage() {
             {preCadastros.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   className="px-4 py-6 text-center text-foreground/50"
                 >
                   Nenhum pré-cadastro pendente.

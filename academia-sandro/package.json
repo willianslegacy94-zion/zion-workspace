@@ -9,7 +9,8 @@
     "lint": "eslint",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed-demo": "tsx prisma/seed-demo.ts",
-    "db:seed-demo-financeiro": "tsx prisma/seed-demo-financeiro.ts"
+    "db:seed-demo-financeiro": "tsx prisma/seed-demo-financeiro.ts",
+    "db:seed-agenda": "tsx prisma/seed-agenda.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

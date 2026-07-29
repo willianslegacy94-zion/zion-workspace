@@ -28,22 +28,109 @@ model Aluno {
   cidade         String?
   lesoes         String?
 
+  // Horário de referência informado no cadastro — só exibição/organização,
+  // não restringe acesso (a modalidade já dá acesso a todos os horários dela).
+  agendaAulaReferenciaId String?     @db.Uuid
+  agendaAulaReferencia   AgendaAula? @relation(fields: [agendaAulaReferenciaId], references: [id])
+
   transacoes TransacaoFinanceira[]
+  presencas  PresencaDiaria[]
+  matriculas Matricula[]
+  usuario    Usuario?
 
   @@map("alunos")
 }
 
 model TransacaoFinanceira {
-  id            String   @id @default(uuid()) @db.Uuid
-  tipo          String
-  categoria     String
-  valor         Decimal  @db.Decimal(10, 2)
-  dataTransacao DateTime @default(now())
+  id             String    @id @default(uuid()) @db.Uuid
+  tipo           String
+  categoria      String
+  valor          Decimal   @db.Decimal(10, 2)
+  dataTransacao  DateTime  @default(now())
+  dataVencimento DateTime?
+  formaPagamento String?
+
+  comprovanteUrl       String?
+  comprovanteEnviadoEm DateTime?
+  gatewayPagamentoId   String?
+  confirmadoEm         DateTime?
 
   alunoId String? @db.Uuid
   aluno   Aluno?  @relation(fields: [alunoId], references: [id])
 
+  matriculaId String?    @unique @db.Uuid
+  matricula   Matricula? @relation(fields: [matriculaId], references: [id])
+
   @@map("transacoes_financeiras")
+}
+
+enum DiaSemana {
+  SEGUNDA
+  TERCA
+  QUARTA
+  QUINTA
+  SEXTA
+  SABADO
+  DOMINGO
+}
+
+model AgendaAula {
+  id            String    @id @default(uuid()) @db.Uuid
+  diaSemana     DiaSemana
+  horarioInicio DateTime  @db.Time
+  horarioFim    DateTime? @db.Time
+  modalidade    String
+  capacidadeMax Int       @default(10)
+  createdAt     DateTime  @default(now())
+
+  presencas        PresencaDiaria[]
+  matriculas       Matricula[]
+  alunosReferencia Aluno[]
+
+  @@map("agenda_aulas")
+}
+
+// Matrícula do aluno num horário além da modalidade principal (Aluno.modalidade),
+// que já dá acesso implícito a todos os horários daquela modalidade.
+model Matricula {
+  id       String   @id @default(uuid()) @db.Uuid
+  criadoEm DateTime @default(now())
+
+  alunoId String @db.Uuid
+  aluno   Aluno  @relation(fields: [alunoId], references: [id])
+
+  agendaAulaId String     @db.Uuid
+  agendaAula   AgendaAula @relation(fields: [agendaAulaId], references: [id])
+
+  transacao TransacaoFinanceira?
+
+  @@unique([alunoId, agendaAulaId])
+  @@map("matriculas")
+}
+
+enum StatusPresenca {
+  AGENDADO
+  CONFIRMADO
+  CANCELADO
+  FALTA_SEM_AVISO
+}
+
+model PresencaDiaria {
+  id         String         @id @default(uuid()) @db.Uuid
+  data       DateTime       @db.Date
+  status     StatusPresenca @default(AGENDADO)
+  observacao String?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  alunoId String @db.Uuid
+  aluno   Aluno  @relation(fields: [alunoId], references: [id])
+
+  agendaAulaId String     @db.Uuid
+  agendaAula   AgendaAula @relation(fields: [agendaAulaId], references: [id])
+
+  @@unique([alunoId, agendaAulaId, data])
+  @@map("presencas_diarias")
 }
 
 model Despesa {
@@ -60,30 +147,52 @@ model Despesa {
   @@map("despesas")
 }
 
+// Preço cobrado do aluno pra se matricular numa modalidade extra
+// (além da modalidade principal, que já é implícita na mensalidade).
+model ModalidadePreco {
+  modalidade   String   @id
+  valor        Decimal  @default(0) @db.Decimal(10, 2)
+  atualizadoEm DateTime @updatedAt
+
+  @@map("modalidade_precos")
+}
+
 model PreCadastro {
-  id             String    @id @default(uuid()) @db.Uuid
-  nome           String
-  idade          Int?
-  dataNascimento DateTime?
-  telefone       String
-  email          String?
-  cidade         String?
-  lesoes         String?
-  status         String    @default("Pendente")
-  criadoEm       DateTime  @default(now())
+  id                  String    @id @default(uuid()) @db.Uuid
+  nome                String
+  idade               Int?
+  dataNascimento      DateTime?
+  telefone            String
+  email               String?
+  cidade              String?
+  lesoes              String?
+  modalidadeInteresse String?
+  status              String    @default("Pendente")
+  criadoEm            DateTime  @default(now())
 
   @@map("pre_cadastros")
 }
 
+enum Role {
+  ADMIN
+  ALUNO
+}
+
 model Usuario {
-  id                String    @id @default(uuid()) @db.Uuid
-  username          String    @unique
-  email             String    @unique
-  passwordHash      String
-  senhaTemporaria   Boolean   @default(false)
-  tokenRecuperacao  String?
-  tokenExpiracao    DateTime?
-  createdAt         DateTime  @default(now())
+  id               String    @id @default(uuid()) @db.Uuid
+  username         String    @unique
+  email            String    @unique
+  nome             String?
+  passwordHash     String
+  role             Role      @default(ALUNO)
+  senhaTemporaria  Boolean   @default(false)
+  tokenRecuperacao String?
+  tokenExpiracao   DateTime?
+  alertasLidosEm   DateTime?
+  createdAt        DateTime  @default(now())
+
+  alunoId String? @unique @db.Uuid
+  aluno   Aluno?  @relation(fields: [alunoId], references: [id])
 
   @@map("usuarios")
 }

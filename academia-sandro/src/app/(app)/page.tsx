@@ -1,4 +1,13 @@
-import { AlertTriangle, LayoutDashboard, Users, Wallet } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  ClipboardCheck,
+  LayoutDashboard,
+  UserPlus,
+  Users,
+  Wallet,
+} from "lucide-react";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { diasParaVencer } from "@/lib/vencimento";
 import { PageHeader } from "@/components/PageHeader";
@@ -56,11 +65,18 @@ function BarraProgresso({
 }
 
 export default async function DashboardPage() {
-  const [alunos, transacoes, despesas] = await Promise.all([
-    prisma.aluno.findMany(),
-    prisma.transacaoFinanceira.findMany(),
-    prisma.despesa.findMany(),
-  ]);
+  const [session, alunos, transacoes, despesas, preCadastrosPendentes, matriculasPendentes] =
+    await Promise.all([
+      auth(),
+      prisma.aluno.findMany(),
+      prisma.transacaoFinanceira.findMany(),
+      prisma.despesa.findMany(),
+      prisma.preCadastro.count({ where: { status: "Pendente" } }),
+      prisma.matricula.count({
+        where: { transacao: { comprovanteUrl: { not: null }, confirmadoEm: null } },
+      }),
+    ]);
+  const nome = session?.user?.nome;
 
   const hoje = new Date();
 
@@ -98,6 +114,11 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-12">
+      {nome && (
+        <p className="font-serif text-xl font-bold text-gold-shimmer">
+          Bem-vindo, {nome}
+        </p>
+      )}
       <PageHeader
         icon={LayoutDashboard}
         title="Dashboard"
@@ -151,6 +172,38 @@ export default async function DashboardPage() {
             <AlertTriangle size={18} className="text-warning" />
           </div>
         </div>
+        <Link
+          href="/matriculas"
+          className="card-premium flex items-start justify-between p-6 transition-colors hover:border-primary/40"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-wider text-foreground/50">
+              Novas matrículas
+            </p>
+            <p className="mt-2 text-3xl font-bold text-primary">
+              {matriculasPendentes}
+            </p>
+          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <ClipboardCheck size={18} className="text-primary" />
+          </div>
+        </Link>
+        <Link
+          href="/pre-cadastros"
+          className="card-premium flex items-start justify-between p-6 transition-colors hover:border-primary/40"
+        >
+          <div>
+            <p className="text-xs uppercase tracking-wider text-foreground/50">
+              Pré-cadastros
+            </p>
+            <p className="mt-2 text-3xl font-bold text-primary">
+              {preCadastrosPendentes}
+            </p>
+          </div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <UserPlus size={18} className="text-primary" />
+          </div>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">

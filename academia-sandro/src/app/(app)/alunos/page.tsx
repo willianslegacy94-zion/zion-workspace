@@ -1,13 +1,11 @@
 import Link from "next/link";
-import { Users } from "lucide-react";
+import { UserPlus, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
-import { diasParaVencer } from "@/lib/vencimento";
+import { diasParaVencer, statusPagamentoEfetivo } from "@/lib/vencimento";
 import { mensagemCobranca, montarLinkWhatsapp } from "@/lib/whatsapp";
 import { PageHeader } from "@/components/PageHeader";
-import { createAluno, deleteAluno } from "./actions";
-
-const MODALIDADES = ["Jiu-Jitsu", "Muay Thai", "Judô", "Boxe", "Outra"];
-const STATUS_PAGAMENTO = ["Em dia", "Pendente", "Atrasado"];
+import { DIA_SEMANA_LABEL, formatarHora } from "@/lib/agenda";
+import { deleteAluno } from "./actions";
 
 function statusBadgeClass(status: string) {
   const base = "rounded-full px-2 py-1 text-xs font-medium";
@@ -31,165 +29,81 @@ function vencimentoBadge(dataVencimento: Date | null) {
   return <span className={`${base} text-foreground/60`}>{texto}</span>;
 }
 
+type Filtro = "vencidos" | "aguardando-confirmacao";
+
+const WHERE_VENCIDOS = { dataVencimento: { lt: new Date() } };
+const WHERE_AGUARDANDO_CONFIRMACAO = {
+  transacoes: {
+    some: { comprovanteUrl: { not: null }, confirmadoEm: null },
+  },
+};
+
+function whereDoFiltro(filtro?: Filtro) {
+  if (filtro === "vencidos") return WHERE_VENCIDOS;
+  if (filtro === "aguardando-confirmacao") return WHERE_AGUARDANDO_CONFIRMACAO;
+  return undefined;
+}
+
+function abaClasse(ativa: boolean) {
+  const base = "rounded-full px-3 py-1.5 text-sm font-medium transition-colors";
+  return ativa
+    ? `${base} bg-primary text-background`
+    : `${base} border border-foreground/20 text-foreground/70 hover:bg-foreground/5`;
+}
+
 export default async function AlunosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preCadastroId?: string }>;
+  searchParams: Promise<{ filtro?: Filtro }>;
 }) {
-  const { preCadastroId } = await searchParams;
+  const { filtro } = await searchParams;
 
-  const [alunos, preCadastro] = await Promise.all([
-    prisma.aluno.findMany({
-      orderBy: { dataMatricula: "desc" },
-    }),
-    preCadastroId
-      ? prisma.preCadastro.findUnique({ where: { id: preCadastroId } })
-      : Promise.resolve(null),
-  ]);
+  const [alunos, totalCount, vencidosCount, aguardandoConfirmacaoCount] =
+    await Promise.all([
+      prisma.aluno.findMany({
+        where: whereDoFiltro(filtro),
+        orderBy: { dataMatricula: "desc" },
+        include: { agendaAulaReferencia: true },
+      }),
+      prisma.aluno.count(),
+      prisma.aluno.count({ where: WHERE_VENCIDOS }),
+      prisma.aluno.count({ where: WHERE_AGUARDANDO_CONFIRMACAO }),
+    ]);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-12">
       <PageHeader
         icon={Users}
         title="Alunos"
-        subtitle="Cadastro, matrículas e controle de vencimento"
+        subtitle="Lista de alunos e controle de vencimento"
+        action={
+          <Link
+            href="/alunos/novo"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-secondary"
+          >
+            <UserPlus size={16} />
+            Novo Aluno
+          </Link>
+        }
       />
 
-      {preCadastro && (
-        <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
-          Completando cadastro a partir do pré-cadastro de{" "}
-          <strong>{preCadastro.nome}</strong> — falta só modalidade, faixa e
-          status de pagamento.
-        </div>
-      )}
-
-      <form
-        action={createAluno}
-        className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6"
-      >
-        {preCadastro && (
-          <input type="hidden" name="preCadastroId" value={preCadastro.id} />
-        )}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
-            Nome
-            <input
-              name="nome"
-              required
-              defaultValue={preCadastro?.nome}
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Modalidade
-            <select
-              name="modalidade"
-              required
-              defaultValue=""
-              className="rounded-md border border-foreground/20 bg-background px-3 py-2 outline-none focus:border-primary"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {MODALIDADES.map((modalidade) => (
-                <option key={modalidade} value={modalidade}>
-                  {modalidade}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Faixa / Graduação
-            <input
-              name="graduacaoFaixa"
-              required
-              placeholder="Ex: Faixa Azul"
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Status de Pagamento
-            <select
-              name="statusPagamento"
-              required
-              defaultValue=""
-              className="rounded-md border border-foreground/20 bg-background px-3 py-2 outline-none focus:border-primary"
-            >
-              <option value="" disabled>
-                Selecione
-              </option>
-              {STATUS_PAGAMENTO.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Telefone (WhatsApp)
-            <input
-              name="telefone"
-              placeholder="Ex: 11987654321"
-              defaultValue={preCadastro?.telefone ?? ""}
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            E-mail
-            <input
-              name="email"
-              type="email"
-              defaultValue={preCadastro?.email ?? ""}
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Data de Nascimento
-            <input
-              name="dataNascimento"
-              type="date"
-              defaultValue={
-                preCadastro?.dataNascimento
-                  ? preCadastro.dataNascimento.toISOString().slice(0, 10)
-                  : ""
-              }
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm">
-            Cidade
-            <input
-              name="cidade"
-              defaultValue={preCadastro?.cidade ?? ""}
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            Lesões (opcional)
-            <textarea
-              name="lesoes"
-              rows={2}
-              defaultValue={preCadastro?.lesoes ?? ""}
-              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-            />
-          </label>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="aptoExame"
-            className="h-4 w-4 accent-primary"
-          />
-          Apto para exame de graduação
-        </label>
-        <button
-          type="submit"
-          className="inline-flex items-center gap-2 self-start rounded-md bg-primary px-5 py-2 font-medium text-background transition-colors hover:bg-secondary"
+      <div className="flex flex-wrap gap-2">
+        <Link href="/alunos" className={abaClasse(!filtro)}>
+          Todos ({totalCount})
+        </Link>
+        <Link
+          href="/alunos?filtro=vencidos"
+          className={abaClasse(filtro === "vencidos")}
         >
-          <span aria-hidden="true">🥋</span>
-          Cadastrar aluno
-        </button>
-      </form>
+          Pagamento vencido ({vencidosCount})
+        </Link>
+        <Link
+          href="/alunos?filtro=aguardando-confirmacao"
+          className={abaClasse(filtro === "aguardando-confirmacao")}
+        >
+          Aguardando confirmação ({aguardandoConfirmacaoCount})
+        </Link>
+      </div>
 
       <div className="overflow-x-auto rounded-lg border border-foreground/10">
         <table className="w-full text-left text-sm">
@@ -197,6 +111,7 @@ export default async function AlunosPage({
             <tr>
               <th className="px-4 py-3 font-medium">Nome</th>
               <th className="px-4 py-3 font-medium">Modalidade</th>
+              <th className="px-4 py-3 font-medium">Horário</th>
               <th className="px-4 py-3 font-medium">Faixa</th>
               <th className="px-4 py-3 font-medium">Pagamento</th>
               <th className="px-4 py-3 font-medium">Vencimento</th>
@@ -212,10 +127,15 @@ export default async function AlunosPage({
               >
                 <td className="px-4 py-3">{aluno.nome}</td>
                 <td className="px-4 py-3">{aluno.modalidade}</td>
+                <td className="px-4 py-3 whitespace-nowrap text-foreground/60">
+                  {aluno.agendaAulaReferencia
+                    ? `${DIA_SEMANA_LABEL[aluno.agendaAulaReferencia.diaSemana]} ${formatarHora(aluno.agendaAulaReferencia.horarioInicio)}`
+                    : "—"}
+                </td>
                 <td className="px-4 py-3">{aluno.graduacaoFaixa}</td>
                 <td className="px-4 py-3">
-                  <span className={statusBadgeClass(aluno.statusPagamento)}>
-                    {aluno.statusPagamento}
+                  <span className={statusBadgeClass(statusPagamentoEfetivo(aluno))}>
+                    {statusPagamentoEfetivo(aluno)}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -260,8 +180,12 @@ export default async function AlunosPage({
             ))}
             {alunos.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-foreground/50">
-                  Nenhum aluno cadastrado ainda.
+                <td colSpan={8} className="px-4 py-6 text-center text-foreground/50">
+                  {filtro === "vencidos"
+                    ? "Nenhum aluno com pagamento vencido."
+                    : filtro === "aguardando-confirmacao"
+                      ? "Nenhum aluno aguardando confirmação de pagamento."
+                      : "Nenhum aluno cadastrado ainda."}
                 </td>
               </tr>
             )}

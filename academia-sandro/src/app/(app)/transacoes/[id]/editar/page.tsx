@@ -82,6 +82,28 @@ export default async function EditarTransacaoPage({
               className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
             />
           </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Vencimento (opcional)
+            <input
+              name="dataVencimento"
+              type="date"
+              defaultValue={
+                transacao.dataVencimento
+                  ? toDateInputValue(transacao.dataVencimento)
+                  : ""
+              }
+              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Forma de pagamento (opcional)
+            <input
+              name="formaPagamento"
+              defaultValue={transacao.formaPagamento ?? ""}
+              placeholder="Ex: PIX"
+              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
+            />
+          </label>
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
             Aluno vinculado (opcional)
             <select

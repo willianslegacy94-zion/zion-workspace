@@ -2,6 +2,8 @@
 
 Projeto: Next.js 16 (App Router) + TypeScript + Tailwind CSS v4 + Prisma 7.8 + PostgreSQL (Supabase).
 
+**Domínio futuro (produção):** `sandrofreiresf.online`
+
 > ⚠️ Este projeto usa versões novas/breaking do Next.js, Tailwind e Prisma — ver `AGENTS.md` e `node_modules/next/dist/docs/` antes de assumir comportamento de versões antigas.
 
 ## Identidade visual

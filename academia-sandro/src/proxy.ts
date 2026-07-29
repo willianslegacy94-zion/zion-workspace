@@ -8,5 +8,7 @@ export const config = {
     "/agenda/:path*",
     "/despesas/:path*",
     "/pre-cadastros/:path*",
+    "/matriculas/:path*",
+    "/aluno/:path*",
   ],
 };

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Wallet } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
-import { createTransacao, deleteTransacao } from "./actions";
+import { limparComprovantesExpirados } from "@/lib/comprovantes";
+import { createTransacao, deleteTransacao, confirmarPagamento } from "./actions";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -10,6 +11,8 @@ const currency = new Intl.NumberFormat("pt-BR", {
 });
 
 export default async function TransacoesPage() {
+  await limparComprovantesExpirados();
+
   const [transacoes, alunos] = await Promise.all([
     prisma.transacaoFinanceira.findMany({
       orderBy: { dataTransacao: "desc" },
@@ -123,6 +126,7 @@ export default async function TransacoesPage() {
               <th className="px-4 py-3 font-medium">Categoria</th>
               <th className="px-4 py-3 font-medium">Aluno</th>
               <th className="px-4 py-3 font-medium">Valor</th>
+              <th className="px-4 py-3 font-medium">Comprovante</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -145,6 +149,34 @@ export default async function TransacoesPage() {
                 <td className="px-4 py-3">{t.categoria}</td>
                 <td className="px-4 py-3">{t.aluno?.nome ?? "—"}</td>
                 <td className="px-4 py-3">{currency.format(Number(t.valor))}</td>
+                <td className="px-4 py-3">
+                  {!t.comprovanteUrl ? (
+                    <span className="text-foreground/30">—</span>
+                  ) : t.confirmadoEm ? (
+                    <span className="rounded-full bg-success/15 px-2 py-1 text-xs font-medium text-success">
+                      Confirmado
+                    </span>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <a
+                        href={t.comprovanteUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-full bg-primary/15 px-2 py-1 text-xs font-medium text-primary hover:underline"
+                      >
+                        Ver
+                      </a>
+                      <form action={confirmarPagamento.bind(null, t.id)}>
+                        <button
+                          type="submit"
+                          className="rounded-full bg-success/15 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/25"
+                        >
+                          Confirmar
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-3">
                     <Link
@@ -164,7 +196,7 @@ export default async function TransacoesPage() {
             ))}
             {transacoes.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-foreground/50">
+                <td colSpan={7} className="px-4 py-6 text-center text-foreground/50">
                   Nenhuma transação registrada ainda.
                 </td>
               </tr>

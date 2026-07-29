@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   CalendarClock,
+  ClipboardCheck,
   LayoutDashboard,
   Lock,
   LogOut,
@@ -15,7 +16,8 @@ import {
   Wallet,
   X,
 } from "lucide-react";
-import { NotificacaoSino, type AlertaVencimento } from "./NotificacaoSino";
+import { NotificacaoSino } from "./NotificacaoSino";
+import type { Alertas } from "@/lib/alertas";
 
 type ItemMenu = {
   id: string;
@@ -31,7 +33,10 @@ type Grupo = {
   items: ItemMenu[];
 };
 
-function montarGrupos(preCadastrosPendentes: number): Grupo[] {
+function montarGrupos(
+  preCadastrosPendentes: number,
+  matriculasPendentes: number,
+): Grupo[] {
   return [
     {
       label: "Principal",
@@ -43,6 +48,14 @@ function montarGrupos(preCadastrosPendentes: number): Grupo[] {
           icon: LayoutDashboard,
         },
         { id: "alunos", label: "Alunos", href: "/alunos", icon: Users },
+        { id: "agenda", label: "Agenda", href: "/agenda", icon: CalendarClock },
+        {
+          id: "matriculas",
+          label: "Novas Matrículas",
+          href: "/matriculas",
+          icon: ClipboardCheck,
+          badge: matriculasPendentes || undefined,
+        },
         {
           id: "transacoes",
           label: "Transações",
@@ -64,37 +77,31 @@ function montarGrupos(preCadastrosPendentes: number): Grupo[] {
         },
       ],
     },
-    {
-      label: "Em breve",
-      items: [
-        {
-          id: "agenda",
-          label: "Agenda",
-          href: "/agenda",
-          icon: CalendarClock,
-          disabled: true,
-        },
-      ],
-    },
   ];
 }
 
 export function AppShell({
   username,
+  nome,
   logoutAction,
-  vencimentos,
+  alertas,
+  marcarAlertasComoLidos,
   preCadastrosPendentes,
+  matriculasPendentes,
   children,
 }: {
   username?: string;
+  nome?: string | null;
   logoutAction: () => Promise<void>;
-  vencimentos: AlertaVencimento[];
+  alertas: Alertas;
+  marcarAlertasComoLidos: () => Promise<void>;
   preCadastrosPendentes: number;
+  matriculasPendentes: number;
   children: React.ReactNode;
 }) {
   const [aberto, setAberto] = useState(false);
   const pathname = usePathname();
-  const GRUPOS = montarGrupos(preCadastrosPendentes);
+  const GRUPOS = montarGrupos(preCadastrosPendentes, matriculasPendentes);
 
   return (
     <div className="flex min-h-full">
@@ -115,10 +122,10 @@ export function AppShell({
         <div className="flex shrink-0 items-center justify-between border-b border-surface-border px-4 py-4">
           <Link href="/" onClick={() => setAberto(false)}>
             <p className="text-[9px] font-semibold uppercase tracking-[0.25em] text-secondary">
-              Academia
+              Centro de Treinamento
             </p>
             <p className="font-serif text-lg font-bold leading-tight tracking-widest text-gold-shimmer">
-              Prof. Sandro
+              Sandro Ferreira
             </p>
             <p className="mt-0.5 text-[9px] uppercase tracking-[0.3em] text-foreground/40">
               Sistema de Gestão
@@ -191,9 +198,10 @@ export function AppShell({
         </nav>
 
         <div className="shrink-0 border-t border-surface-border p-3">
-          {username && (
+          {(nome ?? username) && (
             <p className="mb-2 truncate px-3 text-xs text-foreground/40">
-              Logado como <span className="text-foreground/70">{username}</span>
+              Logado como{" "}
+              <span className="text-foreground/70">{nome ?? username}</span>
             </p>
           )}
           <form action={logoutAction}>
@@ -208,7 +216,7 @@ export function AppShell({
         </div>
       </aside>
 
-      <div className="flex min-h-full flex-1 flex-col lg:pl-64">
+      <div className="flex min-h-full min-w-0 flex-1 flex-col lg:pl-64">
         <div className="flex items-center justify-between gap-3 border-b border-surface-border px-4 py-3">
           <div className="flex items-center gap-3">
             <button
@@ -219,17 +227,22 @@ export function AppShell({
               <Menu size={20} />
             </button>
             <span className="text-sm font-semibold text-primary lg:hidden">
-              Academia Prof. Sandro
+              Centro de Treinamento
             </span>
+            {nome && (
+              <span className="hidden text-sm font-medium text-foreground/70 lg:block">
+                Bem-vindo, <span className="text-primary">{nome}</span>
+              </span>
+            )}
           </div>
 
           <NotificacaoSino
-            vencimentos={vencimentos}
-            preCadastrosPendentes={preCadastrosPendentes}
+            alertas={alertas}
+            marcarAlertasComoLidos={marcarAlertasComoLidos}
           />
         </div>
 
-        <main className="flex-1">{children}</main>
+        <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>
   );

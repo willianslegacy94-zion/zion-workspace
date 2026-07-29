@@ -12,3 +12,16 @@ export function diasParaVencer(dataVencimento: Date): number {
   const diffMs = venc.getTime() - hoje.getTime();
   return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }
+
+// O campo statusPagamento é setado manualmente e não se atualiza sozinho —
+// isso já causou tela mostrando "Em dia" pra aluno com vencimento no passado.
+// Sempre exibir esse valor derivado (data manda), nunca o campo bruto direto.
+export function statusPagamentoEfetivo(aluno: {
+  statusPagamento: string;
+  dataVencimento: Date | null;
+}): string {
+  if (aluno.dataVencimento && diasParaVencer(aluno.dataVencimento) < 0) {
+    return "Atrasado";
+  }
+  return aluno.statusPagamento;
+}

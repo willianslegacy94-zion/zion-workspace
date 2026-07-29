@@ -1,8 +1,8 @@
 import { auth, signOut } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { diasParaVencer } from "@/lib/vencimento";
+import { getAlertas } from "@/lib/alertas";
 import { AppShell } from "@/components/AppShell";
-import type { AlertaVencimento } from "@/components/NotificacaoSino";
+import { marcarAlertasComoLidos } from "./actions";
 
 export default async function AppLayout({
   children,
@@ -11,23 +11,21 @@ export default async function AppLayout({
 }) {
   const session = await auth();
 
-  const [alunosVencendo, preCadastrosPendentes] = await Promise.all([
-    prisma.aluno.findMany({
-      where: { dataVencimento: { not: null } },
-      select: { id: true, nome: true, telefone: true, dataVencimento: true },
-    }),
-    prisma.preCadastro.count({ where: { status: "Pendente" } }),
-  ]);
+  const [preCadastrosPendentes, matriculasPendentes, usuario] =
+    await Promise.all([
+      prisma.preCadastro.count({ where: { status: "Pendente" } }),
+      prisma.matricula.count({
+        where: { transacao: { comprovanteUrl: { not: null }, confirmadoEm: null } },
+      }),
+      session?.user?.id
+        ? prisma.usuario.findUnique({
+            where: { id: session.user.id },
+            select: { alertasLidosEm: true },
+          })
+        : Promise.resolve(null),
+    ]);
 
-  const vencimentos: AlertaVencimento[] = alunosVencendo
-    .map((a) => ({
-      id: a.id,
-      nome: a.nome,
-      telefone: a.telefone,
-      dias: diasParaVencer(a.dataVencimento as Date),
-    }))
-    .filter((a) => a.dias <= 3)
-    .sort((a, b) => a.dias - b.dias);
+  const alertas = await getAlertas(usuario?.alertasLidosEm ?? null);
 
   async function logout() {
     "use server";
@@ -37,9 +35,12 @@ export default async function AppLayout({
   return (
     <AppShell
       username={session?.user?.username}
+      nome={session?.user?.nome}
       logoutAction={logout}
-      vencimentos={vencimentos}
+      alertas={alertas}
+      marcarAlertasComoLidos={marcarAlertasComoLidos}
       preCadastrosPendentes={preCadastrosPendentes}
+      matriculasPendentes={matriculasPendentes}
     >
       {children}
     </AppShell>

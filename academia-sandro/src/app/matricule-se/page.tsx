@@ -1,4 +1,5 @@
-import { Dumbbell } from "lucide-react";
+import Image from "next/image";
+import { MODALIDADES } from "@/lib/modalidades";
 import { criarPreCadastro } from "./actions";
 
 export default async function MatriculeSePage({
@@ -11,18 +12,37 @@ export default async function MatriculeSePage({
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
       <div className="mb-8 text-center animate-fade-in">
-        <div className="mb-5 inline-flex h-14 w-14 items-center justify-center rounded-full border border-secondary/50 bg-primary/10">
-          <Dumbbell size={24} strokeWidth={1.5} className="text-primary" />
+        <div className="mb-6 flex flex-col items-center gap-5 sm:gap-6">
+          <Image
+            src="/logos/sandro-freire-personal.png"
+            alt="Sandro Freire Personal"
+            width={212}
+            height={160}
+            preload
+            className="h-16 w-auto object-contain drop-shadow-[0_4px_14px_rgba(212,175,55,0.25)] transition-transform duration-300 hover:scale-105 sm:h-20 md:h-24"
+          />
+          <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10">
+            <Image
+              src="/logos/capoeira-senzala.png"
+              alt="Capoeira Senzala"
+              width={140}
+              height={140}
+              preload
+              className="h-14 w-auto object-contain drop-shadow-[0_4px_14px_rgba(212,175,55,0.2)] transition-transform duration-300 hover:scale-105 sm:h-16 md:h-20"
+            />
+            <Image
+              src="/logos/matos-fight-team.png"
+              alt="Matos Fight Team"
+              width={140}
+              height={140}
+              preload
+              className="h-14 w-auto object-contain drop-shadow-[0_4px_14px_rgba(212,175,55,0.2)] transition-transform duration-300 hover:scale-105 sm:h-16 md:h-20"
+            />
+          </div>
         </div>
 
-        <div className="gold-divider mx-auto mb-1 w-48">
-          <span className="text-xs uppercase tracking-[0.35em] text-secondary">
-            Academia
-          </span>
-        </div>
-
-        <h1 className="font-serif text-4xl font-black leading-none tracking-widest text-gold-shimmer">
-          Prof. Sandro
+        <h1 className="font-serif text-3xl font-black leading-tight tracking-wide text-gold-shimmer sm:text-4xl">
+          Centro de Treinamento Sandro Ferreira
         </h1>
 
         <span className="mt-3 inline-block text-[10px] uppercase tracking-[0.3em] text-foreground/40">
@@ -58,6 +78,24 @@ export default async function MatriculeSePage({
                   autoFocus
                   className="input-dark w-full"
                 />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
+                  Modalidade de interesse
+                </label>
+                <select
+                  name="modalidadeInteresse"
+                  defaultValue=""
+                  className="input-dark w-full"
+                >
+                  <option value="">Ainda não sei / quero saber mais</option>
+                  {MODALIDADES.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

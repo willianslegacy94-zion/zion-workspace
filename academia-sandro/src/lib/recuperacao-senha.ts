@@ -43,6 +43,24 @@ export async function solicitarRecuperacao(emailBruto: string, origin: string) {
   };
 }
 
+export async function gerarLinkAcesso(
+  usuarioId: string,
+  origin: string,
+  diasValidade = 7,
+) {
+  const token = crypto.randomBytes(32).toString("hex");
+  const tokenExpiracao = new Date(
+    Date.now() + diasValidade * 24 * 60 * 60 * 1000,
+  );
+
+  await prisma.usuario.update({
+    where: { id: usuarioId },
+    data: { tokenRecuperacao: token, tokenExpiracao },
+  });
+
+  return `${origin}/resetar-senha?token=${token}`;
+}
+
 export async function resetarSenha(token: string, novaSenha: string) {
   if (!token || novaSenha.length < 6) {
     throw new RecuperacaoSenhaError(

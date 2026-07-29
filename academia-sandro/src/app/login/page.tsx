@@ -35,7 +35,15 @@ export default async function LoginPage({
   const { callbackUrl, erro } = await searchParams;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <Link
+        href="/matricule-se"
+        className="btn-gold fixed top-3 right-3 z-20 px-3 py-2 text-xs shadow-lg sm:top-5 sm:right-5 sm:px-5 sm:py-2.5 sm:text-sm"
+      >
+        <span className="sm:hidden">Cadastre-se</span>
+        <span className="hidden sm:inline">Ainda não é aluno? Cadastre-se</span>
+      </Link>
+
       {/* Topo ornamental */}
       <div className="mb-8 text-center animate-fade-in">
         <div className="mb-6 flex flex-col items-center gap-5 sm:gap-6">
