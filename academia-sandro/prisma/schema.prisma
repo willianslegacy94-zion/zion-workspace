@@ -173,6 +173,26 @@ model PreCadastro {
   @@map("pre_cadastros")
 }
 
+model ConfiguracaoAgenda {
+  id           String    @id @default("singleton")
+  almocoInicio DateTime? @db.Time
+  almocoFim    DateTime? @db.Time
+  atualizadoEm DateTime  @updatedAt
+
+  @@map("configuracao_agenda")
+}
+
+model BloqueioAgenda {
+  id         String   @id @default(uuid()) @db.Uuid
+  data       DateTime @db.Date
+  horaInicio DateTime @db.Time
+  horaFim    DateTime @db.Time
+  motivo     String?
+  createdAt  DateTime @default(now())
+
+  @@map("bloqueios_agenda")
+}
+
 enum Role {
   ADMIN
   ALUNO

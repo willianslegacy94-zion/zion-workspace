@@ -3,9 +3,11 @@ import { DIAS_GRADE, DIA_SEMANA_LABEL, type LinhaAgenda } from "@/lib/agenda";
 export function AgendaGrid({
   linhas,
   mostrarAlunos = false,
+  almoco,
 }: {
   linhas: LinhaAgenda[];
   mostrarAlunos?: boolean;
+  almoco?: { inicio: string; fim: string };
 }) {
   if (linhas.length === 0) {
     return (
@@ -94,9 +96,11 @@ export function AgendaGrid({
           ))}
         </tbody>
       </table>
-      <p className="border-t border-surface-border px-3 py-2 text-xs text-foreground/40">
-        Pausa para almoço: 12:00 – 13:00 (Musculação/Personal)
-      </p>
+      {almoco && (
+        <p className="border-t border-surface-border px-3 py-2 text-xs text-foreground/40">
+          Pausa para almoço: {almoco.inicio} – {almoco.fim}
+        </p>
+      )}
     </div>
   );
 }
