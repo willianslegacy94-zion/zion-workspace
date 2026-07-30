@@ -183,6 +183,7 @@ model Usuario {
   username         String    @unique
   email            String    @unique
   nome             String?
+  telefone         String?
   passwordHash     String
   role             Role      @default(ALUNO)
   senhaTemporaria  Boolean   @default(false)

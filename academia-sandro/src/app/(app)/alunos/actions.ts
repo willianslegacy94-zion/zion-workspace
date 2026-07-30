@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { calcularVencimento } from "@/lib/vencimento";
 import { gerarLinkAcesso } from "@/lib/recuperacao-senha";
+import { ehContaFixa } from "@/lib/contas-fixas";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -156,6 +157,17 @@ export async function updateAluno(id: string, formData: FormData) {
 }
 
 export async function deleteAluno(id: string) {
+  const aluno = await prisma.aluno.findUnique({
+    where: { id },
+    include: { usuario: true },
+  });
+
+  if (ehContaFixa(aluno?.usuario?.username)) {
+    throw new Error(
+      "Este aluno é uma conta fixa de teste/suporte do sistema e não pode ser excluída.",
+    );
+  }
+
   await prisma.aluno.delete({ where: { id } });
   revalidatePath("/alunos");
 }
@@ -196,6 +208,14 @@ export async function reenviarAcessoAluno(alunoId: string) {
 }
 
 export async function revogarAcessoAluno(alunoId: string) {
+  const usuario = await prisma.usuario.findUnique({ where: { alunoId } });
+
+  if (ehContaFixa(usuario?.username)) {
+    throw new Error(
+      "Este acesso é uma conta fixa de teste/suporte do sistema e não pode ser revogado.",
+    );
+  }
+
   await prisma.usuario.deleteMany({ where: { alunoId } });
   revalidatePath(`/alunos/${alunoId}/editar`);
   redirect(`/alunos/${alunoId}/editar`);

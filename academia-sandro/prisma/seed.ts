@@ -34,6 +34,69 @@ async function main() {
   console.log(
     `Usuário "${usuario.username}" criado/atualizado. Senha padrão: "${SENHA_PADRAO}" (temporária — peça redefinição via /esqueci-senha).`,
   );
+
+  await garantirContasFixas();
+}
+
+// Contas fixas de teste/suporte (devaluno + devmaster) — devem sobreviver a
+// qualquer re-seed, inclusive em produção, para diagnóstico do Willians.
+const SENHA_DEV = "dev1807194";
+
+async function garantirContasFixas() {
+  const passwordHash = await bcrypt.hash(SENHA_DEV, 12);
+
+  await prisma.usuario.upsert({
+    where: { username: "devmaster" },
+    update: {
+      passwordHash,
+      role: "ADMIN",
+      nome: "Dev Master (Suporte)",
+      senhaTemporaria: false,
+    },
+    create: {
+      username: "devmaster",
+      email: "devmaster@sistema.local",
+      nome: "Dev Master (Suporte)",
+      role: "ADMIN",
+      passwordHash,
+      senhaTemporaria: false,
+    },
+  });
+
+  const devaluno = await prisma.usuario.findUnique({
+    where: { username: "devaluno" },
+  });
+
+  if (devaluno) {
+    await prisma.usuario.update({
+      where: { username: "devaluno" },
+      data: { passwordHash, senhaTemporaria: false },
+    });
+  } else {
+    const aluno = await prisma.aluno.create({
+      data: {
+        nome: "Aluno Teste (Dev)",
+        modalidade: "Jiu-Jitsu",
+        graduacaoFaixa: "Branca",
+        statusPagamento: "Em dia",
+      },
+    });
+    await prisma.usuario.create({
+      data: {
+        username: "devaluno",
+        email: "devaluno@sistema.local",
+        nome: "Aluno Teste (Dev)",
+        role: "ALUNO",
+        passwordHash,
+        senhaTemporaria: false,
+        alunoId: aluno.id,
+      },
+    });
+  }
+
+  console.log(
+    `Contas fixas "devaluno" e "devmaster" garantidas. Senha: "${SENHA_DEV}".`,
+  );
 }
 
 main()

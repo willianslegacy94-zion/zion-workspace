@@ -11,6 +11,7 @@ import {
   LogOut,
   Menu,
   Receipt,
+  Settings,
   UserPlus,
   Users,
   Wallet,
@@ -74,6 +75,17 @@ function montarGrupos(
           href: "/pre-cadastros",
           icon: UserPlus,
           badge: preCadastrosPendentes || undefined,
+        },
+      ],
+    },
+    {
+      label: "Conta",
+      items: [
+        {
+          id: "configuracoes",
+          label: "Configurações",
+          href: "/configuracoes",
+          icon: Settings,
         },
       ],
     },

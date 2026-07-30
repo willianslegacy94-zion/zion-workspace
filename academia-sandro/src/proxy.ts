@@ -9,6 +9,7 @@ export const config = {
     "/despesas/:path*",
     "/pre-cadastros/:path*",
     "/matriculas/:path*",
+    "/configuracoes/:path*",
     "/aluno/:path*",
   ],
 };

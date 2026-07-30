@@ -12,6 +12,7 @@ const ADMIN_PATHS = [
   "/despesas",
   "/pre-cadastros",
   "/matriculas",
+  "/configuracoes",
 ];
 
 // Portal do aluno — exige role ALUNO.
