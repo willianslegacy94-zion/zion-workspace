@@ -204,6 +204,7 @@ model Usuario {
   email            String    @unique
   nome             String?
   telefone         String?
+  pix              String?
   passwordHash     String
   role             Role      @default(ALUNO)
   senhaTemporaria  Boolean   @default(false)

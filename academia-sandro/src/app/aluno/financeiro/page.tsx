@@ -51,8 +51,14 @@ export default async function AlunoFinanceiroPage() {
     redirect("/login");
   }
 
-  const parcelas = await getParcelas(alunoId);
-  const chavePix = process.env.PIX_KEY_CT?.trim();
+  const [parcelas, admin] = await Promise.all([
+    getParcelas(alunoId),
+    prisma.usuario.findUnique({
+      where: { username: process.env.ADMIN_USERNAME },
+      select: { pix: true },
+    }),
+  ]);
+  const chavePix = admin?.pix?.trim();
 
   return (
     <div className="flex flex-col gap-8">
