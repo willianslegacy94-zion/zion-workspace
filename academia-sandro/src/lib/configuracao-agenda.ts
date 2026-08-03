@@ -3,6 +3,12 @@ import { formatarHora } from "@/lib/agenda-constants";
 
 const SINGLETON_ID = "singleton";
 
+// Almoço nunca pode ficar "sem configurar" — antes do admin abrir a aba
+// Agenda pela 1ª vez (singleton ainda não existe), cai nesse default em vez
+// de null/null, senão caiNoAlmoco() não bloqueia nada e dá pra criar aula
+// bem no meio do almoço logo no primeiro deploy.
+const ALMOCO_DEFAULT = { almocoInicio: "12:00", almocoFim: "13:00" } as const;
+
 export type ConfiguracaoAgendaResumo = {
   almocoInicio: string | null;
   almocoFim: string | null;
@@ -13,9 +19,11 @@ export async function getConfiguracaoAgenda(): Promise<ConfiguracaoAgendaResumo>
     where: { id: SINGLETON_ID },
   });
 
+  if (!config) return { ...ALMOCO_DEFAULT };
+
   return {
-    almocoInicio: config?.almocoInicio ? formatarHora(config.almocoInicio) : null,
-    almocoFim: config?.almocoFim ? formatarHora(config.almocoFim) : null,
+    almocoInicio: config.almocoInicio ? formatarHora(config.almocoInicio) : null,
+    almocoFim: config.almocoFim ? formatarHora(config.almocoFim) : null,
   };
 }
 

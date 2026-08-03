@@ -1,12 +1,23 @@
 import Link from "next/link";
-import { CalendarClock, Clock, CalendarX, ListPlus, Tag, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  Clock,
+  CalendarX,
+  ListPlus,
+  Package,
+  Tag,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { getPrecosModalidade } from "@/lib/precos";
+import { getPrecosModalidade, getAlunosComPrecos, getPacotes } from "@/lib/precos";
 import { getConfiguracaoAgenda } from "@/lib/configuracao-agenda";
 import { getBloqueiosFuturos } from "@/lib/bloqueios-agenda";
 import { DIAS_GRADE, DIA_SEMANA_LABEL, formatarHora } from "@/lib/agenda-constants";
 import { MODALIDADES } from "@/lib/modalidades";
+import { CriarPacoteForm } from "@/components/CriarPacoteForm";
+import { WhatsappConexao } from "@/components/WhatsappConexao";
 import {
   atualizarCapacidadeAula,
   atualizarPerfil,
@@ -15,10 +26,27 @@ import {
   excluirAula,
   excluirBloqueio,
   salvarConfiguracaoAgenda,
-  salvarPrecosModalidade,
 } from "./actions";
+import {
+  atribuirAlunoPacote,
+  atualizarDescontoMembro,
+  atualizarMensalidadeAluno,
+  definirTitular,
+  excluirPacote,
+  removerMembroPacote,
+  salvarPrecosModalidade,
+} from "./precos-actions";
 
-type Aba = "perfil" | "agenda";
+type Aba = "perfil" | "agenda" | "precos" | "whatsapp";
+
+const moeda = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
+function labelPacote(tipo: string) {
+  return tipo === "FAMILIA" ? "Família" : "Combo modalidades";
+}
 
 function abaClasse(ativa: boolean) {
   const base = "rounded-full px-4 py-1.5 text-sm font-medium transition-colors";
@@ -59,6 +87,12 @@ export default async function ConfiguracoesPage({
         </Link>
         <Link href="/configuracoes?aba=agenda" className={abaClasse(aba === "agenda")}>
           Agenda
+        </Link>
+        <Link href="/configuracoes?aba=precos" className={abaClasse(aba === "precos")}>
+          Preços
+        </Link>
+        <Link href="/configuracoes?aba=whatsapp" className={abaClasse(aba === "whatsapp")}>
+          WhatsApp
         </Link>
       </div>
 
@@ -138,16 +172,35 @@ export default async function ConfiguracoesPage({
             </form>
           </div>
         </div>
-      ) : (
+      ) : aba === "agenda" ? (
         <AbaAgenda />
+      ) : aba === "precos" ? (
+        <AbaPrecos />
+      ) : (
+        <AbaWhatsapp />
       )}
     </div>
   );
 }
 
+function AbaWhatsapp() {
+  return (
+    <div className="flex w-full max-w-lg flex-col gap-4 rounded-lg border border-foreground/10 p-6">
+      <h2 className="text-lg font-semibold text-foreground">
+        Conexão do WhatsApp
+      </h2>
+      <p className="text-sm text-foreground/50">
+        Pareie o número do CT pra enviar automaticamente: avisos de bloqueio
+        de agenda pro aluno e avisos de agendamento de aula experimental pra
+        você, sem precisar clicar em nada.
+      </p>
+      <WhatsappConexao />
+    </div>
+  );
+}
+
 async function AbaAgenda() {
-  const [precos, configAgenda, bloqueios, aulas] = await Promise.all([
-    getPrecosModalidade(),
+  const [configAgenda, bloqueios, aulas] = await Promise.all([
     getConfiguracaoAgenda(),
     getBloqueiosFuturos(),
     prisma.agendaAula.findMany({
@@ -157,43 +210,6 @@ async function AbaAgenda() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-          <Tag size={18} className="text-primary" />
-          Preços por modalidade
-        </h2>
-        <p className="text-sm text-foreground/50">
-          Cobrado do aluno quando ele se matricula numa modalidade extra
-          (além da principal) pela aba Matrícula do portal dele.
-        </p>
-        <form action={salvarPrecosModalidade} className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {Object.entries(precos).map(([modalidade, valor]) => (
-              <label key={modalidade} className="flex flex-col gap-1 text-sm">
-                {modalidade}
-                <div className="flex items-center gap-1">
-                  <span className="text-foreground/40">R$</span>
-                  <input
-                    name={`preco_${modalidade}`}
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    defaultValue={valor}
-                    className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
-                  />
-                </div>
-              </label>
-            ))}
-          </div>
-          <button
-            type="submit"
-            className="self-start rounded-md bg-primary px-5 py-2 text-sm font-medium text-background transition-colors hover:bg-secondary"
-          >
-            Salvar preços
-          </button>
-        </form>
-      </div>
-
       <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
           <Clock size={18} className="text-primary" />
@@ -439,6 +455,386 @@ async function AbaAgenda() {
         <CalendarClock size={15} />
         Ver a grade completa em /agenda
       </Link>
+    </div>
+  );
+}
+
+async function AbaPrecos() {
+  const [precos, alunosComPrecos, pacotes, alunosSemPacote] = await Promise.all([
+    getPrecosModalidade(),
+    getAlunosComPrecos(),
+    getPacotes(),
+    prisma.aluno.findMany({
+      where: { pacoteMembro: null },
+      select: { id: true, nome: true, modalidade: true },
+      orderBy: { nome: "asc" },
+    }),
+  ]);
+
+  const pacotesCombo = pacotes.filter((p) => p.tipo === "COMBO_MODALIDADES");
+  const pacotesFamilia = pacotes.filter((p) => p.tipo === "FAMILIA");
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <Tag size={18} className="text-primary" />
+          Preços por modalidade
+        </h2>
+        <p className="text-sm text-foreground/50">
+          Valor padrão da modalidade — usado como base da mensalidade e
+          cobrado do aluno quando ele se matricula numa modalidade extra
+          (além da principal) pela aba Matrícula do portal dele.
+        </p>
+        <form action={salvarPrecosModalidade} className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {Object.entries(precos).map(([modalidade, valor]) => (
+              <label key={modalidade} className="flex flex-col gap-1 text-sm">
+                {modalidade}
+                <div className="flex items-center gap-1">
+                  <span className="text-foreground/40">R$</span>
+                  <input
+                    name={`preco_${modalidade}`}
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    defaultValue={valor}
+                    className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
+                  />
+                </div>
+              </label>
+            ))}
+          </div>
+          <button
+            type="submit"
+            className="self-start rounded-md bg-primary px-5 py-2 text-sm font-medium text-background transition-colors hover:bg-secondary"
+          >
+            Salvar preços
+          </button>
+        </form>
+      </div>
+
+      <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <Package size={18} className="text-primary" />
+          Pacotes Combo (aparecem pro aluno escolher)
+        </h2>
+        <p className="text-sm text-foreground/50">
+          Um único aluno que pratica 2+ modalidades, com desconto sobre o
+          valor total combinado. Crie sem vincular um aluno pra virar um
+          modelo de catálogo — ele aparece pro próprio aluno escolher no
+          autocadastro/matrícula. Quer atribuir manualmente depois? Use
+          &quot;Atribuir aluno&quot; no pacote sem integrante.
+        </p>
+
+        {pacotesCombo.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {pacotesCombo.map((pacote) => (
+              <div
+                key={pacote.id}
+                className="flex flex-col gap-3 rounded-md border border-foreground/10 p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-foreground">
+                      {pacote.nome}
+                    </span>
+                    {pacote.membros.length === 0 && (
+                      <span className="rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+                        Catálogo — sem aluno ainda
+                      </span>
+                    )}
+                  </div>
+                  <form action={excluirPacote.bind(null, pacote.id)}>
+                    <button
+                      type="submit"
+                      className="text-xs text-error hover:underline"
+                    >
+                      Excluir pacote
+                    </button>
+                  </form>
+                </div>
+
+                {pacote.membros.length === 0 ? (
+                  <form
+                    action={atribuirAlunoPacote.bind(null, pacote.id)}
+                    className="flex flex-wrap items-end gap-3"
+                  >
+                    <label className="flex flex-1 min-w-[200px] flex-col gap-1 text-xs text-foreground/60">
+                      Atribuir aluno
+                      <select
+                        name="alunoId"
+                        required
+                        defaultValue=""
+                        className="rounded-md border border-foreground/20 bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                      >
+                        <option value="" disabled>
+                          Selecione
+                        </option>
+                        {alunosSemPacote.map((aluno) => (
+                          <option key={aluno.id} value={aluno.id}>
+                            {aluno.nome} ({aluno.modalidade})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <button
+                      type="submit"
+                      className="rounded-md bg-primary px-4 py-2 text-xs font-medium text-background transition-colors hover:bg-secondary"
+                    >
+                      Atribuir
+                    </button>
+                  </form>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {pacote.membros.map((membro) => (
+                      <div
+                        key={membro.id}
+                        className="flex flex-wrap items-center gap-3 rounded-md bg-surface-hover px-3 py-2 text-sm"
+                      >
+                        <span className="flex-1 text-foreground">{membro.aluno.nome}</span>
+                        <form
+                          action={atualizarDescontoMembro.bind(null, membro.id)}
+                          className="flex items-center gap-1"
+                        >
+                          <input
+                            name="descontoPercentual"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            defaultValue={Number(membro.descontoPercentual)}
+                            className="w-20 rounded-md border border-foreground/20 bg-transparent px-2 py-1 outline-none focus:border-primary"
+                          />
+                          <button
+                            type="submit"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            salvar %
+                          </button>
+                        </form>
+                        <form action={removerMembroPacote.bind(null, membro.id)}>
+                          <button
+                            type="submit"
+                            aria-label="Remover integrante"
+                            className="text-foreground/40 transition-colors hover:text-error"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </form>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="rounded-md border border-dashed border-foreground/15 p-4">
+          <p className="mb-3 text-sm font-medium text-foreground">
+            Criar novo pacote combo
+          </p>
+          <CriarPacoteForm alunos={alunosSemPacote} tipoFixo="COMBO_MODALIDADES" />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <Users size={18} className="text-primary" />
+          Pacote Família (só admin monta)
+        </h2>
+        <p className="text-sm text-foreground/50">
+          Vários alunos diferentes, cada um com seu % de desconto na
+          mensalidade — só o titular tem login e vê a mensalidade de todos na
+          aba Financeiro dele. Sempre montado aqui pelo admin com os membros
+          já definidos; nunca aparece pro aluno escolher sozinho.
+        </p>
+
+        {pacotesFamilia.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {pacotesFamilia.map((pacote) => (
+              <div
+                key={pacote.id}
+                className="flex flex-col gap-3 rounded-md border border-foreground/10 p-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-foreground">{pacote.nome}</span>
+                  <form action={excluirPacote.bind(null, pacote.id)}>
+                    <button
+                      type="submit"
+                      className="text-xs text-error hover:underline"
+                    >
+                      Excluir pacote
+                    </button>
+                  </form>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  {pacote.membros.map((membro) => (
+                    <div
+                      key={membro.id}
+                      className="flex flex-wrap items-center gap-3 rounded-md bg-surface-hover px-3 py-2 text-sm"
+                    >
+                      <span className="flex-1 text-foreground">
+                        {membro.aluno.nome}
+                        {membro.titular && (
+                          <span className="ml-2 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-success">
+                            Titular
+                          </span>
+                        )}
+                      </span>
+
+                      <form
+                        action={atualizarDescontoMembro.bind(null, membro.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <input
+                          name="descontoPercentual"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          defaultValue={Number(membro.descontoPercentual)}
+                          className="w-20 rounded-md border border-foreground/20 bg-transparent px-2 py-1 outline-none focus:border-primary"
+                        />
+                        <button
+                          type="submit"
+                          className="text-xs text-primary hover:underline"
+                        >
+                          salvar %
+                        </button>
+                      </form>
+
+                      {!membro.titular && (
+                        <form
+                          action={definirTitular.bind(
+                            null,
+                            pacote.id,
+                            membro.alunoId,
+                          )}
+                        >
+                          <button
+                            type="submit"
+                            className="text-xs text-foreground/60 hover:underline"
+                          >
+                            tornar titular
+                          </button>
+                        </form>
+                      )}
+
+                      <form action={removerMembroPacote.bind(null, membro.id)}>
+                        <button
+                          type="submit"
+                          aria-label="Remover integrante"
+                          className="text-foreground/40 transition-colors hover:text-error"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </form>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="rounded-md border border-dashed border-foreground/15 p-4">
+          <p className="mb-3 text-sm font-medium text-foreground">
+            Criar novo pacote família
+          </p>
+          <CriarPacoteForm alunos={alunosSemPacote} tipoFixo="FAMILIA" />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+          <Tag size={18} className="text-primary" />
+          Preço individual dos alunos
+        </h2>
+        <p className="text-sm text-foreground/50">
+          Override do valor de mensalidade por aluno — útil quando 2 alunos
+          da mesma modalidade pagam valores diferentes. Vazio = usa o preço
+          padrão da modalidade.
+        </p>
+
+        <div className="overflow-x-auto rounded-lg border border-surface-border">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="border-b border-surface-border text-foreground/60">
+              <tr>
+                <th className="px-4 py-3 font-medium">Nome</th>
+                <th className="px-4 py-3 font-medium">Modalidade</th>
+                <th className="px-4 py-3 font-medium">Preço padrão</th>
+                <th className="px-4 py-3 font-medium">Override</th>
+                <th className="px-4 py-3 font-medium">Pacote</th>
+                <th className="px-4 py-3 font-medium">Valor efetivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {alunosComPrecos.map((aluno) => (
+                <tr
+                  key={aluno.id}
+                  className="border-b border-surface-border last:border-0"
+                >
+                  <td className="px-4 py-3 text-foreground">{aluno.nome}</td>
+                  <td className="px-4 py-3 text-foreground/70">
+                    {aluno.modalidade}
+                  </td>
+                  <td className="px-4 py-3 text-foreground/70">
+                    {moeda.format(aluno.precoPadrao)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <form
+                      action={atualizarMensalidadeAluno.bind(null, aluno.id)}
+                      className="flex items-center gap-1"
+                    >
+                      <input
+                        name="mensalidadeValor"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="—"
+                        defaultValue={aluno.mensalidadeValor ?? ""}
+                        className="w-24 rounded-md border border-foreground/20 bg-transparent px-2 py-1 outline-none focus:border-primary"
+                      />
+                      <button
+                        type="submit"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        salvar
+                      </button>
+                    </form>
+                  </td>
+                  <td className="px-4 py-3 text-foreground/70">
+                    {aluno.pacoteNome ? (
+                      <>
+                        {aluno.pacoteNome}{" "}
+                        <span className="text-foreground/40">
+                          ({labelPacote(aluno.pacoteTipo!)},{" "}
+                          {aluno.descontoPercentual}%)
+                        </span>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-medium text-primary">
+                    {moeda.format(aluno.valorEfetivo)}
+                  </td>
+                </tr>
+              ))}
+              {alunosComPrecos.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-foreground/50">
+                    Nenhum aluno cadastrado ainda.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

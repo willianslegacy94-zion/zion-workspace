@@ -137,7 +137,7 @@ export function AppShell({
               Centro de Treinamento
             </p>
             <p className="font-serif text-lg font-bold leading-tight tracking-widest text-gold-shimmer">
-              Sandro Ferreira
+              Sandro Freire
             </p>
             <p className="mt-0.5 text-[9px] uppercase tracking-[0.3em] text-foreground/40">
               Sistema de Gestão

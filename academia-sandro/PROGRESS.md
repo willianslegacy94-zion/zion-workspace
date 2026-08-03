@@ -68,6 +68,52 @@ Your database is now in sync with your schema.
 ## Próximos passos
 
 - [x] Rodar `npx prisma migrate dev --name init-aluno-transacao` e confirmar que a migração aplica no Supabase
-- [ ] Rotacionar a senha do banco no Supabase (pendente por segurança — a senha real apareceu em texto puro múltiplas vezes nesta conversa)
+- [ ] Rotacionar a senha do banco no Supabase (pendente por segurança — a senha real apareceu em texto puro múltiplas vezes nesta conversa). Decisão do responsável (2026-08-03): manter por ora, revisitar depois.
 - [x] Apagar os scripts de diagnóstico deixados na raiz do projeto: `test-pg.js`, `test-pg-tls.js`, `test-pg-cert.js` (não fazem parte do app)
 - [ ] Seguir com a implementação (telas de Aluno / Transação Financeira, etc.)
+
+## Deploy em produção (2026-08-03)
+
+Domínio comprado (`sandrofreiresf.online`, na Hostinger) e VPS Hostinger com
+Docker já contratados. Infra de deploy criada:
+
+- `next.config.ts`: `output: "standalone"` (build enxuto pro Docker)
+- `Dockerfile`: multi-stage (deps → builder → runner), Node 22 Alpine. Como o
+  projeto usa `@prisma/adapter-pg` (driver adapter), não precisa da engine
+  nativa do Prisma no runtime — só o driver `pg` puro.
+- `docker-compose.yml`: serviço `app` (runner) publicado só em
+  `127.0.0.1:3010` + `migrate` e `seed` (one-off, rodam no stage `builder`
+  que tem o Prisma CLI/tsx completos)
+- `.env.production.example`: template pro `.env.production` do VPS (não
+  versionado)
+- Volume Docker nomeado `comprovantes` montado em `/app/public/comprovantes`
+  — sem isso, os comprovantes enviados pelos alunos seriam perdidos a cada
+  rebuild/redeploy do container (o `public/` da imagem standalone é
+  reconstruído do zero a cada build)
+- `DEPLOY.md`: passo a passo completo (DNS na Hostinger, rsync do projeto pro
+  VPS, build/migrate/seed/up, nginx do host, Certbot, deploys seguintes, cron
+  opcional de limpeza de comprovantes)
+
+**Importante — a VPS Hostinger é compartilhada** com outros sistemas
+(VillaMill, Thieco Leandro, evolution, cortex, quasar). Portas 80/443 são
+ocupadas por um **nginx no host** (não containerizado), que roteia por
+domínio pra cada app e cuida do TLS via Certbot. Por isso o projeto **não**
+sobe seu próprio Caddy/reverse proxy (removido do `docker-compose.yml`) — só
+publica `127.0.0.1:3010`, e o nginx do host tem um `server{}` block próprio
+em `/etc/nginx/sites-available/academia-sandro`. Qualquer app novo nessa VPS
+precisa seguir o mesmo padrão (porta livre em loopback + site no nginx do
+host), nunca abrir 80/443 direto num container.
+
+Durante esse deploy também foi removido da VPS o sistema `orbita-lobo`
+(domínio `depositolobo.online`, containers `orbita-lobo-web/api/proxy`,
+pasta `/root/orbita-lobo`) — decisão do responsável, não era mais usado.
+
+## Deploy concluído (2026-08-03)
+
+`https://sandrofreiresf.online` e `https://www.sandrofreiresf.online` no ar,
+com certificado Let's Encrypt válido até 2026-11-01 (renovação automática via
+Certbot) e redirect HTTP→HTTPS ativo. Build/migrate/seed rodados no VPS,
+migrations já estavam em dia (mesmo banco Supabase de dev). Usuário admin
+`sandro` criado com senha temporária `academia2026` e e-mail placeholder
+(`sandro@sandrofreiresf.online`) — pendente: Sandro trocar e-mail real e
+senha, e cadastrar a chave PIX, tudo via tela de Configurações.

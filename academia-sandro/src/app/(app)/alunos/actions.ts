@@ -1,11 +1,10 @@
 "use server";
 
-import crypto from "node:crypto";
-import bcrypt from "bcryptjs";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { calcularVencimento } from "@/lib/vencimento";
 import { gerarLinkAcesso } from "@/lib/recuperacao-senha";
+import { gerarUsernameUnico, criarUsuarioAluno } from "@/lib/acesso-portal";
 import { ehContaFixa } from "@/lib/contas-fixas";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -25,48 +24,26 @@ function dataOpcional(formData: FormData, nome: string) {
   return valor ? new Date(valor) : null;
 }
 
-async function gerarUsernameUnico(nome: string): Promise<string> {
-  const partes = nome
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim()
-    .split(/\s+/);
-  const base = `${partes[0]}.${partes[partes.length - 1]}`;
+// Lê o pacoteId/descontoPercentual do form e sincroniza o vínculo do aluno
+// com um Pacote — "Nenhum" (pacoteId vazio) remove o vínculo existente.
+async function sincronizarPacoteAluno(alunoId: string, formData: FormData) {
+  const pacoteId = campoOpcional(formData, "pacoteId");
 
-  let candidato = base;
-  let sufixo = 1;
-  while (await prisma.usuario.findUnique({ where: { username: candidato } })) {
-    sufixo++;
-    candidato = `${base}${sufixo}`;
+  if (!pacoteId) {
+    await prisma.pacoteMembro.deleteMany({ where: { alunoId } });
+    return;
   }
-  return candidato;
-}
 
-async function criarUsuarioAluno({
-  alunoId,
-  username,
-  email,
-}: {
-  alunoId: string;
-  username: string;
-  email: string;
-}) {
-  const senhaAleatoria = crypto.randomBytes(24).toString("hex");
-  const passwordHash = await bcrypt.hash(senhaAleatoria, 12);
+  const descontoRaw = String(formData.get("descontoPercentual") ?? "0")
+    .trim()
+    .replace(",", ".");
+  const descontoPercentual = Number(descontoRaw) || 0;
 
-  const usuario = await prisma.usuario.create({
-    data: {
-      username,
-      email,
-      passwordHash,
-      role: "ALUNO",
-      senhaTemporaria: true,
-      alunoId,
-    },
+  await prisma.pacoteMembro.upsert({
+    where: { alunoId },
+    update: { pacoteId, descontoPercentual },
+    create: { alunoId, pacoteId, descontoPercentual, titular: false },
   });
-
-  return gerarLinkAcesso(usuario.id, await origemAtual());
 }
 
 export async function createAluno(formData: FormData) {
@@ -81,6 +58,9 @@ export async function createAluno(formData: FormData) {
 
   if (!nome || !modalidade || !graduacaoFaixa || !statusPagamento) {
     throw new Error("Preencha todos os campos obrigatórios.");
+  }
+  if (!agendaAulaReferenciaId) {
+    throw new Error("Escolha um horário pro aluno — não é permitido deixar em aberto.");
   }
 
   const dataMatricula = new Date();
@@ -103,6 +83,8 @@ export async function createAluno(formData: FormData) {
     },
   });
 
+  await sincronizarPacoteAluno(aluno.id, formData);
+
   if (preCadastroId) {
     await prisma.preCadastro.update({
       where: { id: preCadastroId },
@@ -112,10 +94,16 @@ export async function createAluno(formData: FormData) {
 
   revalidatePath("/alunos");
   revalidatePath("/pre-cadastros");
+  revalidatePath("/configuracoes");
 
   if (email) {
     const username = await gerarUsernameUnico(nome);
-    const link = await criarUsuarioAluno({ alunoId: aluno.id, username, email });
+    const link = await criarUsuarioAluno({
+      alunoId: aluno.id,
+      username,
+      email,
+      origin: await origemAtual(),
+    });
     redirect(
       `/alunos/${aluno.id}/editar?acessoLink=${encodeURIComponent(link)}`,
     );
@@ -130,9 +118,13 @@ export async function updateAluno(id: string, formData: FormData) {
   const graduacaoFaixa = String(formData.get("graduacaoFaixa") ?? "").trim();
   const statusPagamento = String(formData.get("statusPagamento") ?? "").trim();
   const aptoExame = formData.get("aptoExame") === "on";
+  const agendaAulaReferenciaId = campoOpcional(formData, "agendaAulaReferenciaId");
 
   if (!nome || !modalidade || !graduacaoFaixa || !statusPagamento) {
     throw new Error("Preencha todos os campos obrigatórios.");
+  }
+  if (!agendaAulaReferenciaId) {
+    throw new Error("Escolha um horário pro aluno — não é permitido deixar em aberto.");
   }
 
   await prisma.aluno.update({
@@ -148,12 +140,33 @@ export async function updateAluno(id: string, formData: FormData) {
       cidade: campoOpcional(formData, "cidade"),
       lesoes: campoOpcional(formData, "lesoes"),
       dataNascimento: dataOpcional(formData, "dataNascimento"),
-      agendaAulaReferenciaId: campoOpcional(formData, "agendaAulaReferenciaId"),
+      dataVencimento: dataOpcional(formData, "dataVencimento"),
+      agendaAulaReferenciaId,
     },
   });
 
+  await sincronizarPacoteAluno(id, formData);
+
   revalidatePath("/alunos");
+  revalidatePath("/aluno/financeiro");
+  revalidatePath("/configuracoes");
   redirect("/alunos");
+}
+
+export async function atualizarVencimentoMatricula(matriculaId: string, formData: FormData) {
+  const dataVencimentoBase = dataOpcional(formData, "dataVencimentoBase");
+  if (!dataVencimentoBase) {
+    throw new Error("Informe a data de vencimento.");
+  }
+
+  const matricula = await prisma.matricula.update({
+    where: { id: matriculaId },
+    data: { dataVencimentoBase },
+    select: { alunoId: true },
+  });
+
+  revalidatePath(`/alunos/${matricula.alunoId}/editar`);
+  revalidatePath("/aluno/financeiro");
 }
 
 export async function deleteAluno(id: string) {
@@ -182,7 +195,12 @@ export async function criarAcessoAluno(alunoId: string, formData: FormData) {
     throw new Error("Informe usuário e e-mail para criar o acesso.");
   }
 
-  const link = await criarUsuarioAluno({ alunoId, username, email });
+  const link = await criarUsuarioAluno({
+    alunoId,
+    username,
+    email,
+    origin: await origemAtual(),
+  });
 
   revalidatePath(`/alunos/${alunoId}/editar`);
   redirect(

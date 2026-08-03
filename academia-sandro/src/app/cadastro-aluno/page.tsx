@@ -1,14 +1,25 @@
 import Image from "next/image";
-import { MODALIDADES } from "@/lib/modalidades";
-import { TermosAceite } from "@/components/TermosAceite";
-import { criarPreCadastro } from "./actions";
+import Link from "next/link";
+import { getHorariosParaSelecao } from "@/lib/agenda";
+import { getPacotesComboDisponiveis } from "@/lib/precos";
+import { SeletorModalidadesMultiplas } from "@/components/SeletorModalidadesMultiplas";
+import { criarAlunoAutocadastro } from "./actions";
 
-export default async function MatriculeSePage({
+export default async function CadastroAlunoPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sucesso?: string }>;
+  searchParams: Promise<{ sucesso?: string; acessoLink?: string; erro?: string }>;
 }) {
-  const { sucesso } = await searchParams;
+  const { sucesso, acessoLink, erro } = await searchParams;
+  const [horarios, pacotesComboDb] = await Promise.all([
+    getHorariosParaSelecao(),
+    getPacotesComboDisponiveis(),
+  ]);
+  const pacotesCombo = pacotesComboDb.map((p) => ({
+    id: p.id,
+    nome: p.nome,
+    descontoPadrao: p.descontoPadrao ? Number(p.descontoPadrao) : null,
+  }));
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
@@ -47,28 +58,46 @@ export default async function MatriculeSePage({
         </h1>
 
         <span className="mt-3 inline-block text-[10px] uppercase tracking-[0.3em] text-foreground/40">
-          Matricule-se
+          Cadastro de aluno ativo
         </span>
       </div>
 
       <div className="card-premium w-full max-w-sm animate-slide-up p-8">
-        {sucesso ? (
-          <div className="text-center">
-            <h2 className="mb-2 font-serif text-lg font-bold text-primary">
-              Cadastro recebido!
+        {sucesso && acessoLink ? (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <h2 className="font-serif text-lg font-bold text-primary">
+              Cadastro feito!
             </h2>
             <p className="text-sm text-foreground/70">
-              Em breve entraremos em contato para confirmar sua matrícula.
+              Seu acesso ao portal já está liberado. Defina sua senha pra
+              acompanhar sua agenda e financeiro.
             </p>
+            <a href={acessoLink} className="btn-gold w-full">
+              Definir minha senha
+            </a>
           </div>
         ) : (
           <>
             <h2 className="mb-1 text-center font-serif text-lg font-bold text-primary">
-              Faça parte da equipe
+              Já treina com a gente?
             </h2>
+            <p className="mb-4 text-center text-xs text-foreground/50">
+              Esse cadastro é pra quem já é aluno ativo e ainda não está no
+              sistema. Se você quer conhecer o CT, use o link de
+              pré-matrícula.
+            </p>
             <div className="mb-6 h-px bg-gradient-to-r from-transparent via-secondary/40 to-transparent" />
 
-            <form action={criarPreCadastro} className="flex flex-col gap-4">
+            {erro && (
+              <p className="mb-4 rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-center text-xs text-error animate-fade-in">
+                {erro}
+              </p>
+            )}
+
+            <form
+              action={criarAlunoAutocadastro}
+              className="flex flex-col gap-4"
+            >
               <div>
                 <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
                   Nome
@@ -81,48 +110,7 @@ export default async function MatriculeSePage({
                 />
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
-                  Modalidade de interesse
-                </label>
-                <select
-                  name="modalidadeInteresse"
-                  defaultValue=""
-                  className="input-dark w-full"
-                >
-                  <option value="">Ainda não sei / quero saber mais</option>
-                  {MODALIDADES.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
-                    Idade
-                  </label>
-                  <input
-                    name="idade"
-                    type="number"
-                    min="0"
-                    max="120"
-                    className="input-dark w-full"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
-                    Nascimento
-                  </label>
-                  <input
-                    name="dataNascimento"
-                    type="date"
-                    className="input-dark w-full"
-                  />
-                </div>
-              </div>
+              <SeletorModalidadesMultiplas horarios={horarios} pacotesCombo={pacotesCombo} />
 
               <div>
                 <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
@@ -140,14 +128,34 @@ export default async function MatriculeSePage({
                 <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
                   E-mail
                 </label>
-                <input name="email" type="email" className="input-dark w-full" />
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  className="input-dark w-full"
+                />
+                <p className="mt-1 text-xs text-foreground/40">
+                  Usado pra liberar seu acesso ao portal.
+                </p>
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
-                  Cidade
-                </label>
-                <input name="cidade" className="input-dark w-full" />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
+                    Nascimento
+                  </label>
+                  <input
+                    name="dataNascimento"
+                    type="date"
+                    className="input-dark w-full"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
+                    Cidade
+                  </label>
+                  <input name="cidade" className="input-dark w-full" />
+                </div>
               </div>
 
               <div>
@@ -162,27 +170,18 @@ export default async function MatriculeSePage({
                 />
               </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs uppercase tracking-wider text-foreground/50">
-                  Data para aula experimental (opcional)
-                </label>
-                <input
-                  name="dataAulaExperimental"
-                  type="date"
-                  className="input-dark w-full"
-                />
-                <p className="mt-1 text-xs text-foreground/40">
-                  Se escolher uma data, avisamos a equipe automaticamente.
-                </p>
-              </div>
-
-              <TermosAceite />
-
               <button type="submit" className="btn-gold mt-2 w-full">
                 <span aria-hidden="true">🥋</span>
-                Enviar cadastro
+                Concluir cadastro
               </button>
             </form>
+
+            <Link
+              href="/matricule-se"
+              className="mt-4 block text-center text-xs text-foreground/40 hover:text-primary"
+            >
+              Ainda não é aluno? Faça a pré-matrícula
+            </Link>
           </>
         )}
       </div>

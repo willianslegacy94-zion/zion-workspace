@@ -14,13 +14,24 @@ const moeda = new Intl.NumberFormat("pt-BR", {
 export default async function MatriculasPage() {
   await limparComprovantesExpirados();
 
+  // "Nova matrícula" = nunca teve nenhuma transação confirmada ainda (não é
+  // mais 1:1 — cada modalidade extra pode acumular 1 transação por mês, ver
+  // Matricula.transacoes). Uma parcela futura pendente de uma modalidade já
+  // confirmada antes não deve reaparecer aqui.
   const matriculas = await prisma.matricula.findMany({
-    where: { transacao: { confirmadoEm: null } },
+    where: {
+      transacoes: {
+        some: { confirmadoEm: null },
+        none: { confirmadoEm: { not: null } },
+      },
+    },
     orderBy: { criadoEm: "desc" },
     include: {
       aluno: { select: { nome: true } },
       agendaAula: { select: { modalidade: true, diaSemana: true, horarioInicio: true } },
-      transacao: {
+      transacoes: {
+        orderBy: { dataTransacao: "asc" },
+        take: 1,
         select: {
           id: true,
           valor: true,
@@ -53,61 +64,64 @@ export default async function MatriculasPage() {
             </tr>
           </thead>
           <tbody>
-            {matriculas.map((m) => (
-              <tr
-                key={m.id}
-                className="border-b border-surface-border last:border-0"
-              >
-                <td className="px-4 py-3">{m.aluno.nome}</td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  {m.agendaAula.modalidade} —{" "}
-                  {DIA_SEMANA_LABEL[m.agendaAula.diaSemana]}{" "}
-                  {formatarHora(m.agendaAula.horarioInicio)}
-                </td>
-                <td className="px-4 py-3">
-                  {m.transacao?.formaPagamento ?? "—"}
-                </td>
-                <td className="px-4 py-3">
-                  {m.transacao ? moeda.format(Number(m.transacao.valor)) : "—"}
-                </td>
-                <td className="px-4 py-3">
-                  {!m.transacao?.comprovanteUrl ? (
-                    <span className="rounded-full bg-warning/15 px-2 py-1 text-xs font-medium text-warning">
-                      Aguardando comprovante
-                    </span>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <a
-                        href={m.transacao.comprovanteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-full bg-primary/15 px-2 py-1 text-xs font-medium text-primary hover:underline"
-                      >
-                        Ver comprovante
-                      </a>
-                      <form action={confirmarPagamento.bind(null, m.transacao.id)}>
-                        <button
-                          type="submit"
-                          className="rounded-full bg-success/15 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/25"
+            {matriculas.map((m) => {
+              const transacao = m.transacoes[0];
+              return (
+                <tr
+                  key={m.id}
+                  className="border-b border-surface-border last:border-0"
+                >
+                  <td className="px-4 py-3">{m.aluno.nome}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {m.agendaAula.modalidade} —{" "}
+                    {DIA_SEMANA_LABEL[m.agendaAula.diaSemana]}{" "}
+                    {formatarHora(m.agendaAula.horarioInicio)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {transacao?.formaPagamento ?? "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {transacao ? moeda.format(Number(transacao.valor)) : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {!transacao?.comprovanteUrl ? (
+                      <span className="rounded-full bg-warning/15 px-2 py-1 text-xs font-medium text-warning">
+                        Aguardando comprovante
+                      </span>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <a
+                          href={transacao.comprovanteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-full bg-primary/15 px-2 py-1 text-xs font-medium text-primary hover:underline"
                         >
-                          Confirmar pagamento
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {m.transacao && (
-                    <Link
-                      href={`/transacoes/${m.transacao.id}/editar`}
-                      className="text-primary hover:underline"
-                    >
-                      Editar cobrança
-                    </Link>
-                  )}
-                </td>
-              </tr>
-            ))}
+                          Ver comprovante
+                        </a>
+                        <form action={confirmarPagamento.bind(null, transacao.id)}>
+                          <button
+                            type="submit"
+                            className="rounded-full bg-success/15 px-2 py-1 text-xs font-medium text-success transition-colors hover:bg-success/25"
+                          >
+                            Confirmar pagamento
+                          </button>
+                        </form>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {transacao && (
+                      <Link
+                        href={`/transacoes/${transacao.id}/editar`}
+                        className="text-primary hover:underline"
+                      >
+                        Editar cobrança
+                      </Link>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
             {matriculas.length === 0 && (
               <tr>
                 <td

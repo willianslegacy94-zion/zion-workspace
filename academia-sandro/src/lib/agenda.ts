@@ -43,7 +43,7 @@ export async function getAgendaGrade(): Promise<LinhaAgenda[]> {
         matriculas: {
           include: {
             aluno: { select: { id: true, nome: true } },
-            transacao: { select: { confirmadoEm: true } },
+            transacoes: { select: { confirmadoEm: true } },
           },
         },
       },
@@ -74,7 +74,10 @@ export async function getAgendaGrade(): Promise<LinhaAgenda[]> {
       roster.set(matricula.aluno.id, {
         id: matricula.aluno.id,
         nome: matricula.aluno.nome,
-        pendente: !matricula.transacao?.confirmadoEm,
+        // Uma vez que qualquer transação dessa matrícula já foi confirmada
+        // (mesmo que meses atrás), o acesso fica liberado — parcela futura
+        // pendente não derruba o aluno de volta pra "pendente".
+        pendente: !matricula.transacoes.some((t) => t.confirmadoEm),
       });
     }
 

@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { UserPlus, Users } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { diasParaVencer, statusPagamentoEfetivo } from "@/lib/vencimento";
 import { mensagemCobranca, montarLinkWhatsapp } from "@/lib/whatsapp";
 import { PageHeader } from "@/components/PageHeader";
+import { CopiarLink } from "@/components/CopiarLink";
 import { DIA_SEMANA_LABEL, formatarHora } from "@/lib/agenda";
 import { deleteAluno } from "./actions";
 
@@ -58,12 +60,18 @@ export default async function AlunosPage({
 }) {
   const { filtro } = await searchParams;
 
+  const hdrs = await headers();
+  const origem = `${hdrs.get("x-forwarded-proto") ?? "http"}://${hdrs.get("host")}`;
+
   const [alunos, totalCount, vencidosCount, aguardandoConfirmacaoCount] =
     await Promise.all([
       prisma.aluno.findMany({
         where: whereDoFiltro(filtro),
         orderBy: { dataMatricula: "desc" },
-        include: { agendaAulaReferencia: true },
+        include: {
+          agendaAulaReferencia: true,
+          matriculas: { include: { agendaAula: { select: { modalidade: true } } } },
+        },
       }),
       prisma.aluno.count(),
       prisma.aluno.count({ where: WHERE_VENCIDOS }),
@@ -86,6 +94,8 @@ export default async function AlunosPage({
           </Link>
         }
       />
+
+      <CopiarLink url={`${origem}/cadastro-aluno`} />
 
       <div className="flex flex-wrap gap-2">
         <Link href="/alunos" className={abaClasse(!filtro)}>
@@ -126,7 +136,22 @@ export default async function AlunosPage({
                 className="border-b border-foreground/5 last:border-0"
               >
                 <td className="px-4 py-3">{aluno.nome}</td>
-                <td className="px-4 py-3">{aluno.modalidade}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span>{aluno.modalidade}</span>
+                    {Array.from(
+                      new Set(aluno.matriculas.map((m) => m.agendaAula.modalidade)),
+                    ).map((modalidadeExtra) => (
+                      <span
+                        key={modalidadeExtra}
+                        title="Modalidade extra"
+                        className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary"
+                      >
+                        + {modalidadeExtra}
+                      </span>
+                    ))}
+                  </div>
+                </td>
                 <td className="px-4 py-3 whitespace-nowrap text-foreground/60">
                   {aluno.agendaAulaReferencia
                     ? `${DIA_SEMANA_LABEL[aluno.agendaAulaReferencia.diaSemana]} ${formatarHora(aluno.agendaAulaReferencia.horarioInicio)}`

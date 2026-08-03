@@ -42,7 +42,7 @@ export async function getAlertas(alertasLidosEm: Date | null): Promise<Alertas> 
     }),
     prisma.matricula.findMany({
       where: {
-        transacao: { comprovanteUrl: { not: null }, confirmadoEm: null },
+        transacoes: { some: { comprovanteUrl: { not: null }, confirmadoEm: null } },
       },
       select: {
         id: true,

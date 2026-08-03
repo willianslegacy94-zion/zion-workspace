@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       prisma.despesa.findMany(),
       prisma.preCadastro.count({ where: { status: "Pendente" } }),
       prisma.matricula.count({
-        where: { transacao: { comprovanteUrl: { not: null }, confirmadoEm: null } },
+        where: { transacoes: { some: { comprovanteUrl: { not: null }, confirmadoEm: null } } },
       }),
     ]);
   const nome = session?.user?.nome;

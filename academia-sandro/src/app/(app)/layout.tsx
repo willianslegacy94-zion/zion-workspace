@@ -15,7 +15,7 @@ export default async function AppLayout({
     await Promise.all([
       prisma.preCadastro.count({ where: { status: "Pendente" } }),
       prisma.matricula.count({
-        where: { transacao: { comprovanteUrl: { not: null }, confirmadoEm: null } },
+        where: { transacoes: { some: { comprovanteUrl: { not: null }, confirmadoEm: null } } },
       }),
       session?.user?.id
         ? prisma.usuario.findUnique({

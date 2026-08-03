@@ -46,10 +46,10 @@ export default async function PreCadastrosPage() {
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-3">
                     <Link
-                      href={`/alunos/novo?preCadastroId=${pc.id}`}
+                      href={`/pre-cadastros/${pc.id}`}
                       className="text-primary hover:underline"
                     >
-                      Aprovar
+                      Ver ficha
                     </Link>
                     <form action={rejeitarPreCadastro.bind(null, pc.id)}>
                       <button

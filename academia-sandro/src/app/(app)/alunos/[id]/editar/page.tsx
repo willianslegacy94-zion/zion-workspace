@@ -3,15 +3,22 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { montarLinkWhatsapp, mensagemAcessoPortal } from "@/lib/whatsapp";
 import { getHorariosParaSelecao } from "@/lib/agenda";
+import { getPacotes } from "@/lib/precos";
 import { SeletorModalidadeHorario } from "@/components/SeletorModalidadeHorario";
+import { DIA_SEMANA_LABEL, formatarHora } from "@/lib/agenda-constants";
 import {
   updateAluno,
   criarAcessoAluno,
   reenviarAcessoAluno,
   revogarAcessoAluno,
+  atualizarVencimentoMatricula,
 } from "../../actions";
 
 const STATUS_PAGAMENTO = ["Em dia", "Pendente", "Atrasado"];
+
+function labelPacote(tipo: string) {
+  return tipo === "FAMILIA" ? "Família" : "Combo modalidades";
+}
 
 export default async function EditarAlunoPage({
   params,
@@ -22,12 +29,24 @@ export default async function EditarAlunoPage({
 }) {
   const { id } = await params;
   const { acessoLink } = await searchParams;
-  const [aluno, horarios] = await Promise.all([
+  const [aluno, horarios, pacotes] = await Promise.all([
     prisma.aluno.findUnique({
       where: { id },
-      include: { usuario: true },
+      include: {
+        usuario: true,
+        pacoteMembro: {
+          include: {
+            pacote: { include: { membros: { include: { aluno: true } } } },
+          },
+        },
+        matriculas: {
+          include: { agendaAula: { select: { modalidade: true, diaSemana: true, horarioInicio: true } } },
+          orderBy: { criadoEm: "asc" },
+        },
+      },
     }),
     getHorariosParaSelecao(),
+    getPacotes(),
   ]);
 
   if (!aluno) {
@@ -38,6 +57,13 @@ export default async function EditarAlunoPage({
   const criarAcessoComId = criarAcessoAluno.bind(null, aluno.id);
   const reenviarAcessoComId = reenviarAcessoAluno.bind(null, aluno.id);
   const revogarAcessoComId = revogarAcessoAluno.bind(null, aluno.id);
+
+  const pacoteMembro = aluno.pacoteMembro;
+  const membroNaoTitularDeFamilia =
+    pacoteMembro?.pacote.tipo === "FAMILIA" && !pacoteMembro.titular;
+  const titularDaFamilia = membroNaoTitularDeFamilia
+    ? pacoteMembro?.pacote.membros.find((m) => m.titular)?.aluno
+    : null;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-8 px-6 py-12">
@@ -88,6 +114,19 @@ export default async function EditarAlunoPage({
             </select>
           </label>
           <label className="flex flex-col gap-1 text-sm">
+            Vencimento
+            <input
+              name="dataVencimento"
+              type="date"
+              defaultValue={
+                aluno.dataVencimento
+                  ? aluno.dataVencimento.toISOString().slice(0, 10)
+                  : ""
+              }
+              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
             Telefone (WhatsApp)
             <input
               name="telefone"
@@ -136,6 +175,42 @@ export default async function EditarAlunoPage({
             />
           </label>
         </div>
+
+        <div className="grid grid-cols-1 gap-4 rounded-md border border-foreground/10 p-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            Pacote (família / combo modalidades)
+            <select
+              name="pacoteId"
+              defaultValue={pacoteMembro?.pacoteId ?? ""}
+              className="rounded-md border border-foreground/20 bg-background px-3 py-2 outline-none focus:border-primary"
+            >
+              <option value="">Nenhum</option>
+              {pacotes.map((pacote) => (
+                <option key={pacote.id} value={pacote.id}>
+                  {pacote.nome} ({labelPacote(pacote.tipo)})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Desconto do aluno no pacote (%)
+            <input
+              name="descontoPercentual"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              defaultValue={
+                pacoteMembro ? Number(pacoteMembro.descontoPercentual) : 0
+              }
+              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
+            />
+            <span className="text-xs text-foreground/40">
+              Só é aplicado se um pacote for selecionado acima.
+            </span>
+          </label>
+        </div>
+
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -160,6 +235,67 @@ export default async function EditarAlunoPage({
           </Link>
         </div>
       </form>
+
+      <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
+        <h2 className="text-lg font-semibold text-foreground">
+          Modalidades matriculadas
+        </h2>
+        <p className="text-sm text-foreground/60">
+          <strong>{aluno.modalidade}</strong> é a modalidade principal (faixa/
+          graduação acima). Abaixo, as modalidades extras — cada uma pode ter
+          seu próprio vencimento, editável aqui.
+        </p>
+
+        {aluno.matriculas.length === 0 ? (
+          <p className="text-sm text-foreground/40">
+            Nenhuma modalidade extra ainda.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {aluno.matriculas.map((matricula) => (
+              <div
+                key={matricula.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-hover px-3 py-2 text-sm"
+              >
+                <span className="text-foreground">
+                  {matricula.agendaAula.modalidade}{" "}
+                  <span className="text-foreground/40">
+                    ({DIA_SEMANA_LABEL[matricula.agendaAula.diaSemana]}{" "}
+                    {formatarHora(matricula.agendaAula.horarioInicio)})
+                  </span>
+                </span>
+                <form
+                  action={atualizarVencimentoMatricula.bind(null, matricula.id)}
+                  className="flex items-center gap-2"
+                >
+                  <label className="flex items-center gap-2 text-xs text-foreground/60">
+                    Vencimento
+                    <input
+                      name="dataVencimentoBase"
+                      type="date"
+                      required
+                      defaultValue={matricula.dataVencimentoBase.toISOString().slice(0, 10)}
+                      className="rounded-md border border-foreground/20 bg-transparent px-2 py-1 outline-none focus:border-primary"
+                    />
+                  </label>
+                  <button type="submit" className="text-xs text-primary hover:underline">
+                    salvar
+                  </button>
+                </form>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {membroNaoTitularDeFamilia && titularDaFamilia && (
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-foreground">
+          Esse aluno faz parte do pacote família{" "}
+          <strong>{pacoteMembro?.pacote.nome}</strong> — o titular do login é{" "}
+          <strong>{titularDaFamilia.nome}</strong>. A mensalidade dele já
+          aparece automaticamente no financeiro do titular.
+        </div>
+      )}
 
       <div className="flex flex-col gap-4 rounded-lg border border-foreground/10 p-6">
         <h2 className="text-lg font-semibold text-foreground">
@@ -238,7 +374,11 @@ export default async function EditarAlunoPage({
                 <a
                   href={montarLinkWhatsapp(
                     aluno.telefone,
-                    mensagemAcessoPortal(aluno.nome, acessoLink),
+                    mensagemAcessoPortal(
+                      aluno.nome,
+                      aluno.usuario?.username ?? "",
+                      acessoLink,
+                    ),
                   )}
                   target="_blank"
                   rel="noreferrer"
@@ -250,9 +390,13 @@ export default async function EditarAlunoPage({
               {aluno.email && (
                 <a
                   href={`mailto:${aluno.email}?subject=${encodeURIComponent(
-                    "Seu acesso ao portal do Centro de Treinamento Sandro Ferreira",
+                    "Seu acesso ao portal do Centro de Treinamento Sandro Freire",
                   )}&body=${encodeURIComponent(
-                    mensagemAcessoPortal(aluno.nome, acessoLink),
+                    mensagemAcessoPortal(
+                      aluno.nome,
+                      aluno.usuario?.username ?? "",
+                      acessoLink,
+                    ),
                   )}`}
                   className="self-start font-medium text-primary hover:underline"
                 >

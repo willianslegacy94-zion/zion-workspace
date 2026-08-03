@@ -5,6 +5,28 @@ import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { matricularAlunoEmAula, MatriculaError } from "@/lib/matricula";
+
+// Alunos dependentes de um pacote FAMILIA não têm login próprio — o titular
+// consegue agir em nome deles (anexar comprovante) a partir do login dele.
+async function alunoIdsAcessiveisDaSessao(): Promise<string[]> {
+  const session = await auth();
+  const alunoId = session?.user?.alunoId;
+  if (!alunoId) {
+    throw new Error("Usuário não vinculado a um cadastro de aluno.");
+  }
+
+  const membro = await prisma.pacoteMembro.findUnique({
+    where: { alunoId },
+    include: { pacote: { include: { membros: true } } },
+  });
+
+  if (membro?.pacote.tipo === "FAMILIA" && membro.titular) {
+    return membro.pacote.membros.map((m) => m.alunoId);
+  }
+
+  return [alunoId];
+}
 
 export async function anexarComprovante(transacaoId: string, formData: FormData) {
   const session = await auth();
@@ -18,15 +40,16 @@ export async function anexarComprovante(transacaoId: string, formData: FormData)
     throw new Error("Selecione um arquivo para anexar.");
   }
 
+  const alunoIdsAcessiveis = await alunoIdsAcessiveisDaSessao();
   const transacao = await prisma.transacaoFinanceira.findFirst({
-    where: { id: transacaoId, alunoId },
+    where: { id: transacaoId, alunoId: { in: alunoIdsAcessiveis } },
   });
   if (!transacao) {
     throw new Error("Cobrança não encontrada.");
   }
 
   const extensao = path.extname(arquivo.name) || "";
-  const nomeArquivo = `${alunoId}-${Date.now()}${extensao}`;
+  const nomeArquivo = `${transacao.alunoId}-${Date.now()}${extensao}`;
   const pastaDestino = path.join(process.cwd(), "public", "comprovantes");
   await mkdir(pastaDestino, { recursive: true });
   await writeFile(
@@ -61,54 +84,11 @@ export async function matricularEmAula(
 ) {
   const alunoId = await alunoIdDaSessao();
 
-  const aula = await prisma.agendaAula.findUnique({
-    where: { id: agendaAulaId },
-  });
-  if (!aula) {
-    throw new Error("Horário não encontrado.");
-  }
-
-  const aluno = await prisma.aluno.findUnique({
-    where: { id: alunoId },
-    select: { modalidade: true },
-  });
-  if (aluno?.modalidade === aula.modalidade) {
-    throw new Error("Você já tem acesso a este horário pela sua modalidade principal.");
-  }
-
-  const [alunosPrimarios, matriculas] = await Promise.all([
-    prisma.aluno.count({ where: { modalidade: aula.modalidade } }),
-    prisma.matricula.count({ where: { agendaAulaId } }),
-  ]);
-  if (alunosPrimarios + matriculas >= aula.capacidadeMax) {
-    throw new Error("Horário lotado.");
-  }
-
-  const precoModalidade = await prisma.modalidadePreco.findUnique({
-    where: { modalidade: aula.modalidade },
-  });
-  const valor = precoModalidade?.valor ?? 0;
-
   try {
-    await prisma.$transaction(async (tx) => {
-      const matricula = await tx.matricula.create({
-        data: { alunoId, agendaAulaId },
-      });
-      await tx.transacaoFinanceira.create({
-        data: {
-          tipo: "Receita",
-          categoria: `Matrícula extra — ${aula.modalidade}`,
-          valor,
-          alunoId,
-          matriculaId: matricula.id,
-          formaPagamento: formaPagamento || null,
-          dataVencimento: new Date(),
-        },
-      });
-    });
+    await matricularAlunoEmAula(alunoId, agendaAulaId, formaPagamento);
   } catch (error) {
-    if ((error as { code?: string }).code === "P2002") {
-      throw new Error("Você já está matriculado neste horário.");
+    if (error instanceof MatriculaError) {
+      throw new Error(error.message);
     }
     throw error;
   }

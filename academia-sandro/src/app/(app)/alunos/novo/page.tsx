@@ -4,9 +4,14 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/PageHeader";
 import { SeletorModalidadeHorario } from "@/components/SeletorModalidadeHorario";
 import { getHorariosParaSelecao } from "@/lib/agenda";
+import { getPacotes } from "@/lib/precos";
 import { createAluno } from "../actions";
 
 const STATUS_PAGAMENTO = ["Em dia", "Pendente", "Atrasado"];
+
+function labelPacote(tipo: string) {
+  return tipo === "FAMILIA" ? "Família" : "Combo modalidades";
+}
 
 export default async function NovoAlunoPage({
   searchParams,
@@ -15,11 +20,12 @@ export default async function NovoAlunoPage({
 }) {
   const { preCadastroId } = await searchParams;
 
-  const [preCadastro, horarios] = await Promise.all([
+  const [preCadastro, horarios, pacotes] = await Promise.all([
     preCadastroId
       ? prisma.preCadastro.findUnique({ where: { id: preCadastroId } })
       : Promise.resolve(null),
     getHorariosParaSelecao(),
+    getPacotes(),
   ]);
 
   return (
@@ -136,6 +142,40 @@ export default async function NovoAlunoPage({
             />
           </label>
         </div>
+
+        <div className="grid grid-cols-1 gap-4 rounded-md border border-foreground/10 p-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            Pacote (família / combo modalidades)
+            <select
+              name="pacoteId"
+              defaultValue=""
+              className="rounded-md border border-foreground/20 bg-background px-3 py-2 outline-none focus:border-primary"
+            >
+              <option value="">Nenhum</option>
+              {pacotes.map((pacote) => (
+                <option key={pacote.id} value={pacote.id}>
+                  {pacote.nome} ({labelPacote(pacote.tipo)})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            Desconto do aluno no pacote (%)
+            <input
+              name="descontoPercentual"
+              type="number"
+              step="0.01"
+              min="0"
+              max="100"
+              defaultValue={0}
+              className="rounded-md border border-foreground/20 bg-transparent px-3 py-2 outline-none focus:border-primary"
+            />
+            <span className="text-xs text-foreground/40">
+              Só é aplicado se um pacote for selecionado acima.
+            </span>
+          </label>
+        </div>
+
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

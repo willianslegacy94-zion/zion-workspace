@@ -17,19 +17,19 @@ export type Parcela = {
   comprovanteUrl: string | null;
 };
 
-// Janela fixa de 12 meses a partir do mês da matrícula — não é "próximos 12
-// meses a partir de hoje", é sempre a mesma janela ancorada na matrícula.
-export async function getParcelas(alunoId: string): Promise<Parcela[]> {
-  const aluno = await prisma.aluno.findUnique({
-    where: { id: alunoId },
-    select: { dataMatricula: true },
-  });
-  if (!aluno) return [];
+// Janela fixa de 12 meses a partir de uma data-base — não é "próximos 12
+// meses a partir de hoje", é sempre a mesma janela ancorada na data-base.
+// `matriculaId: null` = mensalidade principal; um id específico = ciclo
+// próprio de uma modalidade extra (ver Matricula.dataVencimentoBase).
+export async function getParcelasCiclo(params: {
+  alunoId: string;
+  matriculaId: string | null;
+  dataBase: Date;
+}): Promise<Parcela[]> {
+  const { alunoId, matriculaId, dataBase } = params;
 
-  // Mensalidade = qualquer Receita do aluno não vinculada a uma matrícula
-  // extra (essas são cobranças à parte, fora do ciclo de 12 meses).
   const transacoes = await prisma.transacaoFinanceira.findMany({
-    where: { alunoId, tipo: "Receita", matriculaId: null },
+    where: { alunoId, tipo: "Receita", matriculaId },
     select: {
       id: true,
       valor: true,
@@ -43,11 +43,7 @@ export async function getParcelas(alunoId: string): Promise<Parcela[]> {
   const parcelas: Parcela[] = [];
 
   for (let i = 0; i < TOTAL_MESES; i++) {
-    const mesRef = new Date(
-      aluno.dataMatricula.getFullYear(),
-      aluno.dataMatricula.getMonth() + i,
-      1,
-    );
+    const mesRef = new Date(dataBase.getFullYear(), dataBase.getMonth() + i, 1);
 
     const transacao = transacoes.find(
       (t) =>
@@ -78,4 +74,16 @@ export async function getParcelas(alunoId: string): Promise<Parcela[]> {
   }
 
   return parcelas;
+}
+
+// Mensalidade principal — mantido como atalho pro caso mais comum
+// (matriculaId: null, ancorado em Aluno.dataMatricula).
+export async function getParcelas(alunoId: string): Promise<Parcela[]> {
+  const aluno = await prisma.aluno.findUnique({
+    where: { id: alunoId },
+    select: { dataMatricula: true },
+  });
+  if (!aluno) return [];
+
+  return getParcelasCiclo({ alunoId, matriculaId: null, dataBase: aluno.dataMatricula });
 }

@@ -76,7 +76,7 @@ export default async function LoginPage({
         </div>
 
         <h1 className="font-serif text-3xl font-black leading-tight tracking-wide text-gold-shimmer sm:text-4xl">
-          Centro de Treinamento Sandro Ferreira
+          Centro de Treinamento Sandro Freire
         </h1>
 
         <span className="mt-3 inline-block text-[10px] uppercase tracking-[0.3em] text-foreground/40">

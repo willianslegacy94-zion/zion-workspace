@@ -28,15 +28,21 @@ model Aluno {
   cidade         String?
   lesoes         String?
 
+  // Override do preço padrão da modalidade pra esse aluno específico
+  // (ex: 2 alunos de boxe pagando valores diferentes). null = usa ModalidadePreco.
+  mensalidadeValor Decimal? @db.Decimal(10, 2)
+
   // Horário de referência informado no cadastro — só exibição/organização,
   // não restringe acesso (a modalidade já dá acesso a todos os horários dela).
   agendaAulaReferenciaId String?     @db.Uuid
   agendaAulaReferencia   AgendaAula? @relation(fields: [agendaAulaReferenciaId], references: [id])
 
-  transacoes TransacaoFinanceira[]
-  presencas  PresencaDiaria[]
-  matriculas Matricula[]
-  usuario    Usuario?
+  transacoes    TransacaoFinanceira[]
+  presencas     PresencaDiaria[]
+  matriculas    Matricula[]
+  faixasExtras  AlunoFaixaModalidade[]
+  usuario       Usuario?
+  pacoteMembro  PacoteMembro?
 
   @@map("alunos")
 }
@@ -58,7 +64,7 @@ model TransacaoFinanceira {
   alunoId String? @db.Uuid
   aluno   Aluno?  @relation(fields: [alunoId], references: [id])
 
-  matriculaId String?    @unique @db.Uuid
+  matriculaId String?    @db.Uuid
   matricula   Matricula? @relation(fields: [matriculaId], references: [id])
 
   @@map("transacoes_financeiras")
@@ -96,16 +102,40 @@ model Matricula {
   id       String   @id @default(uuid()) @db.Uuid
   criadoEm DateTime @default(now())
 
+  // Âncora do ciclo de 12 parcelas mensais dessa modalidade extra — igual
+  // Aluno.dataMatricula ancora o ciclo da mensalidade principal. Editável
+  // pelo admin por modalidade (cada extra pode ter seu próprio vencimento).
+  dataVencimentoBase DateTime @default(now())
+
   alunoId String @db.Uuid
   aluno   Aluno  @relation(fields: [alunoId], references: [id])
 
   agendaAulaId String     @db.Uuid
   agendaAula   AgendaAula @relation(fields: [agendaAulaId], references: [id])
 
-  transacao TransacaoFinanceira?
+  // 1 transação por mês ao longo do ciclo (não mais 1 única no ato da
+  // matrícula) — mesmo padrão de "match por mês" que getParcelasCiclo já
+  // usa pra mensalidade principal via Aluno.
+  transacoes TransacaoFinanceira[]
 
   @@unique([alunoId, agendaAulaId])
   @@map("matriculas")
+}
+
+// Faixa/graduação do aluno numa modalidade extra (além da principal, cuja
+// faixa fica em Aluno.graduacaoFaixa). Uma linha por modalidade extra
+// praticada — não por horário, já que o aluno pode ter Matricula em mais de
+// um horário da mesma modalidade extra.
+model AlunoFaixaModalidade {
+  id             String @id @default(uuid()) @db.Uuid
+  modalidade     String
+  graduacaoFaixa String
+
+  alunoId String @db.Uuid
+  aluno   Aluno  @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@unique([alunoId, modalidade])
+  @@map("aluno_faixas_modalidade")
 }
 
 enum StatusPresenca {
@@ -157,6 +187,47 @@ model ModalidadePreco {
   @@map("modalidade_precos")
 }
 
+enum TipoPacote {
+  FAMILIA
+  COMBO_MODALIDADES
+}
+
+// Agrupa alunos com desconto: FAMILIA (vários alunos diferentes, cada um com
+// seu %) ou COMBO_MODALIDADES (um único aluno que pratica 2+ modalidades,
+// desconto incide sobre mensalidade + extras somadas).
+model Pacote {
+  id       String     @id @default(uuid()) @db.Uuid
+  nome     String
+  tipo     TipoPacote
+  criadoEm DateTime   @default(now())
+
+  // Só usado por COMBO_MODALIDADES criado como catálogo (sem membro ainda,
+  // pro aluno escolher no autocadastro/matrícula) — vira o
+  // descontoPercentual do PacoteMembro criado quando alguém escolhe esse
+  // pacote. Pacotes FAMILIA sempre nascem com membros, nunca usam este campo.
+  descontoPadrao Decimal? @db.Decimal(5, 2)
+
+  membros PacoteMembro[]
+
+  @@map("pacotes")
+}
+
+model PacoteMembro {
+  id                 String  @id @default(uuid()) @db.Uuid
+  descontoPercentual Decimal @default(0) @db.Decimal(5, 2)
+  // Só relevante pra Pacote.tipo = FAMILIA: quem tem login no portal e vê
+  // a mensalidade de todos os integrantes na aba Financeiro dele.
+  titular            Boolean @default(false)
+
+  pacoteId String @db.Uuid
+  pacote   Pacote @relation(fields: [pacoteId], references: [id], onDelete: Cascade)
+
+  alunoId String @unique @db.Uuid
+  aluno   Aluno  @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+
+  @@map("pacote_membros")
+}
+
 model PreCadastro {
   id                  String    @id @default(uuid()) @db.Uuid
   nome                String
@@ -169,6 +240,14 @@ model PreCadastro {
   modalidadeInteresse String?
   status              String    @default("Pendente")
   criadoEm            DateTime  @default(now())
+
+  // Data escolhida pelo lead pra uma aula experimental — dispara WhatsApp
+  // automático pro admin (ver src/lib/whatsapp-gateway.ts).
+  dataAulaExperimental DateTime? @db.Date
+
+  // Consentimento LGPD coletado no formulário público de pré-matrícula.
+  termosAceitos   Boolean   @default(false)
+  termosAceitosEm DateTime?
 
   @@map("pre_cadastros")
 }
