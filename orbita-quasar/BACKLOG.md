@@ -103,3 +103,32 @@ prontos pro Quasar consumir direto:
 
 **Status:** mapeado, nada implementado ainda — aguardando decisão de
 prioridade do Willians antes de mexer em código aqui.
+
+---
+
+## Transcrição de áudio (mensagens de voz do cliente)
+
+**Contexto:** hoje `_extrair_texto_mensagem` (main.py:506-514) só lê
+`conversation`/`extendedTextMessage.text` do payload da Evolution API —
+qualquer áudio (`audioMessage`) cai no `if not texto` e a mensagem é
+ignorada silenciosamente (main.py:594-596, motivo registrado:
+"mensagem sem texto (mídia, etc.)"). Cliente que manda áudio pra marcar
+horário ou tirar dúvida simplesmente não recebe resposta nenhuma.
+
+**O que falta:**
+1. Detectar `audioMessage` no payload (`data.message.audioMessage`) e obter
+   o binário — a Evolution manda por URL (`audioMessage.url`) ou base64
+   direto, dependendo da config de webhook da instância; confirmar qual modo
+   está ativo antes de implementar.
+2. Transcrever antes de entrar no fluxo normal. Pesquisa de preço (jul/2026):
+   OpenAI Whisper/`gpt-4o-transcribe` a $0,006/min; Groq
+   `whisper-large-v3-turbo` a $0,04/hora (~89% mais barato, com tier grátis
+   de 2.000 transcrições/dia — no volume esperado da barbearia, praticamente
+   gratuito). **Recomendação: Groq**, custo residual ou zero nesse volume.
+3. Precisa de uma chave nova (`GROQ_API_KEY` ou similar) — nem OpenRouter
+   (usado hoje só pro chat de texto) nem a Evolution API fazem esse passo.
+4. Depois de transcrito, o texto entra no `gerar_resposta_quasar` do jeito
+   que já funciona hoje — nenhuma mudança no resto do fluxo.
+
+**Status:** não implementado, sem prioridade definida — aguardando decisão
+do Willians (levantado em 2026-07-28).
