@@ -143,7 +143,12 @@ async def atendimento_cliente(tenant_id: str, contato: str, unidade: str | None 
 INSTANCIA_ADMIN_POR_TENANT = {"sistema_thieco": "thieco-admin"}
 
 class PayloadNotificarAdmin(BaseModel):
-    tenant_id: str
+    # Nome da instância Evolution direto (ex.: "thieco-admin") — o
+    # sistema-thieco já manda assim (ver notificarAdminViaCortex em
+    # backend/routes/notificacoes.js); campo tenant_id foi removido de lá,
+    # então exigi-lo aqui só fazia toda chamada falhar com 422 antes mesmo
+    # de tentar enviar pelo WhatsApp.
+    instancia: str
     telefone: str
     mensagem: str
 
@@ -154,9 +159,7 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
     relatório (faturamento/ranking/estoque parado) — aqui só repassamos pro
     WhatsApp do admin via Evolution API. Nenhuma chamada de IA envolvida.
     """
-    instancia = INSTANCIA_ADMIN_POR_TENANT.get(payload.tenant_id)
-    if not instancia:
-        raise HTTPException(status_code=404, detail=f"Tenant '{payload.tenant_id}' não suportado neste endpoint.")
+    instancia = payload.instancia
     if not EVOLUTION_API_KEY:
         return {"status": "erro", "detalhe": "EVOLUTION_API_KEY não configurada no Cortex."}
 
@@ -182,7 +185,7 @@ async def notificar_admin(payload: PayloadNotificarAdmin):
         # tentaria classificar seu próprio relatório como se fosse uma
         # pergunta nova.
         _registrar_envio_proprio(resp.json())
-        print(f"🧠 CORTEX -> notificou admin do tenant '{payload.tenant_id}' via {instancia}")
+        print(f"🧠 CORTEX -> notificou admin via {instancia}")
         return {"status": "ok"}
     except Exception as e:
         print(f"🧠 CORTEX -> falha ao notificar admin via {instancia}: {e!r}")
