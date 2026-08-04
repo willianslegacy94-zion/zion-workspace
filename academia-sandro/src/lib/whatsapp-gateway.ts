@@ -83,6 +83,34 @@ export async function buscarQrCode(): Promise<QrCode> {
   }
 }
 
+export type NumeroConectado = { numero: string | null };
+
+// Busca o número pareado na instância conectada, pra oferecer sincronizar
+// automaticamente com Usuario.telefone (Configurações → Perfil — campo
+// separado, usado só pra saber pra onde mandar avisos administrativos).
+// O formato da resposta varia por versão da Evolution API — tenta os campos
+// mais comuns e desiste em silêncio (numero: null) se não achar nenhum, sem
+// quebrar a tela: essa sincronização é um atalho de conveniência, não uma
+// dependência de nada crítico.
+export async function buscarNumeroConectado(): Promise<NumeroConectado> {
+  try {
+    const resp = await fetch(
+      `${EVOLUTION_API_URL}/instance/fetchInstances?instanceName=${INSTANCE_NAME}`,
+      { headers: headers(), cache: "no-store" },
+    );
+    if (!resp.ok) return { numero: null };
+    const dados = await resp.json();
+    const primeira = Array.isArray(dados) ? dados[0] : dados;
+    const jid: string | undefined =
+      primeira?.ownerJid ?? primeira?.owner ?? primeira?.instance?.owner;
+    if (!jid || typeof jid !== "string") return { numero: null };
+    const numero = jid.split("@")[0].replace(/\D/g, "");
+    return { numero: numero || null };
+  } catch {
+    return { numero: null };
+  }
+}
+
 export async function desconectarWhatsapp(): Promise<{ success: boolean; error?: string }> {
   try {
     const resp = await fetch(`${EVOLUTION_API_URL}/instance/logout/${INSTANCE_NAME}`, {

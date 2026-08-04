@@ -5,6 +5,8 @@ import {
   buscarQrCodeAction,
   buscarStatusConexaoAction,
   desconectarWhatsappAction,
+  buscarNumeroConectadoAction,
+  sincronizarTelefonePerfilAction,
 } from "@/app/(app)/configuracoes/whatsapp-actions";
 
 export function WhatsappConexao() {
@@ -12,6 +14,9 @@ export function WhatsappConexao() {
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const [numeroConectado, setNumeroConectado] = useState<string | null>(null);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [sincronizado, setSincronizado] = useState(false);
 
   async function atualizarStatus() {
     const status = await buscarStatusConexaoAction();
@@ -48,6 +53,26 @@ export function WhatsappConexao() {
     return () => clearInterval(intervalo);
   }, [conectado]);
 
+  // Assim que conectar, busca o número pareado — só pra oferecer o atalho
+  // de sincronizar com o campo Telefone do Perfil (ver texto explicativo
+  // abaixo). Se a Evolution API não devolver o número (formato de resposta
+  // varia por versão), o botão de atalho simplesmente não aparece.
+  useEffect(() => {
+    if (!conectado) return;
+    (async () => {
+      const { numero } = await buscarNumeroConectadoAction();
+      setNumeroConectado(numero);
+    })();
+  }, [conectado]);
+
+  async function sincronizarTelefone() {
+    if (!numeroConectado) return;
+    setSincronizando(true);
+    await sincronizarTelefonePerfilAction(numeroConectado);
+    setSincronizando(false);
+    setSincronizado(true);
+  }
+
   async function desconectar() {
     if (
       !confirm(
@@ -71,8 +96,30 @@ export function WhatsappConexao() {
         <p className="text-sm font-medium text-success">✅ WhatsApp conectado</p>
         <p className="text-xs text-foreground/60">
           Bloqueios de agenda (aluno) e agendamentos de aula experimental
-          (admin) já são enviados automaticamente por esse número.
+          (admin) já são enviados automaticamente por esse número. Esse é o
+          número que <strong>envia</strong> as mensagens — diferente do campo
+          Telefone em Configurações → Perfil, que é só pra onde os avisos
+          administrativos chegam.
         </p>
+
+        {numeroConectado && !sincronizado && (
+          <button
+            type="button"
+            onClick={sincronizarTelefone}
+            disabled={sincronizando}
+            className="text-xs text-primary hover:underline disabled:opacity-50"
+          >
+            {sincronizando
+              ? "Sincronizando..."
+              : `Usar esse número (${numeroConectado}) também como Telefone do Perfil`}
+          </button>
+        )}
+        {sincronizado && (
+          <p className="text-xs text-success">
+            Telefone do Perfil atualizado com esse número.
+          </p>
+        )}
+
         <button
           type="button"
           onClick={desconectar}

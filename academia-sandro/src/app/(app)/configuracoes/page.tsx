@@ -137,6 +137,11 @@ export default async function ConfiguracoesPage({
                   placeholder="(11) 91234-5678"
                   className="input-dark w-full"
                 />
+                <p className="mt-1 text-xs text-foreground/40">
+                  Pra onde chegam os avisos administrativos (ex: aula
+                  experimental agendada) — pode ser diferente do número
+                  conectado na aba WhatsApp, que é quem envia as mensagens.
+                </p>
               </div>
 
               <div>
@@ -192,7 +197,10 @@ function AbaWhatsapp() {
       <p className="text-sm text-foreground/50">
         Pareie o número do CT pra enviar automaticamente: avisos de bloqueio
         de agenda pro aluno e avisos de agendamento de aula experimental pra
-        você, sem precisar clicar em nada.
+        você, sem precisar clicar em nada. Esse é o número que{" "}
+        <strong>envia</strong> as mensagens — diferente do campo Telefone em
+        Configurações → Perfil, que é só pra onde os avisos administrativos
+        chegam (normalmente é o mesmo número, mas não precisa ser).
       </p>
       <WhatsappConexao />
     </div>
