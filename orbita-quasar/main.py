@@ -15,8 +15,11 @@ import tools.lane_confeitaria as lane_tool
 
 def saudacao_por_horario() -> str:
     """Bom dia / Boa tarde / Boa noite conforme o horário de Brasília — o
-    modelo não sabe a hora real sozinho, por isso calculamos aqui."""
+    modelo não sabe a hora real sozinho, por isso calculamos aqui.
+    Madrugada (0h-5h59) conta como "Boa noite", não "Bom dia"."""
     hora = datetime.now(ZoneInfo("America/Sao_Paulo")).hour
+    if hora < 6:
+        return "Boa noite"
     if hora < 12:
         return "Bom dia"
     if hora < 18:
@@ -486,9 +489,10 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
             apresentacao = "Aqui é o Theo, atendente digital da barbearia Thieco Leandro."
         bloco_saudacao = (
             f'\nEsta é a primeira mensagem desta conversa. Comece sua resposta com '
-            f'"{saudacao_por_horario()}! {apresentacao}" '
-            f'e só depois responda o que o cliente perguntou. Não repita essa apresentação nas próximas '
-            f'mensagens desta mesma conversa.\n'
+            f'"{saudacao_por_horario()}! {apresentacao}" — exatamente essa saudação, uma única vez, '
+            f'sem adicionar nenhuma outra saudação (bom dia/boa tarde/boa noite) em nenhum outro ponto '
+            f'da mensagem — e só depois responda o que o cliente perguntou. Não repita essa apresentação '
+            f'nas próximas mensagens desta mesma conversa.\n'
         )
 
     bloco_contexto_cliente = f"Você está atendendo o cliente: {nome_cliente} (E-mail: {email_cliente})."
