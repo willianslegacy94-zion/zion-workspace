@@ -479,7 +479,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     bloco_saudacao = ""
     if len(historico) <= 1:
         if produto == "lane":
-            apresentacao = "Aqui é a Mel!"
+            apresentacao = "Aqui é a Mel, assistente da Confeitaria Artesanal da Lane!"
         else:
             # Apresentação fixa do piloto Thieco — mantida como estava pra
             # não alterar comportamento já em produção.
