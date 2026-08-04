@@ -12,8 +12,11 @@ export async function getPrecosModalidade(): Promise<Record<string, number>> {
   );
 }
 
-// Soma o preço de cada modalidade extra (distinta) em que o aluno tem
-// Matricula — usado no desconto de pacotes COMBO_MODALIDADES.
+// Soma o preço de cada Matricula extra do aluno — por matrícula, não por
+// modalidade distinta: 2 matrículas na mesma modalidade extra (2 horários
+// diferentes) somam 2x, porque cada uma gera sua própria cobrança real
+// (ver getParcelasCiclo/Matricula.dataVencimentoBase). Usado no "Valor
+// total" do financeiro e no desconto de pacotes COMBO_MODALIDADES.
 export async function somaExtrasAluno(
   alunoId: string,
   precosModalidade: Record<string, number>,
@@ -23,12 +26,10 @@ export async function somaExtrasAluno(
     select: { agendaAula: { select: { modalidade: true } } },
   });
 
-  const modalidadesExtras = new Set(matriculas.map((m) => m.agendaAula.modalidade));
-  let soma = 0;
-  for (const modalidade of modalidadesExtras) {
-    soma += precosModalidade[modalidade] ?? 0;
-  }
-  return soma;
+  return matriculas.reduce(
+    (soma, m) => soma + (precosModalidade[m.agendaAula.modalidade] ?? 0),
+    0,
+  );
 }
 
 export type MembroParaCalculo = {
