@@ -683,6 +683,15 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     tempo real na API dele, sem SQLite nem constante Python nenhuma) — ver
     buscar_tenant_whitelabel.
     """
+    if produto == "thieco" and nome_cliente and nome_cliente != "Cliente":
+        # O Theo só chama o cliente pelo primeiro nome (nunca sobrenome, ver
+        # conversas reais do Thieco) — o pushName do WhatsApp às vezes vem
+        # com nome completo (ex.: "Thiago Leandro"), então cortamos aqui, na
+        # entrada, em vez de confiar no modelo pra lembrar disso em toda
+        # mensagem da conversa (ele não lembrava — usava o nome completo
+        # sempre que o pushName vinha assim).
+        nome_cliente = nome_cliente.split()[0]
+
     config = buscar_tenant_whitelabel(tenant_id, unidade) if produto == "whitelabel" else buscar_tenant(tenant_id, unidade)
     if not config:
         raise HTTPException(status_code=404, detail="Tenant inválido no Quasar.")
