@@ -596,14 +596,21 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     bloco_saudacao = ""
     if len(historico) <= 1:
         if produto == "lane":
-            apresentacao = "Aqui é a Mel, assistente da Confeitaria Artesanal da Lane!"
+            saudacao_completa = f"{saudacao_por_horario()}! Aqui é a Mel, assistente da Confeitaria Artesanal da Lane!"
         else:
-            # Apresentação fixa do piloto Thieco — mantida como estava pra
-            # não alterar comportamento já em produção.
-            apresentacao = "Aqui é o Theo, atendente da barbearia Thieco Leandro."
+            # Cumprimento com o nome do cliente antes do "!", igual o Thieco
+            # de verdade fala no WhatsApp ("Boa tarde Aline, tudo bem?",
+            # "Bom dia Julio") — só quando o nome real chegou (pushName do
+            # WhatsApp); nome_cliente=="Cliente" é o fallback genérico
+            # (webhook sem pushName, ou teste via /api/v1/quasar/chat sem
+            # nome informado), aí cai na saudação sem nome.
+            if nome_cliente and nome_cliente != "Cliente":
+                saudacao_completa = f"{saudacao_por_horario()} {nome_cliente}! Aqui é o Theo, atendente da barbearia Thieco Leandro."
+            else:
+                saudacao_completa = f"{saudacao_por_horario()}! Aqui é o Theo, atendente da barbearia Thieco Leandro."
         bloco_saudacao = (
             f'\nEsta é a primeira mensagem desta conversa. Comece sua resposta com '
-            f'"{saudacao_por_horario()}! {apresentacao}" — exatamente essa saudação, uma única vez, '
+            f'"{saudacao_completa}" — exatamente essa saudação, uma única vez, '
             f'sem adicionar nenhuma outra saudação (bom dia/boa tarde/boa noite) em nenhum outro ponto '
             f'da mensagem — e só depois responda o que o cliente perguntou. Não repita essa apresentação '
             f'nas próximas mensagens desta mesma conversa.\n'
