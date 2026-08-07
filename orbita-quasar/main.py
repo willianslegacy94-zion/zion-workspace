@@ -2,6 +2,7 @@
 import os
 import json
 import sqlite3
+import time
 import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -34,6 +35,14 @@ app = FastAPI(title="Órbita Quasar — Engine de Agendamento Avançado")
 # vazio (orbita_quasar.db não é copiado pra imagem, ver .dockerignore).
 init_quasar_db()
 
+# Números que a Mel nunca deve responder — bloqueio manual pontual pedido
+# pelo cliente (Lane). Comparado pelo final do telefone pra não depender de
+# vir ou não com o prefixo de país (55) no remoteJid.
+TELEFONES_BLOQUEADOS = ("11932791014",)
+
+def _telefone_bloqueado(telefone: str) -> bool:
+    return bool(telefone) and telefone.strip().endswith(TELEFONES_BLOQUEADOS)
+
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 CORTEX_URL = os.getenv("CORTEX_URL", "http://127.0.0.1:5000")
 EVOLUTION_API_URL = os.getenv("EVOLUTION_API_URL", "http://127.0.0.1:8081")
@@ -44,9 +53,46 @@ THIECO_API_URL = os.getenv("THIECO_API_URL", "http://127.0.0.1:3001")
 # deploy). Ver Playbook DevOps, "Plano de portabilidade whitelabel".
 WHITELABEL_API_URL = os.getenv("WHITELABEL_API_URL", "http://127.0.0.1:3002")
 INTERNAL_SERVICE_KEY = os.getenv("INTERNAL_SERVICE_KEY")
+# Foto de exemplo de "topo simples" que a Mel manda quando o cliente quer ver
+# como é (ver TOOL_MOSTRAR_EXEMPLO_TOPO_SIMPLES) — arquivo estático servido
+# pelo próprio app do Lane Confeitaria (public/exemplos/topo-simples.jpg),
+# não um asset do Quasar. Env var em vez de hardcode só pra poder trocar a
+# imagem sem rebuild, igual o resto das URLs de integração aqui.
+LANE_IMAGEM_EXEMPLO_TOPO_SIMPLES_URL = os.getenv(
+    "LANE_IMAGEM_EXEMPLO_TOPO_SIMPLES_URL", "https://conflane.online/exemplos/topo-simples.jpg"
+)
 # Modelo usado nas chamadas à OpenRouter — configurável por env pra permitir
 # testar custo/qualidade sem precisar mexer em código a cada troca.
 OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openai/gpt-5.6-luna")
+# Alerta no Telegram quando um envio via Evolution API falha (ex.: instância
+# desconectada) — ver _alertar_telegram. Se as duas não estiverem
+# configuradas, a função vira no-op (não quebra nada).
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+_ULTIMO_ALERTA_TELEGRAM: dict[str, float] = {}
+_COOLDOWN_ALERTA_SEGUNDOS = 900  # 15min — evita um alerta por mensagem quando a instância fica horas fora do ar
+
+def _alertar_telegram(mensagem: str, chave_cooldown: str | None = None) -> None:
+    """Notifica Willians no Telegram quando um envio via Evolution API falha
+    (instância desconectada, etc.). Nunca lança — alerta é best-effort e não
+    pode derrubar o fluxo principal. `chave_cooldown` (normalmente o nome da
+    instância) evita reenviar o mesmo alerta antes de 15min."""
+    if not (TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID):
+        return
+    if chave_cooldown:
+        agora = time.monotonic()
+        if agora - _ULTIMO_ALERTA_TELEGRAM.get(chave_cooldown, 0) < _COOLDOWN_ALERTA_SEGUNDOS:
+            return
+        _ULTIMO_ALERTA_TELEGRAM[chave_cooldown] = agora
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
+            json={"chat_id": TELEGRAM_CHAT_ID, "text": mensagem},
+            timeout=5,
+        )
+    except Exception:
+        pass
 
 @app.get("/health")
 async def health():
@@ -276,17 +322,28 @@ TOOL_TRANSBORDO = {
                 "motivo": {
                     "type": "string",
                     "description": "Resumo curto do que o cliente precisa, para dar contexto a quem for responder."
-                }
+                },
+                "categoria": {
+                    "type": "string",
+                    "enum": ["pagamento_cartao", "geral"],
+                    "description": (
+                        "Categoria do motivo, SE as informações de negócio acima instruírem explicitamente "
+                        "quando usar cada uma (nem todo negócio usa essa classificação — não invente critério "
+                        "próprio se não houver instrução específica sobre isso)."
+                    ),
+                },
             },
             "required": ["motivo"]
         }
     }
 }
 
-# Silenciar mesmo assunto já escalado — pra thieco/whitelabel. NÃO silencia
-# a conversa inteira: só o tópico que já foi passado pro humano. Não há
-# fila real do lado do Quasar pra saber se o humano já respondeu — o
-# próprio histórico (a mensagem fixa de transbordo já registrada como
+# Silenciar mesmo assunto já escalado — pra thieco/whitelabel (produto!=
+# "lane", que já tem seu próprio silêncio via fila/board, ver
+# TOOL_SILENCIAR_FORA_DE_ESCOPO abaixo). Diferente daquele, este NÃO
+# silencia a conversa inteira: só o tópico que já foi passado pro humano.
+# Não há fila real do lado do Quasar pra saber se o humano já respondeu —
+# o próprio histórico (a mensagem fixa de transbordo já registrada como
 # "assistant" na rodada anterior, ver TRANSBORDO PARA HUMANO no FAQ) é o
 # sinal que o modelo usa pra reconhecer "já escalei isso" e decidir se a
 # mensagem nova é continuação do mesmo assunto ou algo novo que ele já
@@ -343,6 +400,39 @@ TOOL_CALCULAR_TOTAL_SERVICOS = {
     },
 }
 
+# Silenciar fora de escopo — só pro Lane Confeitaria (produto=="lane"). Some
+# de TODA resposta de texto (diferente de TOOL_TRANSBORDO, que ainda responde
+# "Vou confirmar com a Lane e já retorno"): quando chamada, move o cartão pra
+# fila de atendimento humano (mesmo mecanismo do transbordo, reaproveitado
+# via lane_tool.acionar_atendimento_humano) e a Mel fica muda pro resto desta
+# conversa — cliente_em_atendimento_humano (linha ~525) já garante isso nas
+# próximas mensagens, sem estado novo nenhum do lado do Quasar. Ver uso em
+# gerar_resposta_quasar, dentro do loop de tool-calling.
+TOOL_SILENCIAR_FORA_DE_ESCOPO = {
+    "type": "function",
+    "function": {
+        "name": "silenciar_fora_de_escopo",
+        "description": (
+            "Use quando a mensagem do cliente não tem NENHUMA relação com bolos/docinhos/encomendas da "
+            "Confeitaria da Lane (ex.: assunto totalmente diferente, mensagem que claramente não era pra "
+            "esse número, pergunta sobre outro tipo de serviço). NÃO use para saudação (oi/bom dia), dúvida "
+            "sobre o negócio, reclamação, ou pedido pra falar com uma pessoa — esses casos usam "
+            "acionar_atendimento_humano, que ainda responde ao cliente. Depois de chamar esta ferramenta, "
+            "não escreva nenhuma mensagem de texto — a conversa fica em silêncio, só a Lane responde a partir daqui."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "motivo": {
+                    "type": "string",
+                    "description": "Resumo curto do assunto fora de escopo, pra dar contexto a quem revisar depois.",
+                }
+            },
+            "required": ["motivo"],
+        },
+    },
+}
+
 # Ferramentas específicas do domínio do Lane Confeitaria (bolos sob
 # encomenda) — não reaproveitam TOOLS_DEFINITION acima, que é genérico pra
 # reunião/mentoria (data+hora única), domínio bem diferente de encomenda de
@@ -352,7 +442,20 @@ LANE_TOOLS_DEFINITION = [
         "type": "function",
         "function": {
             "name": "consultar_catalogo_bolos",
-            "description": "Consulta os sabores de bolo (com preço por kg, quando já definido) e o menu de docinhos por cento da Confeitaria da Lane. Chame isso antes de informar qualquer preço ao cliente.",
+            "description": "Consulta os sabores de bolo (com preço por kg, quando já definido), o menu de docinhos por cento e o preço de topo (simples/3D) da Confeitaria da Lane. Chame isso antes de informar qualquer preço ao cliente.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mostrar_exemplo_topo_simples",
+            "description": (
+                "Chame quando o cliente perguntar como é o topo simples, quiser ver um exemplo, ou tiver "
+                "dúvida sobre a diferença entre topo simples e topo 3D. O sistema anexa automaticamente uma "
+                "foto de exemplo na sua resposta — você NÃO consegue enviar imagem sozinha, só descreva "
+                "brevemente o que ela mostra (nomes/coração/decoração simples de papel) na sua resposta em texto."
+            ),
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
@@ -403,12 +506,15 @@ LANE_TOOLS_DEFINITION = [
                         "description": "1 ou 2 nomes de sabor, exatamente como aparecem no catálogo consultado.",
                     },
                     "massa": {"type": "string", "enum": ["BRANCA", "CHOCOLATE"], "description": "Massa escolhida."},
-                    "peso_kg": {"type": "number", "description": "Peso do bolo em kg (mínimo 1.5)."},
+                    "peso_kg": {"type": "number", "description": "Peso do bolo em kg (mínimo 1)."},
                     "data_entrega": {"type": "string", "description": "Data de entrega no formato YYYY-MM-DD, já confirmada como disponível."},
                     "valor_base": {"type": "number", "description": "Valor combinado com o cliente para o bolo (sem acréscimos)."},
                     "acrescimo_cartao": {"type": "boolean", "description": "Cliente vai pagar no cartão?"},
                     "acrescimo_glitter": {"type": "boolean", "description": "Bolo com muito glitter?"},
-                    "acrescimo_topper": {"type": "boolean", "description": "Cliente quer topper?"},
+                    "acrescimo_topper": {
+                        "type": "boolean",
+                        "description": "Cliente quer topo SIMPLES? NUNCA marque true pra topo 3D (ver regras de topo) — 3D fica de fora do registrar_pedido, pendente com a Lane.",
+                    },
                     "modelo_referencia": {"type": "string", "description": "Descrição ou link do modelo de referência que o cliente enviou."},
                 },
                 "required": ["cliente_nome", "cliente_contato", "sabor_nomes", "massa", "peso_kg", "data_entrega", "valor_base"],
@@ -434,7 +540,7 @@ LANE_TOOLS_DEFINITION = [
     },
 ]
 
-def _acionar_atendimento_humano(produto: str, tenant_id, unidade: str, contato_cliente: str | None, nome_cliente: str, motivo: str) -> str:
+def _acionar_atendimento_humano(produto: str, tenant_id, unidade: str, contato_cliente: str | None, nome_cliente: str, motivo: str, categoria: str | None = None) -> str:
     """
     Notifica o admin do tenant (WhatsApp real + registro visível na tela de
     notificações) de que um cliente precisa de atendimento humano. Nunca
@@ -452,7 +558,7 @@ def _acionar_atendimento_humano(produto: str, tenant_id, unidade: str, contato_c
         # "atendimento humano" nas Configurações → Filas (ver
         # tools/lane_confeitaria.acionar_atendimento_humano). Nunca chamar o
         # endpoint do Thieco/whitelabel com dado de outro tenant.
-        return lane_tool.acionar_atendimento_humano(contato_cliente or "", motivo)
+        return lane_tool.acionar_atendimento_humano(contato_cliente or "", motivo, categoria)
     else:
         url, corpo = f"{THIECO_API_URL}/notificacoes/transbordo", {
             "unidade": unidade, "contato_cliente": contato_cliente,
@@ -528,16 +634,49 @@ def _calcular_total_servicos(unidade: str, nomes_servicos: list[str]) -> str:
 
 FALLBACK_RESPOSTA = "Olá! Estou otimizando meu calendário de mentorias. Poderia tentar reagendar ou enviar sua dúvida em instantes?"
 
+def _reportar_custo_agente(tenant_id: str, produto: str, modelo: str, origem: str,
+                            prompt_tokens: int, completion_tokens: int, total_tokens: int,
+                            custo_usd: float | None, session_id: str, unidade: str) -> None:
+    """
+    Telemetria de custo real de IA — nunca deve derrubar o atendimento. Só
+    dispara pra tráfego whitelabel: `tenant_id` de thieco/lane não é um
+    tenants.id do whitelabel, reportar misturaria custo de cliente errado
+    ou quebraria a FK de agente_custos no banco do whitelabel.
+    """
+    if produto != "whitelabel" or not tenant_id:
+        return
+    try:
+        requests.post(
+            f"{WHITELABEL_API_URL}/internal/agente-custo",
+            headers={"X-Internal-Key": INTERNAL_SERVICE_KEY or "", "Content-Type": "application/json"},
+            json={
+                "tenant_id": int(tenant_id), "agente": "quasar", "modelo": modelo, "origem": origem,
+                "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens,
+                "total_tokens": total_tokens, "custo_usd": custo_usd,
+                "session_id": session_id, "unidade": unidade,
+            },
+            timeout=5,
+        )
+    except Exception as e:
+        print(f"[quasar] Falha ao reportar custo de agente (não afeta a conversa): {e!r}")
+
 async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
                                  nome_cliente: str = "Cliente", email_cliente: str = "suporte@orbita.com",
                                  contato_cliente: str | None = None, unidade: str = "",
-                                 produto: str = "thieco", imagem_url: str | None = None) -> str | None:
+                                 produto: str = "thieco", imagem_url: str | None = None,
+                                 ) -> tuple[str | None, str | None]:
     """
     Núcleo do concierge Quasar — monta o contexto (Cortex + FAQ do tenant),
     chama o Claude (com tool-calling se a flag do tenant permitir) e devolve
-    o texto final da resposta. Reaproveitado tanto pela rota HTTP
+    (texto_da_resposta, imagem_extra_url). Reaproveitado tanto pela rota HTTP
     (/api/v1/quasar/chat) quanto pelo webhook de WhatsApp (/webhook/evolution)
     — mesma lógica de atendimento, dois jeitos de chegar até ela.
+
+    `imagem_extra_url` só é preenchido pro Lane Confeitaria, quando a Mel
+    chama a ferramenta mostrar_exemplo_topo_simples (ver LANE_TOOLS_DEFINITION
+    e o loop de tool-calling abaixo) — os outros produtos decidem imagem de
+    saída por conta própria, olhando o texto da resposta (ver
+    _deve_enviar_imagem_thieco/_whitelabel em webhook_evolution).
 
     `produto` diferencia sistema-thieco (config local em SQLite,
     tenants_config) de qualquer tenant do whitelabel (config buscada em
@@ -581,7 +720,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     # estado duplicado no lado do Quasar: assim que a Lane mover o card pra
     # outro lugar, a Mel volta a responder sozinha na mensagem seguinte.
     if produto == "lane" and contato_cliente and lane_tool.cliente_em_atendimento_humano(contato_cliente):
-        return None
+        return None, None
 
     # Contexto real do cliente vindo do Órbita Cortex (piloto "atendimento ao
     # cliente") — só é buscado quando o tenant identifica o cliente por
@@ -667,7 +806,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     # as flags flag_agendamento_ia/flag_fechamento_comercial não se aplicam
     # a ela, só ao par TOOLS_DEFINITION genérico usado por thieco/whitelabel.
     if produto == "lane":
-        ferramentas_disponiveis = [TOOL_TRANSBORDO] + LANE_TOOLS_DEFINITION
+        ferramentas_disponiveis = [TOOL_TRANSBORDO, TOOL_SILENCIAR_FORA_DE_ESCOPO] + LANE_TOOLS_DEFINITION
     else:
         ferramentas_disponiveis = [TOOL_TRANSBORDO, TOOL_MANTER_SILENCIO_MESMO_ASSUNTO] + (TOOLS_DEFINITION if flag_agendamento_ia else [])
         if produto == "thieco":
@@ -686,9 +825,18 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
         elif function_name == "calcular_total_servicos":
             return _calcular_total_servicos(unidade, arguments.get("servicos", []))
         elif function_name == "acionar_atendimento_humano":
-            return _acionar_atendimento_humano(produto, tenant_id, unidade, contato_cliente, nome_cliente, arguments.get("motivo", ""))
+            return _acionar_atendimento_humano(
+                produto, tenant_id, unidade, contato_cliente, nome_cliente,
+                arguments.get("motivo", ""), arguments.get("categoria"),
+            )
         elif function_name == "consultar_catalogo_bolos":
             return lane_tool.consultar_catalogo_bolos()
+        elif function_name == "mostrar_exemplo_topo_simples":
+            # Sinalização real acontece fora daqui, no loop de tool-calling
+            # (variável anexar_exemplo_topo_simples) — esta ferramenta não
+            # precisa consultar nada, só existe pra dar ao modelo um jeito
+            # explícito de pedir a foto de exemplo.
+            return "Foto de exemplo de topo simples será anexada automaticamente nesta resposta."
         elif function_name == "consultar_disponibilidade_agenda":
             return lane_tool.consultar_disponibilidade_agenda(arguments.get("dias", 14))
         elif function_name == "consultar_cliente_por_contato":
@@ -724,6 +872,16 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
         # comportamento repetitivo do modelo.
         mensagens_atuais = list(historico)
         resposta_final_texto = None
+        # Só usado pro Lane (ver TOOL_MOSTRAR_EXEMPLO_TOPO_SIMPLES) — marca
+        # que a foto de exemplo deve ir junto da resposta final desta rodada.
+        anexar_exemplo_topo_simples = False
+        # Acumula uso/custo de TODAS as rodadas do loop (pode chamar o
+        # OpenRouter várias vezes numa única resposta ao cliente) — reporta
+        # uma vez só, agregado, no fim.
+        soma_prompt_tokens = 0
+        soma_completion_tokens = 0
+        soma_custo_usd = 0.0
+        modelo_usado = OPENROUTER_MODEL
         for _ in range(5):
             payload_chamada = {
                 "model": OPENROUTER_MODEL,
@@ -731,16 +889,40 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
                 "temperature": 0.1,
                 "tools": ferramentas_disponiveis,
                 "tool_choice": "auto",
+                "usage": {"include": True},
             }
             response = requests.post(url, headers=headers, json=payload_chamada, timeout=20)
             res_json = response.json()
             if response.status_code != 200 or 'choices' not in res_json:
                 print(f"[quasar] OpenRouter respondeu {response.status_code}: {res_json}")
+            uso = res_json.get("usage") or {}
+            soma_prompt_tokens += uso.get("prompt_tokens") or 0
+            soma_completion_tokens += uso.get("completion_tokens") or 0
+            soma_custo_usd += uso.get("cost") or 0
             message_out = res_json['choices'][0]['message']
 
             if not message_out.get("tool_calls"):
                 resposta_final_texto = message_out["content"]
                 break
+
+            tool_fora_de_escopo = next(
+                (tc for tc in message_out["tool_calls"] if tc["function"]["name"] == "silenciar_fora_de_escopo"),
+                None,
+            )
+            if tool_fora_de_escopo and contato_cliente:
+                motivo = json.loads(tool_fora_de_escopo["function"]["arguments"] or "{}").get("motivo", "")
+                print(f"🤖 QUASAR -> silenciado (fora de escopo: {motivo}) pra {contato_cliente} via {session_id}")
+                lane_tool.acionar_atendimento_humano(contato_cliente, motivo or "Mensagem fora do escopo de bolos/confeitaria.")
+                _reportar_custo_agente(
+                    tenant_id, produto, modelo_usado, "quasar_chat",
+                    soma_prompt_tokens, soma_completion_tokens, soma_prompt_tokens + soma_completion_tokens,
+                    soma_custo_usd or None, session_id, unidade,
+                )
+                # Sem gerenciar_memoria de resposta "assistant" — não houve
+                # resposta. Próxima mensagem do cliente já cai direto no
+                # check de cliente_em_atendimento_humano (linha ~525) e
+                # continua muda, sem precisar repassar por aqui de novo.
+                return None, None
 
             tool_mesmo_assunto = next(
                 (tc for tc in message_out["tool_calls"] if tc["function"]["name"] == "manter_silencio_mesmo_assunto"),
@@ -754,7 +936,10 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
                 # continua sendo o último "assistant" no histórico, então a
                 # próxima mensagem do cliente ainda dá pro modelo reconhecer
                 # se é o mesmo assunto ou algo novo.
-                return None
+                return None, None
+
+            if any(tc["function"]["name"] == "mostrar_exemplo_topo_simples" for tc in message_out["tool_calls"]):
+                anexar_exemplo_topo_simples = True
 
             mensagens_tool = [
                 {
@@ -770,16 +955,26 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
             print("[quasar] limite de 5 rodadas de tool-calling atingido sem resposta final")
             resposta_final_texto = FALLBACK_RESPOSTA
 
+        _reportar_custo_agente(
+            tenant_id, produto, modelo_usado, "quasar_chat",
+            soma_prompt_tokens, soma_completion_tokens, soma_prompt_tokens + soma_completion_tokens,
+            soma_custo_usd or None, session_id, unidade,
+        )
+
         gerenciar_memoria(session_id, tenant_id, "assistant", resposta_final_texto)
-        return resposta_final_texto
+        imagem_extra_url = LANE_IMAGEM_EXEMPLO_TOPO_SIMPLES_URL if anexar_exemplo_topo_simples else None
+        return resposta_final_texto, imagem_extra_url
 
     except Exception as e:
         print(f"[quasar] Falha ao gerar resposta via OpenRouter: {e!r}")
-        return FALLBACK_RESPOSTA
+        return FALLBACK_RESPOSTA, None
 
 @app.post("/api/v1/quasar/chat")
 async def processar_atendimento_quasar(payload: PayloadConversa):
-    resposta_final_texto = await gerar_resposta_quasar(
+    # _imagem_extra ignorado aqui: essa rota HTTP não manda mídia (só devolve
+    # texto pro chamador) — o envio de imagem via WhatsApp acontece só no
+    # webhook_evolution, que já lida com isso.
+    resposta_final_texto, _imagem_extra = await gerar_resposta_quasar(
         tenant_id=payload.tenant_id, session_id=payload.session_id, mensagem=payload.mensagem,
         nome_cliente=payload.nome_cliente, email_cliente=payload.email_cliente,
         contato_cliente=payload.contato_cliente, unidade=payload.unidade, produto=payload.produto,
@@ -947,6 +1142,11 @@ def _enviar_resposta_whatsapp(instancia: str, telefone: str, resposta: str, imag
     )
     if not resp.ok:
         print(f"[quasar] Evolution API respondeu {resp.status_code} em {endpoint}: {resp.text}")
+        _alertar_telegram(
+            f"⚠️ Quasar: falha ao enviar WhatsApp pra {telefone} via '{instancia}' "
+            f"(HTTP {resp.status_code}). Provável instância desconectada — cliente não recebeu resposta.",
+            chave_cooldown=instancia,
+        )
 
 @app.post("/webhook/evolution")
 async def webhook_evolution(request: Request):
@@ -971,10 +1171,22 @@ async def webhook_evolution(request: Request):
     if key.get("fromMe"):
         return {"status": "ignorado", "motivo": "mensagem enviada por nós mesmos"}
 
+    remote_jid = key.get("remoteJid") or ""
+    if remote_jid.endswith("@g.us"):
+        # Mensagem de grupo — nunca responder automaticamente aqui.
+        # groupsIgnore=true na instância já deveria filtrar isso antes de
+        # chegar no webhook, mas essa config vive na Evolution API (pode ser
+        # esquecida ao recriar instância) — este check é a rede de segurança
+        # que não depende dela.
+        return {"status": "ignorado", "motivo": "mensagem de grupo"}
+
     instancia = body.get("instance")
-    telefone = (key.get("remoteJid") or "").split("@")[0]
+    telefone = remote_jid.split("@")[0]
     if not instancia or not telefone:
         return {"status": "ignorado", "motivo": "instância ou remetente ausente"}
+
+    if _telefone_bloqueado(telefone):
+        return {"status": "ignorado", "motivo": "número bloqueado manualmente"}
 
     texto = _extrair_texto_mensagem(data.get("message"))
     imagem_url = _extrair_imagem_mensagem(instancia, data)
@@ -998,7 +1210,7 @@ async def webhook_evolution(request: Request):
     nome_whatsapp = data.get("pushName") or "Cliente"
 
     try:
-        resposta = await gerar_resposta_quasar(
+        resposta, imagem_extra_lane = await gerar_resposta_quasar(
             tenant_id=tenant_id, session_id=session_id, mensagem=texto,
             nome_cliente=nome_whatsapp, contato_cliente=telefone, unidade=unidade, produto=produto,
             imagem_url=imagem_url,
@@ -1011,10 +1223,11 @@ async def webhook_evolution(request: Request):
                 info_unidade = _buscar_info_unidade_whitelabel(tenant_id, unidade)
                 imagem_saida = _deve_enviar_imagem_whitelabel(info_unidade, resposta)
             elif produto == "lane":
-                # Lane Confeitaria não tem regra de "sempre manda essa foto
-                # quando a resposta cita X" (isso é do piloto thieco/
-                # whitelabel) — resposta sempre só texto por enquanto.
-                imagem_saida = None
+                # Só a foto de exemplo de topo simples por ora (ver
+                # mostrar_exemplo_topo_simples) — decidida dentro de
+                # gerar_resposta_quasar via tool-call explícita, não por
+                # regex no texto da resposta como thieco/whitelabel.
+                imagem_saida = imagem_extra_lane
             else:
                 imagem_saida = _deve_enviar_imagem_thieco(unidade, resposta)
             _enviar_resposta_whatsapp(instancia, telefone, resposta, imagem_saida)

@@ -19,8 +19,9 @@ def _headers() -> dict:
 def consultar_catalogo_bolos() -> str:
     """
     Consulta os sabores de bolo (com preço por kg, quando já definido pela
-    Lane) e o menu de docinhos por cento. Nunca lança — falha de conexão
-    vira uma mensagem que o próprio Claude pode repassar ao cliente.
+    Lane), o menu de docinhos por cento e o preço de topo (simples/3D).
+    Nunca lança — falha de conexão vira uma mensagem que o próprio Claude
+    pode repassar ao cliente.
     """
     print("⚙️ TOOL EXECUTION (lane): consultar_catalogo_bolos")
     try:
@@ -46,6 +47,14 @@ def consultar_catalogo_bolos() -> str:
             texto += "\n\nDOCINHOS (por cento):\n" + "\n".join(
                 f"- {d['nome']}: R$ {d['precoCento']:.2f}/cento" for d in docinhos
             )
+
+        topo = dados.get("topo") or {}
+        texto += (
+            f"\n\nTOPO:\n"
+            f"- Topo simples: R$ {topo.get('simplesPreco', 0):.2f} (preço fechado, pode confirmar direto)\n"
+            f"- Topo 3D: a partir de R$ {topo.get('tresDAPartirDe', 0):.2f} "
+            f"(preço varia por design — NUNCA feche o valor final sozinha, só informe o 'a partir de' e acione atendimento humano)"
+        )
         return texto
     except Exception as e:
         return f"Não consegui consultar o catálogo agora (erro de conexão: {e!r})."
@@ -225,7 +234,7 @@ def cliente_em_atendimento_humano(contato_cliente: str) -> bool:
         return False
 
 
-def acionar_atendimento_humano(contato_cliente: str, motivo: str) -> str:
+def acionar_atendimento_humano(contato_cliente: str, motivo: str, categoria: str | None = None) -> str:
     """
     Move o cartão em aberto do cliente (Pedido de verdade, ou ainda só o
     Atendimento da conversa em andamento) pra fila marcada como "atendimento
@@ -234,8 +243,15 @@ def acionar_atendimento_humano(contato_cliente: str, motivo: str) -> str:
     das outras ferramentas. Se não houver fila marcada, ou não houver
     nenhum cartão em aberto pra esse contato, apenas avisa (sem lançar) — a
     Lane sempre pode ser avisada manualmente por fora.
+
+    `categoria` ("pagamento_cartao" | "geral") vira a etiqueta do card no
+    Kanban da Lane — deixa explícito, sem ela precisar abrir a conversa, se
+    é pra mandar link de pagamento no cartão ou é um caso genérico. Qualquer
+    valor fora dessas duas opções (incluindo None) é tratado como sem
+    etiqueta pelo endpoint — nunca falha a movimentação do cartão por causa
+    disso.
     """
-    print(f"⚙️ TOOL EXECUTION (lane): acionar_atendimento_humano({contato_cliente})")
+    print(f"⚙️ TOOL EXECUTION (lane): acionar_atendimento_humano({contato_cliente}, categoria={categoria})")
     try:
         filas_resp = requests.get(f"{LANE_API_URL}/api/internal/filas", headers=_headers(), timeout=8)
         if not filas_resp.ok:
@@ -261,10 +277,11 @@ def acionar_atendimento_humano(contato_cliente: str, motivo: str) -> str:
         if not cartao:
             return f"Cliente ainda não tem nenhum atendimento em aberto pra mover — avise a Lane manualmente. Motivo: {motivo}"
 
+        motivo_atendimento_humano = {"pagamento_cartao": "PAGAMENTO_CARTAO", "geral": "GERAL"}.get(categoria or "")
         mover_resp = requests.post(
             f"{LANE_API_URL}/api/internal/cartoes/{cartao['tipo']}/{cartao['id']}/mover",
             headers=_headers(),
-            json={"filaId": fila_destino["id"]},
+            json={"filaId": fila_destino["id"], "motivoAtendimentoHumano": motivo_atendimento_humano},
             timeout=8,
         )
         if mover_resp.ok:
