@@ -283,6 +283,66 @@ TOOL_TRANSBORDO = {
     }
 }
 
+# Silenciar mesmo assunto já escalado — pra thieco/whitelabel. NÃO silencia
+# a conversa inteira: só o tópico que já foi passado pro humano. Não há
+# fila real do lado do Quasar pra saber se o humano já respondeu — o
+# próprio histórico (a mensagem fixa de transbordo já registrada como
+# "assistant" na rodada anterior, ver TRANSBORDO PARA HUMANO no FAQ) é o
+# sinal que o modelo usa pra reconhecer "já escalei isso" e decidir se a
+# mensagem nova é continuação do mesmo assunto ou algo novo que ele já
+# sabe responder.
+TOOL_MANTER_SILENCIO_MESMO_ASSUNTO = {
+    "type": "function",
+    "function": {
+        "name": "manter_silencio_mesmo_assunto",
+        "description": (
+            "Use quando o cliente mandar uma nova mensagem AINDA sobre o mesmo assunto que você já "
+            "escalou pra atendimento humano nesta conversa (você já chamou acionar_atendimento_humano "
+            "sobre esse tema e, pelo histórico, ainda não há resposta do humano). NÃO use se o cliente "
+            "perguntar algo diferente que você já sabe responder com as informações de negócio — nesse "
+            "caso responda normalmente, mesmo havendo uma escalada em aberto sobre outro assunto. Depois "
+            "de chamar esta ferramenta, não escreva nenhuma mensagem de texto."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "motivo": {
+                    "type": "string",
+                    "description": "O mesmo assunto já escalado, só pra log — não repita isso ao cliente.",
+                }
+            },
+            "required": ["motivo"],
+        },
+    },
+}
+
+# Preço real do sistema-thieco — nunca hardcoded/de memória. Ver
+# _calcular_total_servicos: casa os nomes que o cliente mencionou contra o
+# catálogo real (GET /agendamentos/servicos) e soma sem arredondar.
+TOOL_CALCULAR_TOTAL_SERVICOS = {
+    "type": "function",
+    "function": {
+        "name": "calcular_total_servicos",
+        "description": (
+            "Consulta o preço REAL de um ou mais serviços/combos direto no sistema da barbearia (nunca "
+            "invente nem use de memória, mesmo que a tabela de preços das informações de negócio pareça "
+            "suficiente) e soma o total, sem arredondar. Use sempre que o cliente perguntar o preço de um "
+            "serviço específico ou quanto fica a soma de vários serviços."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "servicos": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Nomes dos serviços mencionados pelo cliente, como ele disse (ex.: ['corte', 'barba']).",
+                }
+            },
+            "required": ["servicos"],
+        },
+    },
+}
+
 # Ferramentas específicas do domínio do Lane Confeitaria (bolos sob
 # encomenda) — não reaproveitam TOOLS_DEFINITION acima, que é genérico pra
 # reunião/mentoria (data+hora única), domínio bem diferente de encomenda de
@@ -412,6 +472,60 @@ def _acionar_atendimento_humano(produto: str, tenant_id, unidade: str, contato_c
         print(f"[quasar] Falha ao acionar atendimento humano: {e!r}")
         return "Falha ao notificar atendente humano (erro de conexão)."
 
+def _fmt_reais(valor: float) -> str:
+    return f"R$ {valor:.2f}".replace(".", ",")
+
+def _consultar_precos_servicos_thieco(unidade: str) -> list[dict] | None:
+    """
+    Preço real, direto do catálogo do sistema-thieco (`catalogo.preco_venda`)
+    — endpoint público /agendamentos/servicos (TASK-23), nunca hardcoded.
+    Retorna None se a chamada falhar, pra quem chamar cair no fallback (a
+    tabela estática do FAQ) sem quebrar o atendimento.
+    """
+    try:
+        resp = requests.get(f"{THIECO_API_URL}/agendamentos/servicos", params={"unidade": unidade}, timeout=5)
+        if resp.ok:
+            return resp.json()
+    except Exception as e:
+        print(f"[quasar] Falha ao consultar preços reais ({unidade}): {e!r}")
+    return None
+
+def _calcular_total_servicos(unidade: str, nomes_servicos: list[str]) -> str:
+    """
+    Casa os nomes de serviço mencionados pelo cliente contra o catálogo real
+    da unidade e soma o total sem arredondar (Artigo IV — No Invention: o
+    valor nunca sai da cabeça do modelo, sempre do banco). Match por
+    substring case-insensitive nos dois sentidos — cliente raramente digita
+    o nome exatamente como está cadastrado (ex.: "sobrancelha" deve casar
+    com "Sobrancelha com Cera" também, então preferimos o match mais curto/
+    exato quando houver mais de um candidato).
+    """
+    catalogo = _consultar_precos_servicos_thieco(unidade)
+    if catalogo is None:
+        return ("Não consegui consultar a tabela de preços em tempo real agora. Use os valores das "
+                "informações de negócio abaixo como referência (podem estar levemente desatualizados) e, "
+                "se for fechar um total exato, avise o cliente que vai confirmar antes de cobrar.")
+
+    encontrados, nao_encontrados = [], []
+    for nome_pedido in nomes_servicos:
+        alvo = nome_pedido.strip().lower()
+        candidatos = [c for c in catalogo if alvo in c["nome"].lower() or c["nome"].lower() in alvo]
+        if candidatos:
+            encontrados.append(min(candidatos, key=lambda c: len(c["nome"])))
+        else:
+            nao_encontrados.append(nome_pedido)
+
+    if not encontrados:
+        nomes_disponiveis = ", ".join(c["nome"] for c in catalogo)
+        return f"Nenhum dos serviços informados foi encontrado no catálogo real. Serviços disponíveis: {nomes_disponiveis}."
+
+    total = sum(float(c["preco_venda"]) for c in encontrados)
+    linhas = "\n".join(f"- {c['nome']}: {_fmt_reais(float(c['preco_venda']))}" for c in encontrados)
+    resposta = f"{linhas}\nTotal: {_fmt_reais(total)}"
+    if nao_encontrados:
+        resposta += f"\n(Não encontrei no catálogo: {', '.join(nao_encontrados)} — não informe preço pra esses, pergunte mais detalhes ao cliente.)"
+    return resposta
+
 FALLBACK_RESPOSTA = "Olá! Estou otimizando meu calendário de mentorias. Poderia tentar reagendar ou enviar sua dúvida em instantes?"
 
 async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
@@ -486,7 +600,7 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
         else:
             # Apresentação fixa do piloto Thieco — mantida como estava pra
             # não alterar comportamento já em produção.
-            apresentacao = "Aqui é o Theo, atendente digital da barbearia Thieco Leandro."
+            apresentacao = "Aqui é o Theo, atendente da barbearia Thieco Leandro."
         bloco_saudacao = (
             f'\nEsta é a primeira mensagem desta conversa. Comece sua resposta com '
             f'"{saudacao_por_horario()}! {apresentacao}" — exatamente essa saudação, uma única vez, '
@@ -548,7 +662,11 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
     if produto == "lane":
         ferramentas_disponiveis = [TOOL_TRANSBORDO] + LANE_TOOLS_DEFINITION
     else:
-        ferramentas_disponiveis = [TOOL_TRANSBORDO] + (TOOLS_DEFINITION if flag_agendamento_ia else [])
+        ferramentas_disponiveis = [TOOL_TRANSBORDO, TOOL_MANTER_SILENCIO_MESMO_ASSUNTO] + (TOOLS_DEFINITION if flag_agendamento_ia else [])
+        if produto == "thieco":
+            # Preço real só existe pro piloto sistema-thieco (THIECO_API_URL +
+            # tabela catalogo) — whitelabel ainda não tem esse endpoint.
+            ferramentas_disponiveis = ferramentas_disponiveis + [TOOL_CALCULAR_TOTAL_SERVICOS]
 
     def executar_tool_call(tool_call: dict) -> str:
         function_name = tool_call["function"]["name"]
@@ -558,6 +676,8 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
             return calendar_tool.checar_disponibilidade_agenda(arguments["data_com_hora"])
         elif function_name == "confirmar_agendamento_call":
             return calendar_tool.confirmar_agendamento_call(nome_cliente, email_cliente, arguments["data_com_hora"])
+        elif function_name == "calcular_total_servicos":
+            return _calcular_total_servicos(unidade, arguments.get("servicos", []))
         elif function_name == "acionar_atendimento_humano":
             return _acionar_atendimento_humano(produto, tenant_id, unidade, contato_cliente, nome_cliente, arguments.get("motivo", ""))
         elif function_name == "consultar_catalogo_bolos":
@@ -614,6 +734,20 @@ async def gerar_resposta_quasar(tenant_id: str, session_id: str, mensagem: str,
             if not message_out.get("tool_calls"):
                 resposta_final_texto = message_out["content"]
                 break
+
+            tool_mesmo_assunto = next(
+                (tc for tc in message_out["tool_calls"] if tc["function"]["name"] == "manter_silencio_mesmo_assunto"),
+                None,
+            )
+            if tool_mesmo_assunto:
+                motivo = json.loads(tool_mesmo_assunto["function"]["arguments"] or "{}").get("motivo", "")
+                print(f"🤖 QUASAR -> silenciado (mesmo assunto já escalado: {motivo}) pra {contato_cliente} via {session_id}")
+                # Sem gerenciar_memoria de resposta "assistant" — não houve
+                # resposta. A mensagem fixa de transbordo da rodada anterior
+                # continua sendo o último "assistant" no histórico, então a
+                # próxima mensagem do cliente ainda dá pro modelo reconhecer
+                # se é o mesmo assunto ou algo novo.
+                return None
 
             mensagens_tool = [
                 {
