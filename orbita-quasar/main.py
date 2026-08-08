@@ -1003,6 +1003,75 @@ async def processar_atendimento_quasar(payload: PayloadConversa):
         media_type="application/json; charset=utf-8",
     )
 
+# Mesma chave que o Lane Confeitaria já usa pra autenticar o Quasar (ver
+# LANE_CONFEITARIA_INTERNAL_KEY em tools/lane_confeitaria.py) — reaproveitada
+# aqui na direção contrária (Lane chamando o Quasar), já que os dois lados já
+# precisam manter esse valor sincronizado por convenção.
+LANE_CONFEITARIA_INTERNAL_KEY = os.getenv("LANE_CONFEITARIA_INTERNAL_KEY", "")
+
+@app.post("/api/v1/quasar/classificar-desistencia")
+async def classificar_desistencia(request: Request):
+    """
+    Chamado pelo Lane Confeitaria quando a Lane marca manualmente um card
+    (Pedido ou Atendimento) como desistência — não é um tool-call da Mel
+    durante a conversa, é acionado depois, pela tela. Busca as últimas
+    mensagens reais do cliente nesta conversa (mesmo histórico que
+    gerar_resposta_quasar usa) e pede pro modelo classificar o motivo:
+    PRECO, PRAZO, INDISPONIBILIDADE, ou INDEFINIDO (nem a mensagem nem a
+    tentativa de classificar deixam claro o motivo). Só serve o Lane
+    Confeitaria por ora (instancia/tenant_id fixos) — sem generalizar pra
+    thieco/whitelabel enquanto não houver outro caso de uso.
+    """
+    if not LANE_CONFEITARIA_INTERNAL_KEY or request.headers.get("x-internal-key") != LANE_CONFEITARIA_INTERNAL_KEY:
+        return JSONResponse(content={"error": "NAO_AUTORIZADO"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(content={"error": "Corpo da requisição inválido (JSON esperado)."}, status_code=400)
+
+    contato = (body.get("contato") or "").strip()
+    if not contato:
+        return JSONResponse(content={"error": "Informe 'contato'."}, status_code=400)
+
+    session_id = f"lane_confeitaria:{contato}"
+    historico = gerenciar_memoria(session_id, "lane_confeitaria", recuperar=True)
+    mensagens_cliente = [m["content"] for m in historico if m["role"] == "user" and m["content"]]
+    if not mensagens_cliente:
+        return {"motivo": "INDEFINIDO"}
+
+    prompt_classificacao = (
+        "Você vai classificar por que um cliente de confeitaria parece ter desistido de uma encomenda de "
+        "bolo, olhando só as últimas mensagens dele numa conversa de WhatsApp. Responda com EXATAMENTE uma "
+        "destas palavras, em maiúsculas, sem mais nada:\n"
+        "PRECO — achou caro, pediu desconto, disse que não cabe no orçamento.\n"
+        "PRAZO — a data que precisava não tinha disponibilidade, ou o prazo oferecido não serve pra ele.\n"
+        "INDISPONIBILIDADE — queria algo que a confeitaria não faz/não tem (sabor, tipo de produto, "
+        "região de entrega etc.).\n"
+        "INDEFINIDO — não dá pra saber o motivo só pelas mensagens (ex.: cliente só sumiu sem explicar)."
+    )
+    try:
+        resp = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"},
+            json={
+                "model": OPENROUTER_MODEL,
+                "temperature": 0,
+                "messages": [
+                    {"role": "system", "content": prompt_classificacao},
+                    {"role": "user", "content": "\n".join(f"- {m}" for m in mensagens_cliente[-6:])},
+                ],
+            },
+            timeout=15,
+        )
+        texto = resp.json()["choices"][0]["message"]["content"].strip().upper()
+    except Exception as e:
+        print(f"[quasar] falha ao classificar desistência: {e!r}")
+        return {"motivo": "INDEFINIDO"}
+
+    motivo = texto if texto in ("PRECO", "PRAZO", "INDISPONIBILIDADE") else "INDEFINIDO"
+    return {"motivo": motivo}
+
 # Mapeamento instância Evolution API → tenant_id. Por ora só sistema_thieco
 # (piloto Mutinga) — extensível quando outros tenants ganharem atendimento
 # automatizado.
