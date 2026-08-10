@@ -36,6 +36,28 @@ QUASAR: /var/www/orbita-agents/quasar
 
 ---
 
+## Portas locais — mapa central pra nunca mais colidir
+
+Levantado em 2026-08-10 depois de um caso real (Jocley Grill e Lane Confeitaria colidiam na porta `5434` por padrão, dando erro ao subir os dois localmente ao mesmo tempo — ver `registro-de-decisoes-jocley-lanchonete.md`). Toda porta nova de Postgres/app local deve ser conferida contra esta tabela **antes** de escolher um número — nunca reaproveitar sem checar.
+
+| Sistema | Postgres (host) | App (host) |
+|---|---|---|
+| `sistema-thieco` | `5432` | `5173` |
+| `vilamill-sistema` | `5433` | `3000` |
+| `lane-confeitaria` | `5434` | `3020` |
+| `kernel` | `5435` (default, `DB_PORT_HOST`) | `80` (default, `APP_PORT`) |
+| `lanchonete-sistema` (Jocley Grill) | `5436` (default, `POSTGRES_HOST_PORT`) | `3001` |
+| `academia-sandro` | — (Supabase, sem Postgres local) | `3010` |
+| `kernelmei` | `5438` | `3021` |
+| `kernel-foodservice` | `5440` (default, `POSTGRES_HOST_PORT`) | `3011` (docker) / `3003` (dev local fora do container, `scripts/dev.js`) |
+| `kernel-academia` | `5441` (default, `POSTGRES_HOST_PORT`) | `3012` |
+
+**Faixas livres pra próximo sistema:** Postgres `5437`, `5439`, `5442+`. App `3002`, `3013+` (evitar `3000`/`3001` que já têm histórico de disputa entre projetos que rodam `next dev` sem porta fixa — ver seções de sistema individuais pra esse problema à parte, de porta de dev **não-Docker** cascateando).
+
+**Isso resolve só a porta publicada no host pelo `docker-compose.yml`.** Não resolve o problema separado de `next dev` (fora de Docker) cascateando pra porta livre quando `3000` já está ocupada por outro projeto do workspace — esse é tratado por sistema, ver o playbook de cada um.
+
+---
+
 ## Villa Mill Sistema (vilamill-sistema)
 
 Conteúdo movido em 2026-08-10 para [[playbook-devops-villamill]] (`kernel-hq/arquitetura-villamill/playbook-devops-villamill.md`) — este playbook geral tinha crescido genérico demais, difícil de localizar informação por sistema.

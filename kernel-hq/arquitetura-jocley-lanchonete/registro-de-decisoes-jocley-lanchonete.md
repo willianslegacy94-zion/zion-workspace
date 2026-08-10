@@ -322,3 +322,12 @@ Entradas em ordem cronológica crescente — as mais recentes no final.
 **Status:** código alterado e validado por `tsc --noEmit` (sem erro) — **não commitado nem enviado ao GitHub até o fim desta sessão**. Cliente pediu deploy direto via `scp` dos 3 arquivos alterados pra `/opt/lanchonete-sistema`, seguido de rebuild (`docker compose build app && docker compose up -d app`) — comandos fornecidos, **execução não confirmada nesta sessão** (ver Playbook DevOps)
 **Artefatos atualizados:** requisitos-funcionais-jocley-lanchonete (RF-094 revisado, RF-106 novo, RN-053 nova), arquitetura-jocley-lanchonete (v1.28)
 **Observação:** Reforça a lição já registrada no Playbook a partir do incidente Thieco (2026-08-04/05): status `open` reportado pela Evolution API não é garantia de sessão viva — o jeito mais confiável de saber é tentar enviar e tratar o erro específico que volta. Igual ao Thieco, também não existe aqui *retry* nem checagem periódica proativa de `connectionStatus`; o usuário só descobre a sessão quebrada ao tentar enviar de fato.
+
+---
+
+## 2026-08-10 — Porta default do Postgres local trocada de 5434 pra 5436 (colisão com lane-confeitaria)
+
+**Motivo:** Levantamento de todas as portas locais dos sistemas do workspace mostrou que o default `POSTGRES_HOST_PORT:-5434` deste projeto colide com a porta fixa `5434` do `lane-confeitaria-db` — se os dois sobem localmente ao mesmo tempo sem `.env` customizado, um dos dois falha ao subir o container. O `.env.example` já documentava esse risco manualmente ("só mude isso se 5434 já estiver em uso"), mas não corrigia o default.
+**Impacto:** `docker-compose.yml`, `scripts/dev.js` (`DB_PORT`) e `.env`/`.env.example` atualizados juntos para o novo default `5436` — escolhido por não colidir com nenhum sistema do workspace na varredura feita (thieco=5432, vilamill=5433, lane-confeitaria=5434, kernel=5435, kernelmei=5438, kernel-foodservice=5440, kernel-academia=5441). Porta da VPS (`5435`, definida só no `.env` de produção) não foi alterada — é específica daquele ambiente e não colide lá hoje.
+**Status:** aplicado, não testado subindo o container de novo nesta sessão (mudança de configuração, sem lógica de aplicação envolvida).
+**Artefatos atualizados:** nenhum RF/RN — mudança de infraestrutura local, não de comportamento do produto.
