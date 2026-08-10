@@ -1,6 +1,6 @@
 ---
 status: draft
-domain: orbita-quasar
+domain: quasar
 source: claude
 created: 2026-06-25
 updated: 2026-08-02

@@ -144,7 +144,7 @@ Criada uma API interna (`/api/internal/*`) autenticada por `X-Internal-Key`, sep
 
 ## 2026-07-30 — Quasar configurado com o Lane Confeitaria (persona "Mel"), 2 bloqueios externos encontrados
 
-Lado do Quasar (`orbita-quasar/`, fora deste sistema) configurado com um tenant novo (`lane_confeitaria`, produto `lane`), 4 ferramentas dedicadas (catálogo, agenda, cliente por contato, registrar pedido) chamando a API interna deste sistema, e a persona "Mel" — nunca se identifica como robô/IA, frase fixa de transbordo "Vou confirmar com a Lane e já retorno". Detalhe completo em `kernel-hq/arquitetura-quasar/registro-de-decisoes-quasar.md`.
+Lado do Quasar (`quasar/`, fora deste sistema) configurado com um tenant novo (`lane_confeitaria`, produto `lane`), 4 ferramentas dedicadas (catálogo, agenda, cliente por contato, registrar pedido) chamando a API interna deste sistema, e a persona "Mel" — nunca se identifica como robô/IA, frase fixa de transbordo "Vou confirmar com a Lane e já retorno". Detalhe completo em `kernel-hq/arquitetura-quasar/registro-de-decisoes-quasar.md`.
 
 **Bug real encontrado durante a validação (deste sistema, não do Quasar):** logo depois de adicionar `valorFinal`/`valorSinal` na resposta de `POST /internal/pedidos`, o `curl` de teste continuou recebendo só `{"pedidoId": "..."}` — o dev server (Turbopack) estava servindo uma versão em cache da rota, de antes da edição. Resolvido matando o processo, apagando `.next/cache` e subindo `npm run dev` de novo. Mesma classe de problema já registrada no Playbook DevOps ("watcher do Next não pega mudança de config a quente") — aqui aconteceu numa edição comum de arquivo, não só em config especial, então vale desconfiar disso sempre que uma mudança de API não aparecer na resposta.
 
@@ -323,9 +323,9 @@ Pedido original: "diversificar" a calculadora de projeção que já existia no d
 
 ## 2026-08-07 — Bloqueio manual de número no WhatsApp (Quasar, fora deste repo)
 
-Pedido pontual da Lane: um número específico nunca mais deve receber resposta da Mel. Implementado no lado do Quasar (`orbita-quasar/main.py`, `webhook_evolution`), não neste sistema — checagem por sufixo de telefone (`TELEFONES_BLOQUEADOS`) antes de qualquer chamada ao modelo, mesmo ponto onde já existia o filtro de mensagem de grupo.
+Pedido pontual da Lane: um número específico nunca mais deve receber resposta da Mel. Implementado no lado do Quasar (`quasar/main.py`, `webhook_evolution`), não neste sistema — checagem por sufixo de telefone (`TELEFONES_BLOQUEADOS`) antes de qualquer chamada ao modelo, mesmo ponto onde já existia o filtro de mensagem de grupo.
 
-**Descoberta relevante durante o trabalho:** `orbita-quasar/main.py`/`database.py` tinham dias de trabalho pendente de commit (categoria de transbordo, topo simples/3D, alerta Telegram, ferramenta `silenciar_fora_de_escopo`, telemetria de custo, leitura de PDF de comprovante). Tudo foi commitado junto com o bloqueio, **exceto** a leitura de PDF (ainda incompleta, deixada de fora a pedido explícito do usuário). Detalhe operacional completo (incluindo o processo de separar só os trechos de PDF de um diff grande e misto) no Playbook DevOps (`kernel-hq-arquitetura`), seção Lane Confeitaria.
+**Descoberta relevante durante o trabalho:** `quasar/main.py`/`database.py` tinham dias de trabalho pendente de commit (categoria de transbordo, topo simples/3D, alerta Telegram, ferramenta `silenciar_fora_de_escopo`, telemetria de custo, leitura de PDF de comprovante). Tudo foi commitado junto com o bloqueio, **exceto** a leitura de PDF (ainda incompleta, deixada de fora a pedido explícito do usuário). Detalhe operacional completo (incluindo o processo de separar só os trechos de PDF de um diff grande e misto) no Playbook DevOps (`kernel-hq-arquitetura`), seção Lane Confeitaria.
 
 ---
 

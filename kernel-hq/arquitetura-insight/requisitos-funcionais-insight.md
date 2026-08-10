@@ -1,5 +1,5 @@
 ---
-status: stable
+status: archived
 domain: orbita-insight
 source: claude
 created: 2026-06-25

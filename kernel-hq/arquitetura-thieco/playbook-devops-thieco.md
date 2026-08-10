@@ -71,7 +71,7 @@ Esse ambiente específico (WSL sem integração Docker Desktop ativa) não tem o
 
 ### Gatilhos, notificações e campanhas — como testar/depurar sem mim (desde 2026-07-12)
 
-O sistema tem hoje 6 mecanismos que **só enfileiram** mensagem numa tabela (`notificacoes`) — nenhum envia WhatsApp/e-mail de verdade ainda (falta a integração externa, ver `orbita-horizon`/`orbita-cortex`). Se um cliente "não recebeu a mensagem", o primeiro passo é sempre confirmar se ela pelo menos **foi gerada** — 90% das vezes o problema é um dos itens abaixo, não um bug.
+O sistema tem hoje 6 mecanismos que **só enfileiram** mensagem numa tabela (`notificacoes`) — nenhum envia WhatsApp/e-mail de verdade ainda (falta a integração externa, ver `orbita-horizon`/`cortex`). Se um cliente "não recebeu a mensagem", o primeiro passo é sempre confirmar se ela pelo menos **foi gerada** — 90% das vezes o problema é um dos itens abaixo, não um bug.
 
 **Configuração que precisa estar preenchida, senão o gatilho fica mudo mesmo ativado:**
 - Configurações → cadastro do administrador: telefone/e-mail preenchidos e o canal correspondente ligado (senão nenhuma notificação administrativa sai, mesmo configurada).
@@ -159,7 +159,7 @@ Desconectar **não apaga histórico de conversa nem configuração de remetente*
 A entrada de 2026-07-28 acima disse que a mudança de contrato do Cortex (`instancia` em vez de `tenant_id`) tinha "comportamento idêntico pro thieco". Isso valia pro **código**, mas o deploy do lado do Cortex nunca aconteceu de verdade — o container na VPS continuou rodando a versão antiga (`PayloadNotificarAdmin` ainda exigindo `tenant_id`), então toda chamada de `notificar-admin` vinda do thieco (que já mandava `instancia`) falhava com **HTTP 422** desde 28/07 — quase uma semana de notificação administrativa (faturamento/ranking/estoque, alertas de sistema) silenciosamente não entregue. `notificado_admin: false` nunca foi investigado a fundo até um relato do Willians em 04/08.
 
 **Causa raiz real, em camadas (achadas em ordem, cada uma escondendo a próxima):**
-1. Contrato desalinhado (acima) → corrigido, commit `34abea5` no `Kernel Workspace` (`orbita-cortex/main.py`).
+1. Contrato desalinhado (acima) → corrigido, commit `34abea5` no `Kernel Workspace` (`cortex/main.py`).
 2. Depois de corrigir o 422, a Evolution API passou a devolver **HTTP 400** (`Cannot read properties of undefined (reading 'id')`, erro típico de sessão Baileys quebrada).
 3. Investigando o 400: **os 3 canais Evolution API (`thieco-admin`, `thieco-mutinga`, `thieco-tambore`) estavam com `connectionStatus: "connecting"` desde 28/07/2026** — Willians tinha usado o botão "Desconectar" (item acima, `74b0d21`) nos 3 canais pra testar com o número pessoal dele, e nenhum reconectou depois. `thieco-tambore` nunca teve `ownerJid` — nunca chegou a ser pareado de verdade. **Impacto real: o atendimento automático do Theo (Quasar) pode ter ficado fora do ar pra cliente de Mutinga e Tamboré a semana inteira**, não só a notificação do admin.
 
@@ -213,7 +213,7 @@ Cuidado com notificação **antiga** (relatório de dias atrás, alerta de trans
 
 **Colar comando multi-linha com acento/travessão neste terminal da VPS corrompe às vezes** (perde trecho no meio, mistura linhas) — se acontecer, criar o script num `cat > arquivo <<'EOF' ... EOF` primeiro, conferir com `wc -l arquivo` (comparar contra o número de linhas esperado) **antes** de executar, só depois rodar o arquivo separado. Colar tudo de uma vez (criação + execução no mesmo bloco) piora o risco.
 
-**Base de conhecimento do Theo (Quasar) — onde fica e como editar:** `orbita-quasar/database.py`, constantes `FAQ_THIECO_COMUM` (regras comuns às duas unidades) / `FAQ_THIECO_MUTINGA` / `FAQ_THIECO_TAMBORE` (dados por unidade — endereço, equipe, tabela de preços). É texto fixo em Python, sincronizado pro SQLite (`tenants_config`) toda vez que o container sobe (`init_quasar_db()`, chamado em `main.py` na importação do módulo) — editar o `.py` e reconstruir o container já basta, não precisa mexer no banco à parte. Preços conferidos contra o catálogo real de produção em 2026-08-04 batiam 100% (não é isso que causa informação errada, se o Theo errar de novo, investigar outra parte do FAQ). Regra nova adicionada nesta data: **nunca arredondar preço** (vários combos têm centavos quebrados — R$ 69,13, R$ 88,88, R$ 138,25 — e o modelo tende a arredondar numa resposta falada).
+**Base de conhecimento do Theo (Quasar) — onde fica e como editar:** `quasar/database.py`, constantes `FAQ_THIECO_COMUM` (regras comuns às duas unidades) / `FAQ_THIECO_MUTINGA` / `FAQ_THIECO_TAMBORE` (dados por unidade — endereço, equipe, tabela de preços). É texto fixo em Python, sincronizado pro SQLite (`tenants_config`) toda vez que o container sobe (`init_quasar_db()`, chamado em `main.py` na importação do módulo) — editar o `.py` e reconstruir o container já basta, não precisa mexer no banco à parte. Preços conferidos contra o catálogo real de produção em 2026-08-04 batiam 100% (não é isso que causa informação errada, se o Theo errar de novo, investigar outra parte do FAQ). Regra nova adicionada nesta data: **nunca arredondar preço** (vários combos têm centavos quebrados — R$ 69,13, R$ 88,88, R$ 138,25 — e o modelo tende a arredondar numa resposta falada).
 
 ### Atualização (2026-08-05) — mesmo incidente de novo, em escala maior: causa raiz real era compartilhamento de número entre instâncias + a instância travada tem uma camada mais funda do que "reconectar com QR novo" + alerta Telegram implementado
 
@@ -252,8 +252,8 @@ WhatsApp/Baileys não permite o mesmo número ser sessão primária de duas inst
 
 **Confirmação de que o deploy do Cortex/Quasar continua sem git** (mesma pendência da entrada 2026-08-04, ainda não resolvida): atualizar código lá é `scp` manual a partir do repo local, rodado do terminal LOCAL (não da sessão SSH da VPS — o caminho local não existe lá):
 ```bash
-scp "Kernel Workspace/orbita-cortex/main.py" root@2.24.93.178:/var/www/orbita-agents/cortex/main.py
-scp "Kernel Workspace/orbita-quasar/main.py" root@2.24.93.178:/var/www/orbita-agents/quasar/main.py
+scp "cortex/main.py" root@2.24.93.178:/var/www/orbita-agents/cortex/main.py
+scp "quasar/main.py" root@2.24.93.178:/var/www/orbita-agents/quasar/main.py
 # depois, na sessão SSH da VPS:
 cd /var/www/orbita-agents/cortex && docker compose up -d --build
 cd /var/www/orbita-agents/quasar && docker compose up -d --build

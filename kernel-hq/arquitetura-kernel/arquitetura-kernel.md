@@ -392,8 +392,8 @@ confirmar o envio. Cada disparo grava `campanhas_promocionais` (1 linha) +
 
 Envio real de WhatsApp (via Evolution API, self-hosted) e concierge conversacional
 de IA são fornecidos por **duas microservices Python compartilhadas, fora deste
-repositório** — `orbita-cortex` (canal administrativo: relatório sob demanda,
-notificação de alerta) e `orbita-quasar` (canal do cliente: FAQ, agendamento,
+repositório** — `cortex` (canal administrativo: relatório sob demanda,
+notificação de alerta) e `quasar` (canal do cliente: FAQ, agendamento,
 transbordo pra humano). A mesma dupla de serviços atende o sistema-thieco e
 **todos** os tenants do whitelabel — não existe 1 Cortex/Quasar por cliente.
 
@@ -490,8 +490,8 @@ Dois formatos de venda em paralelo, ambos configurados no Painel Admin:
 | Nginx → backend | `/etc/nginx/nginx.conf` | `proxy_pass http://backend:3001` — location `/api/` |
 | Nginx → frontend | `/etc/nginx/nginx.conf` | Serve build estático — location `/`, incluindo fallback SPA pra rotas como `/t/:slug` |
 | WhatsApp (Evolution API) | `backend/services/whatsappService.js` | `EVOLUTION_API_URL`, `EVOLUTION_API_KEY` — instância por unidade, ver seção acima |
-| Cortex (relatório admin/IA) | `backend/routes/internal.js`, chamado por `orbita-cortex` | `INTERNAL_SERVICE_KEY` compartilhada |
-| Quasar (concierge WhatsApp) | `backend/routes/internal.js`, chamado por `orbita-quasar` | `INTERNAL_SERVICE_KEY` compartilhada |
+| Cortex (relatório admin/IA) | `backend/routes/internal.js`, chamado por `cortex` | `INTERNAL_SERVICE_KEY` compartilhada |
+| Quasar (concierge WhatsApp) | `backend/routes/internal.js`, chamado por `quasar` | `INTERNAL_SERVICE_KEY` compartilhada |
 
 ---
 

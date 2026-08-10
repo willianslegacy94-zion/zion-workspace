@@ -9,7 +9,7 @@ owner: willians
 
 # Requisitos Funcionais — Kernel Academia
 
-Requisitos **extraídos do código existente** em `Kernel Workspace/kernel-academia/` — não há PRD original de produto neste repositório. Cada RF corresponde a comportamento verificável em uma Server Action, page ou lib. O status de cada módulo diz o que está implementado e o que está inerte.
+Requisitos **extraídos do código existente** em `kernel-academia/` — não há PRD original de produto neste repositório. Cada RF corresponde a comportamento verificável em uma Server Action, page ou lib. O status de cada módulo diz o que está implementado e o que está inerte.
 
 47 RFs em 10 módulos.
 

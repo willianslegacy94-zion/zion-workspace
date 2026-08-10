@@ -125,6 +125,8 @@ Quando abrir: quando for onboarding de novo cliente, implementar feature no prod
 
 ## arquitetura-horizon
 
+> **Descontinuado em 2026-08-10.** Nunca teve cliente ativo, nunca foi deployado. Código apagado — esta seção fica só como registro de arquitetura.
+
 **O que é:** artefatos do Agente Órbita Horizon — atendimento receptivo EAD multi-tenant com validação de aluno por e-mail e transbordo para CRM humano. Primeiro nível da Holding de Robôs.
 
 **Stack:** Python + FastAPI + SQLite + OpenRouter (Claude 3 Haiku)
@@ -144,6 +146,8 @@ Quando abrir: quando for desenvolver ou configurar o agente de suporte EAD.
 ---
 
 ## arquitetura-pulsar
+
+> **Descontinuado em 2026-08-10.** Nunca teve cliente ativo, nunca foi deployado. Código apagado — esta seção fica só como registro de arquitetura.
 
 **O que é:** artefatos do Agente Órbita Pulsar — atendimento conversacional multi-tenant para PMEs com camada passiva (qualificação de leads) e camada ativa (disparos sistêmicos: alertas, cobranças, recuperação). Segundo nível da Holding de Robôs.
 
@@ -165,6 +169,8 @@ Quando abrir: quando for trabalhar no agente Pulsar — qualificação de leads,
 
 ## arquitetura-quasar
 
+> **Código extraído em 2026-08-10:** renomeado de `orbita-quasar` pra `quasar`, movido pra `Desktop/Ops/quasar` (pasta irmã) com repositório próprio (`github.com/willianslegacy94-zion/quasar`, privado).
+
 **O que é:** artefatos do Órbita Quasar — engine de atendimento AI para mentorias e serviços de alto ticket. Concierge de elite com agendamento autônomo via Function Calling e fechamento comercial. Terceiro nível da Holding de Robôs.
 
 **Stack:** Python + FastAPI + SQLite + OpenRouter (Claude 3.5 Sonnet)
@@ -184,6 +190,8 @@ Quando abrir: quando for trabalhar no Quasar — feature de agendamento, fechame
 ---
 
 ## arquitetura-cortex
+
+> **Código extraído em 2026-08-10:** renomeado de `orbita-cortex` pra `cortex`, movido pra `Desktop/Ops/cortex` (pasta irmã) com repositório próprio (`github.com/willianslegacy94-zion/cortex`, privado).
 
 **O que é:** artefatos do Órbita Cortex — cérebro analítico central da Holding de Robôs. Motor de ingestão de dados, classificação comportamental via IA e sincronização de flags operacionais (`status_churn_risk`, `recomendacao_upsell`) para os agentes Horizon, Pulsar e Quasar.
 
@@ -205,11 +213,13 @@ Quando abrir: quando for trabalhar no motor analítico — flags de classificaç
 
 ## arquitetura-kalel
 
+> **Código extraído em 2026-08-10:** movido de `Kernel-Kalel/` (dentro do Kernel Workspace) pra `Desktop/Ops/Kernel-Kalel` (pasta irmã) — repositório próprio já existia.
+
 **O que é:** artefatos do Kernel Kalel — agente de atendimento e agendamento conversacional por WhatsApp **exclusivo do Kernel**. Fork do Quasar (2026-08-05), sem nenhuma lógica de sistema-thieco ou lane-confeitaria. Toda a persona e as regras de negócio vêm em tempo real do backend do Kernel (`/internal/*`); o agente não guarda configuração de tenant. Nome do assistente é customizável por tenant — "Kalel" é só o padrão.
 
 **Stack:** Python 3.12 + FastAPI 0.110 + SQLite (só histórico de conversa) + OpenRouter + Evolution API
 
-**Código-fonte:** `Kernel Workspace/Kernel-Kalel/` — repositório próprio `github.com/willianslegacy94-zion/kernel-kalel` (privado, `main`)
+**Código-fonte:** `Kernel-Kalel/` — repositório próprio `github.com/willianslegacy94-zion/kernel-kalel` (privado, `main`)
 
 Contém (8 artefatos):
 - `system-creation-kalel.md` — threshold respondido
@@ -231,11 +241,13 @@ Quando abrir: quando for trabalhar no atendimento por WhatsApp do Kernel — per
 
 ## arquitetura-brainiac
 
+> **Código extraído em 2026-08-10:** movido de `Kernel-brainiac/` (dentro do Kernel Workspace) pra `Desktop/Ops/Kernel-brainiac` (pasta irmã) — repositório próprio já existia.
+
 **O que é:** artefatos do Kernel Brainiac — agente de notificações e "Raio-X do gestor" **exclusivo do Kernel**. Fork do Cortex (2026-08-05) **sem o núcleo analítico**: entrega no WhatsApp do admin as notificações geradas pelo backend, interpreta pergunta livre do gestor (faturamento, produtos mais vendidos, serviços mais realizados, estoque parado) e devolve o relatório formatado. Também serve o contexto de cliente que o Kalel consome.
 
 **Stack:** Python 3.12 + FastAPI 0.110 + OpenRouter + Evolution API — **sem banco próprio** (todo dado vem do backend do Kernel via `/internal/*`)
 
-**Código-fonte:** `Kernel Workspace/Kernel-brainiac/` — repositório próprio `github.com/willianslegacy94-zion/kernel-brainiac` (privado, `main`, desde 2026-08-10)
+**Código-fonte:** `Kernel-brainiac/` — repositório próprio `github.com/willianslegacy94-zion/kernel-brainiac` (privado, `main`, desde 2026-08-10)
 
 Contém (8 artefatos):
 - `system-creation-brainiac.md` — threshold respondido
@@ -254,6 +266,8 @@ Quando abrir: quando for trabalhar no canal do gestor do Kernel — relatório s
 ---
 
 ## arquitetura-insight
+
+> **Descontinuado em 2026-08-10.** Nunca teve cliente ativo, nunca foi deployado. Código apagado — esta seção fica só como registro de arquitetura.
 
 **O que é:** artefatos do Órbita Insight — engine SaaS de BI preditivo para infoprodutores. Ingere dados, classifica comportamento via IA e entrega insights acionáveis via API (24 RFs em 5 módulos). Complementa o Cortex no nível de análise preditiva.
 
@@ -420,19 +434,19 @@ ERPs e Gestão:
   arquitetura-academiasandro    →  gestão de academia/CT (alunos, financeiro, agenda, pacotes) — em produção
   arquitetura-kernelmei         →  whitelabel multi-tenant de confeitaria (draft, fundação pronta, UI parcial)
   arquitetura-kernel-foodservice →  whitelabel multi-tenant de restaurante (draft, 174 arquivos, nunca commitado)
-  arquitetura-kernel-academia    →  whitelabel multi-tenant de academia/CT (draft, marca do cliente de origem vazada — bloqueante)
+  arquitetura-kernel-academia    →  whitelabel multi-tenant de academia/CT (draft, marca do cliente de origem vazada — bloqueante; código extraído pra Desktop/Ops/kernel-academia, repo próprio)
 
-Holding de Robôs — Agentes:
-  arquitetura-horizon     →  suporte EAD multi-tenant (infoprodutores)
-  arquitetura-pulsar      →  atendimento + disparos para PMEs
-  arquitetura-quasar      →  concierge alto ticket + agendamento (em dev)
-  arquitetura-kalel       →  atendimento/agendamento por WhatsApp, exclusivo do Kernel (fork do Quasar)
-  arquitetura-brainiac    →  notificações + raio-X do gestor, exclusivo do Kernel (fork do Cortex, sem núcleo analítico)
+Holding de Robôs — Agentes (código extraído pra Desktop/Ops/<nome>, repo próprio, exceto onde descontinuado):
+  arquitetura-horizon     →  DESCONTINUADO (2026-08-10) — suporte EAD multi-tenant, nunca teve cliente
+  arquitetura-pulsar      →  DESCONTINUADO (2026-08-10) — atendimento + disparos para PMEs, nunca teve cliente
+  arquitetura-quasar      →  concierge alto ticket + agendamento — repo `quasar`
+  arquitetura-kalel       →  atendimento/agendamento por WhatsApp, exclusivo do Kernel (fork do Quasar) — repo `kernel-kalel`
+  arquitetura-brainiac    →  notificações + raio-X do gestor, exclusivo do Kernel (fork do Cortex, sem núcleo analítico) — repo `kernel-brainiac`
 
 Holding de Robôs — Módulos de IA:
-  arquitetura-cortex      →  cérebro analítico central
-  arquitetura-insight     →  BI preditivo SaaS
-  arquitetura-prospeccao  →  motor ativo de prospecção (1829 leads)
+  arquitetura-cortex      →  cérebro analítico central — repo `cortex`
+  arquitetura-insight     →  DESCONTINUADO (2026-08-10) — BI preditivo SaaS, nunca teve cliente
+  arquitetura-prospeccao  →  motor ativo de prospecção (1829 leads) — evoluiu pra arquitetura-kernel-crm, código em orbita-black-prospeccao (ainda dentro do Kernel Workspace, não extraído)
 
 00-types               →  padrões reutilizáveis entre sistemas
 ```

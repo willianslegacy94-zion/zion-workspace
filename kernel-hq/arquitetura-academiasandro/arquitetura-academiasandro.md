@@ -145,7 +145,7 @@ owner: willians
 **Docker Compose deste projeto** (`academia-sandro/docker-compose.yml`):
 - `app` — imagem `runner` (multi-stage, Next.js `output: standalone`), publicada só em `127.0.0.1:3010`, volume nomeado `comprovantes` (`/app/public/comprovantes`, sobrevive a rebuild)
 - `migrate` / `seed` — serviços one-off (não sobem com `docker compose up`), usam o stage `builder` (tem o Prisma CLI e o `tsx` completos, que o `runner` não carrega) — rodam com `docker compose run --rm migrate`/`seed`
-- **`orbita_shared` (2026-08-03)** — `app` ganhou essa rede Docker externa (além da `default`), pra alcançar o container `evolution_api` (WhatsApp real, ver seção 4) pelo nome — mesmo padrão já usado por `orbita-cortex`/`lane-confeitaria`/`sistema-thieco` nessa mesma VPS. **Pareado e validado ao vivo em 2026-08-03** (mesmo dia) — rede criada, `EVOLUTION_API_KEY` preenchida, QR code escaneado, os dois avisos automáticos confirmados chegando de verdade no WhatsApp real do CT (não só HTTP 200/`enviado: true`)
+- **`orbita_shared` (2026-08-03)** — `app` ganhou essa rede Docker externa (além da `default`), pra alcançar o container `evolution_api` (WhatsApp real, ver seção 4) pelo nome — mesmo padrão já usado por `cortex`/`lane-confeitaria`/`sistema-thieco` nessa mesma VPS. **Pareado e validado ao vivo em 2026-08-03** (mesmo dia) — rede criada, `EVOLUTION_API_KEY` preenchida, QR code escaneado, os dois avisos automáticos confirmados chegando de verdade no WhatsApp real do CT (não só HTTP 200/`enviado: true`)
 
 **Deploy (rotina, quando o código muda):**
 ```bash

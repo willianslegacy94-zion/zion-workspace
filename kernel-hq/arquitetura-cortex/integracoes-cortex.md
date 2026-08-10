@@ -114,14 +114,14 @@ Authorization: Bearer {OPENROUTER_API_KEY}
 
 Os agentes conectam diretamente ao arquivo `orbita_cortex.db` para ler os flags antes de agir.
 
-**Caminho do banco:** `orbita-cortex/orbita_cortex.db`
+**Caminho do banco:** `cortex/orbita_cortex.db`
 
 ### Horizon — Consulta de Churn Risk
 
 ```python
 import sqlite3
 
-conn = sqlite3.connect("../orbita-cortex/orbita_cortex.db")
+conn = sqlite3.connect("../cortex/orbita_cortex.db")
 cursor = conn.cursor()
 cursor.execute(
     "SELECT status_churn_risk, nome FROM matriz_inteligencia WHERE email = ?",

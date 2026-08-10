@@ -10,7 +10,7 @@ owner: willians
 # Índice — Órbita Cortex
 
 Mapa completo dos artefatos de governança do cérebro analítico central da Holding de Robôs.
-Todos os arquivos vivem em `orbita-cortex/arquitetura-cortex/` com sufixo `-cortex`.
+Todos os arquivos vivem em `cortex/arquitetura-cortex/` com sufixo `-cortex`.
 
 ---
 

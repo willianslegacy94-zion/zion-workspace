@@ -1,6 +1,6 @@
 ---
 status: draft
-domain: orbita-quasar
+domain: quasar
 source: claude
 created: 2026-06-25
 updated: 2026-08-07
@@ -28,7 +28,7 @@ owner: willians
 ## Estrutura de arquivos
 
 ```
-orbita-quasar/
+quasar/
 ├── main.py              — FastAPI app + endpoint + webhook + orquestração (loop de tool-calling)
 ├── database.py          — criação do schema SQLite, seed de tenants (thieco, whitelabel, lane) e FAQs
 ├── docker-compose.yml   — env vars por tenant (LANE_CONFEITARIA_API_URL etc.), rede orbita_shared

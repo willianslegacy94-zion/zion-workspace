@@ -29,7 +29,7 @@ Tudo abaixo lido de `requirements.txt`, `Dockerfile`, `docker-compose.yml` e `ma
 
 ## Diferença estrutural vs. Cortex (origem do fork)
 
-O Brainiac nasceu de uma cópia do `orbita-cortex` em 2026-08-05. O que mudou na
+O Brainiac nasceu de uma cópia do `cortex` em 2026-08-05. O que mudou na
 arquitetura:
 
 | Elemento | Cortex | Brainiac |

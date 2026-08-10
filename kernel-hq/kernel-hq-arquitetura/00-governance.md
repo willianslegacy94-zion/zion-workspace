@@ -23,7 +23,7 @@ Toda a operação é conteinerizada via Docker no servidor VPS (Plano KVM 2 - 8G
 └── 🌌 kernel-hq/                # [BRAÇO DE IA & AUTOMAÇÃO — Holding de Robôs]
     ├── docker-compose.yml          # Instâncias dedicadas da Evolution API + Webhooks
     │
-    ├── orbita-cortex/              # Cérebro analítico central — Python + FastAPI + SQLite
+    ├── cortex/              # Cérebro analítico central — Python + FastAPI + SQLite
     │   └── app/main.py             # Motor de ingestão, classificação IA e sync de flags
     │
     ├── orbita-horizon/             # Agente suporte EAD multi-tenant — Python + FastAPI
@@ -32,7 +32,7 @@ Toda a operação é conteinerizada via Docker no servidor VPS (Plano KVM 2 - 8G
     ├── orbita-pulsar/              # Agente atendimento + disparos PMEs — Python + FastAPI
     │   └── app/main.py             # Claude 3.5 Sonnet | qualificação de leads | disparos ativos
     │
-    ├── orbita-quasar/              # Concierge alto ticket — Python + FastAPI (em dev)
+    ├── quasar/              # Concierge alto ticket — Python + FastAPI (em dev)
     │   └── app/main.py             # Claude 3.5 Sonnet | agendamento autônomo | fechamento comercial
     │
     ├── orbita-insight/             # Engine BI preditivo SaaS — Python + FastAPI

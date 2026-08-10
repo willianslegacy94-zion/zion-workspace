@@ -11,7 +11,7 @@ owner: willians
 
 Mapa completo dos artefatos de governança do agente de atendimento e agendamento conversacional exclusivo do Kernel.
 Todos os arquivos vivem em `kernel-hq/arquitetura-kalel/` com sufixo `-kalel`.
-Código-fonte: `Kernel Workspace/Kernel-Kalel/` — repositório próprio `github.com/willianslegacy94-zion/kernel-kalel` (privado, branch `main`).
+Código-fonte: `Kernel-Kalel/` — repositório próprio `github.com/willianslegacy94-zion/kernel-kalel` (privado, branch `main`).
 
 ---
 

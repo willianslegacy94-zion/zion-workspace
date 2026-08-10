@@ -1,5 +1,5 @@
 ---
-status: stable
+status: archived
 domain: horizon
 source: claude
 created: 2026-06-24

@@ -18,7 +18,7 @@ Todas as entradas abaixo foram reconstruídas a partir de evidência real: comen
 ## RD-001 — Fork do Quasar, não rename in-place
 **Data:** 2026-08-05
 **Contexto:** o atendimento por WhatsApp dos tenants do Kernel rodava no Quasar, agente compartilhado com `sistema-thieco` e `lane-confeitaria`, ambos em produção. Evoluir o atendimento do Kernel significava mexer num serviço do qual outros clientes dependem.
-**Decisão:** criar `Kernel Workspace/Kernel-Kalel/` como fork do Quasar, exclusivo do Kernel. O Quasar original continua intacto.
+**Decisão:** criar `Kernel-Kalel/` como fork do Quasar, exclusivo do Kernel. O Quasar original continua intacto.
 **Alternativas descartadas:** renomear/adaptar o Quasar in-place — rejeitado por risco a clientes em produção.
 **O que saiu no fork:** `tools/lane_confeitaria.py`, o parâmetro `produto`, o SQLite de config de tenant, o FAQ hardcoded por unidade (`FAQ_THIECO_MUTINGA`, `UNIDADES_INFO`) e `TOOLS_DEFINITION`/calendar_mock (o whitelabel nunca usava — `flag_agendamento_ia` sempre vinha 0).
 **Impacto:** o decoupling do Quasar original (remover a branch whitelabel dele) fica pendente e **só deve acontecer depois** de Kalel/Brainiac rodarem estáveis com tráfego real.

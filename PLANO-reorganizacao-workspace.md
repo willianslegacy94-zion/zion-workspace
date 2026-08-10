@@ -49,7 +49,7 @@ Não faziam parte da análise de 17/07 e da decisão original do usuário. Antes
 
 ### Pastas sem `.git` próprio já conhecidas (fora de escopo desta rodada, confirmado 17/07 e ainda válido)
 
-`kernel-hq` (ex-`orbita-black`), `orbita-cortex`, `orbita-horizon`, `orbita-insight`, `orbita-pulsar`, `orbita-quasar`, `academia-sandro` — são pastas comuns commitadas direto no repo pai, sem histórico próprio. Não fazem parte da decisão aprovada (extrair exigiria criar `git init` + remote novo — decisão separada, perguntar ao usuário quando chegar a vez).
+`kernel-hq` (ex-`orbita-black`), `cortex`, `orbita-horizon`, `orbita-insight`, `orbita-pulsar`, `quasar`, `academia-sandro` — são pastas comuns commitadas direto no repo pai, sem histórico próprio. Não fazem parte da decisão aprovada (extrair exigiria criar `git init` + remote novo — decisão separada, perguntar ao usuário quando chegar a vez).
 
 ### `node_modules` trackeado
 

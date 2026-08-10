@@ -15,7 +15,7 @@ owner: willians
 |---|---|
 | Engine | SQLite |
 | Arquivo | `orbita_cortex.db` |
-| Localização | `orbita-cortex/` (raiz do projeto) |
+| Localização | `cortex/` (raiz do projeto) |
 | Acesso | Leitura direta de arquivo pelos agentes da Holding |
 | Inicialização | `python3 database_cortex.py` |
 

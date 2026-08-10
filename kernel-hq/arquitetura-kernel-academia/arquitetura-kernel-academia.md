@@ -25,7 +25,7 @@ owner: willians
 | Runtime de container | `node:22-alpine`, multi-stage (deps → builder → runner), usuário `nextjs` não-root | Dockerfile do repositório |
 | Testes | — | **Nenhuma dependência de teste no `package.json`** |
 
-**Repositório:** `Kernel Workspace/kernel-academia/` — código fora do Obsidian. **Sem `.git` próprio e untracked no monorepo pai** (`?? kernel-academia/`).
+**Repositório:** `kernel-academia/` — código fora do Obsidian. **Sem `.git` próprio e untracked no monorepo pai** (`?? kernel-academia/`).
 
 ---
 

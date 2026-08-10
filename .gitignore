@@ -33,13 +33,10 @@ Thumbs.db
 .claude/settings.local.json
 .aiox/install-log.txt
 
-# Holding de Robôs — serviços Python (Cortex, Horizon, Pulsar, Quasar)
+# Holding de Robôs — serviços Python (extraídos pra fora do Kernel Workspace em 2026-08-10,
+# entradas mantidas por precaução caso algum .db solto ainda apareça por engano)
 __pycache__/
 *.pyc
-orbita-cortex/orbita_cortex.db
-orbita-horizon/orbita_horizon.db
-orbita-pulsar/orbita_pulsar.db
-orbita-quasar/orbita_quasar.db
 
 # Repos aninhados com .git próprio, extraídos pra pasta irmã (ver PLANO-reorganizacao-workspace.md)
 # — nunca devem voltar a ser trackeados aqui, cada um já tem seu próprio remote/histórico.
@@ -50,3 +47,9 @@ lane-confeitaria/
 lanchonete-sistema/
 kernelmei/
 kernel-foodservice/
+Kernel-Kalel/
+Kernel-brainiac/
+cortex/
+quasar/
+kernel-academia/
+evolution-api/

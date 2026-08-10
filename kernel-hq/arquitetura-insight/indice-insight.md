@@ -1,13 +1,15 @@
 ---
-status: stable
+status: archived
 domain: orbita-insight
 source: claude
 created: 2026-06-25
-updated: 2026-06-25
+updated: 2026-08-10
 owner: willians
 ---
 
 # Índice — Órbita Insight
+
+> **Descontinuado em 2026-08-10.** Nunca teve cliente ativo (ver `04-carteira-de-clientes.md`) e nunca foi deployado em produção — última atividade real em código foi 2026-06-25, mais de 6 semanas parado. Código (`orbita-insight/`) apagado. Esta documentação fica como registro de arquitetura, não representa mais um sistema em operação.
 
 Mapa completo dos artefatos de governança do sistema.
 Todos os arquivos vivem em `orbita-insght/arquitetura-insight/` com sufixo `-insight`.

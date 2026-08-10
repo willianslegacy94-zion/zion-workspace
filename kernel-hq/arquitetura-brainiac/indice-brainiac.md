@@ -13,7 +13,7 @@ Mapa completo dos artefatos de governança do agente de notificações e relató
 **Kernel**. Todos os arquivos vivem em `kernel-hq/arquitetura-brainiac/` com sufixo
 `-brainiac`.
 
-Código-fonte: `Kernel Workspace/Kernel-brainiac/` — repositório próprio
+Código-fonte: `Kernel-brainiac/` — repositório próprio
 `willianslegacy94-zion/kernel-brainiac` (privado, branch `main`, desde 2026-08-10).
 
 ---

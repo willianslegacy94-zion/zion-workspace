@@ -56,7 +56,7 @@ INSTANCIA_ADMIN_POR_TENANT = {"sistema_thieco": "thieco-admin"}
    - `GET /notificacoes/admin-autorizado` (thieco `:1071`) — checagem de telefone ANTES de qualquer resposta (é o fix do loop infinito documentado na sessão de 2026-07-27/28 — não pular essa etapa).
    - `sincronizarAlertas` + `POST /notificacoes/gerar` — estender pra empurrar alerta novo (estoque/meta) pro WhatsApp do admin, não só pro sininho.
 
-5. **`orbita-cortex` e `orbita-quasar`** (as duas microservices Python, hoje 1:1 com o tenant `sistema_thieco`) — remover todo hardcode de tenant:
+5. **`cortex` e `quasar`** (as duas microservices Python, hoje 1:1 com o tenant `sistema_thieco`) — remover todo hardcode de tenant:
    - `INSTANCIA_ADMIN_POR_TENANT`, `TENANTS_ATENDIMENTO_SUPORTADOS` (Cortex) e o conector `conectores/thieco.py` (que aponta pra um `THIECO_DATABASE_URL` fixo, um banco por cliente) — trocar pela consulta dinâmica via API do whitelabel, banco único.
    - `UNIDADES_INFO`, `FAQ_THIECO_COMUM/MUTINGA/TAMBORE` (Quasar, `database.py`) — hoje são constantes Python. Precisam virar dado: nova tabela ou coluna JSONB em `unidades` (endereço, horário, Booksy, preços, regras) que o admin do tenant edita pela própria tela de Configurações, sem precisar de mim pra cada cliente.
    - `tenants_config` (SQLite local do Quasar) — troca o `INSERT OR REPLACE` hardcoded por seed dinâmico a partir da API do whitelabel.

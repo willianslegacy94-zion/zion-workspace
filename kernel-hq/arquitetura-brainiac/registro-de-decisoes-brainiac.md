@@ -24,7 +24,7 @@ como pendente de confirmação.
 **Data:** 2026-08-05
 **Contexto:** o Kernel precisava de agente próprio, mas `sistema-thieco` e
 `lane-confeitaria` dependem do Cortex em produção.
-**Decisão:** copiar `orbita-cortex/` para uma pasta nova (`Kernel-brainiac/`) e simplificar
+**Decisão:** copiar `cortex/` para uma pasta nova (`Kernel-brainiac/`) e simplificar
 a cópia. Os originais continuam existindo intactos.
 **Alternativas descartadas:** renomear/editar o Cortex in-place — rejeitado por quebrar
 tenants em produção.

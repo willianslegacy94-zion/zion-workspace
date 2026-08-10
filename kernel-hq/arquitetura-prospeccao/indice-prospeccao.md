@@ -3,13 +3,13 @@ status: stable
 domain: prospeccao
 source: claude
 created: 2026-06-25
-updated: 2026-06-25
+updated: 2026-08-10
 owner: willians
 ---
 
 # Índice — Kernel: Motor Ativo de Prospecção
 
-> **Nível 0, histórico.** O sistema evoluiu para multi-tenant + CRM conversacional em 2026-07-22 — ver [[../arquitetura-black/indice-black|arquitetura-black]]. Este documento descreve o estado do sistema antes da evolução; o código foi migrado, não recriado, e os 1829 leads aqui documentados continuam preservados (agora em `leads_prospeccao_legacy`, fora do fluxo ativo).
+> **Nível 0, histórico.** O sistema evoluiu para multi-tenant + CRM conversacional em 2026-07-22 — ver [[../arquitetura-kernel-crm/indice-kernel-crm|arquitetura-kernel-crm]]. Este documento descreve o estado do sistema antes da evolução; o código foi migrado, não recriado, e os 1829 leads aqui documentados continuam preservados.
 
 Mapa completo dos artefatos de governança do robô de prospecção.
 Todos os arquivos vivem em `kernel-hq-prospeccao/arquitetura-prospeccao/` com sufixo `-prospeccao`.

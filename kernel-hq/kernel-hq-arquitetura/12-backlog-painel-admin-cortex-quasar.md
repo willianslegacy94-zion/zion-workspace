@@ -39,7 +39,7 @@ compartilhado:
   recente e mais completa até agora: Kanban automático (Atendimento → Pedido
   → filas com gatilhos configuráveis), visão computacional (foto de
   bolo/comprovante Pix), WhatsApp real via Evolution API. Ver
-  `orbita-quasar/tools/lane_confeitaria.py` e o schema de
+  `quasar/tools/lane_confeitaria.py` e o schema de
   `lane-confeitaria/prisma/schema.prisma` como referência de padrão a
   replicar nos demais (nenhum dado de negócio hardcoded do lado do agente,
   tudo consultado via API interna com `X-Internal-Key`).
@@ -113,7 +113,7 @@ Hoje tudo roda local: Quasar/Cortex em Docker (WSL, Docker Desktop), cada
 sistema (ex.: lane-confeitaria) rodando nativo no host (`npm run dev`) fora
 de container. Isso só funciona enquanto a máquina do Willians estiver ligada
 — pra virar "sempre no ar" de verdade, precisa migrar pra VPS Hostinger.
-Pontos já identificados (confirmados em `orbita-quasar/docker-compose.yml`
+Pontos já identificados (confirmados em `quasar/docker-compose.yml`
 e na integração real feita com o lane-confeitaria em 2026-08-02):
 
 ### 1. `host.docker.internal` não é garantido em Linux puro

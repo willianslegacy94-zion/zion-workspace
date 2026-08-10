@@ -207,6 +207,8 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 
 ## arquitetura-horizon
 
+> **Descontinuado em 2026-08-10.** Nunca teve cliente ativo, nunca foi deployado. Código apagado — esta seção fica só como registro de arquitetura.
+
 **Tipo:** agente de IA (Holding de Robôs)
 
 **O que é:** Agente Órbita Horizon — suporte EAD multi-tenant com validação de aluno por e-mail. Atende receptivamente alunos de plataformas de membros 24/7, com transbordo para CRM humano. Primeiro nível da Holding de Robôs.
@@ -220,6 +222,8 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 ---
 
 ## arquitetura-pulsar
+
+> **Descontinuado em 2026-08-10.** Nunca teve cliente ativo, nunca foi deployado. Código apagado — esta seção fica só como registro de arquitetura.
 
 **Tipo:** agente de IA (Holding de Robôs)
 
@@ -235,6 +239,8 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 
 ## arquitetura-quasar
 
+> **Código extraído em 2026-08-10:** renomeado de `orbita-quasar` pra `quasar`, movido de dentro do `Kernel Workspace` pra `Desktop/Ops/quasar` (pasta irmã) com repositório próprio (`github.com/willianslegacy94-zion/quasar`, privado).
+
 **Tipo:** agente de IA (Holding de Robôs)
 
 **O que é:** Órbita Quasar — engine de atendimento AI para mentorias e serviços de alto ticket. Concierge de elite que reconhece o cliente por nome e e-mail, responde com a persona do tenant e executa agendamentos autônomos via Function Calling.
@@ -249,6 +255,8 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 
 ## arquitetura-kalel
 
+> **Código extraído em 2026-08-10:** movido de dentro do `Kernel Workspace` (`Kernel-Kalel/`) pra `Desktop/Ops/Kernel-Kalel` (pasta irmã) — repositório próprio já existia desde a publicação inicial (`github.com/willianslegacy94-zion/kernel-kalel`, privado).
+
 **Tipo:** agente de IA (exclusivo do Kernel)
 
 **O que é:** Kernel Kalel — atendimento e agendamento conversacional por WhatsApp para os clientes finais dos tenants do Kernel. Fork do Quasar (2026-08-05) sem nenhuma lógica de thieco/lane: persona, horário, endereço, equipe, preços, regras e mensagem de transbordo vêm em tempo real do backend do Kernel, então um tenant novo não exige mudança de código. Confirma e cancela agendamentos existentes pela própria conversa (Lógica Anti-No-Show) e faz transbordo para humano. O nome do assistente é customizável por tenant — "Kalel" é só o padrão.
@@ -262,6 +270,8 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 ---
 
 ## arquitetura-brainiac
+
+> **Código extraído em 2026-08-10:** movido de dentro do `Kernel Workspace` (`Kernel-brainiac/`) pra `Desktop/Ops/Kernel-brainiac` (pasta irmã) — repositório próprio já existia desde a publicação inicial (`github.com/willianslegacy94-zion/kernel-brainiac`, privado).
 
 **Tipo:** agente de IA (exclusivo do Kernel)
 
@@ -279,6 +289,8 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 
 ## arquitetura-cortex
 
+> **Código extraído em 2026-08-10:** renomeado de `orbita-cortex` pra `cortex`, movido de dentro do `Kernel Workspace` pra `Desktop/Ops/cortex` (pasta irmã) com repositório próprio (`github.com/willianslegacy94-zion/cortex`, privado) — mesmo motivo estrutural dos outros repos extraídos (evitar `.git` aninhado no monorepo).
+
 **Tipo:** módulo de IA (Holding de Robôs)
 
 **O que é:** Órbita Cortex — cérebro analítico central da Holding de Robôs. Ingere dados das plataformas, classifica comportamento dos leads/alunos via IA e sincroniza flags operacionais (`status_churn_risk`, `recomendacao_upsell`) para os agentes Horizon, Pulsar e Quasar tomarem decisões personalizadas.
@@ -292,6 +304,8 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 ---
 
 ## arquitetura-insight
+
+> **Descontinuado em 2026-08-10.** Nunca teve cliente ativo, nunca foi deployado. Código apagado — esta seção fica só como registro de arquitetura.
 
 **Tipo:** módulo de IA / SaaS
 
@@ -386,13 +400,13 @@ Os sistemas documentados em `kernel-hq` correspondem a implementações de softw
 
 | Sistema | Tipo | Stack | Status |
 |---|---|---|---|
-| `arquitetura-horizon` | Órbita Horizon — Suporte EAD | Python + FastAPI + SQLite + OpenRouter | Stable (2026-06-24) |
-| `arquitetura-pulsar` | Órbita Pulsar — Atendimento + Disparos PME | Python + FastAPI + SQLite + OpenRouter | Stable (2026-06-24) |
-| `arquitetura-quasar` | Órbita Quasar — Concierge Alto Ticket | Python + FastAPI + SQLite + OpenRouter | Draft (2026-06-25) |
-| `arquitetura-kalel` | Kernel Kalel — Atendimento/Agendamento do Kernel | Python 3.12 + FastAPI + SQLite + OpenRouter + Evolution API | Experimental (2026-08-10) |
-| `arquitetura-brainiac` | Kernel Brainiac — Notificações e Raio-X do Gestor | Python 3.12 + FastAPI + OpenRouter + Evolution API (sem banco) | Experimental (2026-08-10) |
-| `arquitetura-cortex` | Órbita Cortex — Cérebro Analítico Central | Python + FastAPI + SQLite + OpenRouter | Stable (2026-06-25) |
-| `arquitetura-insight` | Órbita Insight — BI Preditivo SaaS | Python + FastAPI + SQLite + OpenRouter | Stable (2026-06-25) |
+| `arquitetura-horizon` | Órbita Horizon — Suporte EAD | Python + FastAPI + SQLite + OpenRouter | **Descontinuado** (2026-08-10) — nunca teve cliente |
+| `arquitetura-pulsar` | Órbita Pulsar — Atendimento + Disparos PME | Python + FastAPI + SQLite + OpenRouter | **Descontinuado** (2026-08-10) — nunca teve cliente |
+| `arquitetura-quasar` | Quasar — Concierge Alto Ticket | Python + FastAPI + SQLite + OpenRouter | Stable — repo próprio `quasar` (`Desktop/Ops/quasar`) |
+| `arquitetura-kalel` | Kernel Kalel — Atendimento/Agendamento do Kernel | Python 3.12 + FastAPI + SQLite + OpenRouter + Evolution API | Experimental — repo próprio `kernel-kalel` (`Desktop/Ops/Kernel-Kalel`) |
+| `arquitetura-brainiac` | Kernel Brainiac — Notificações e Raio-X do Gestor | Python 3.12 + FastAPI + OpenRouter + Evolution API (sem banco) | Experimental — repo próprio `kernel-brainiac` (`Desktop/Ops/Kernel-brainiac`) |
+| `arquitetura-cortex` | Cortex — Cérebro Analítico Central | Python + FastAPI + SQLite + OpenRouter | Stable — repo próprio `cortex` (`Desktop/Ops/cortex`) |
+| `arquitetura-insight` | Órbita Insight — BI Preditivo SaaS | Python + FastAPI + SQLite + OpenRouter | **Descontinuado** (2026-08-10) — nunca teve cliente |
 | `arquitetura-prospeccao` | Motor Ativo de Prospecção | Python + FastAPI + SQLite + OpenRouter | Stable (2026-06-25) |
 
 **Ponto de entrada para Claude em cada sistema:**
