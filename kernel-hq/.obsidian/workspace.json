@@ -1,0 +1,231 @@
+{
+  "main": {
+    "id": "147cf2f907f84cf7",
+    "type": "split",
+    "children": [
+      {
+        "id": "86187c48e1b57bc1",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "6af12fa335908a1d",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "orbita-black-arquitetura/Playbook DevOps - Comandos Docker e Bancos.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Playbook DevOps - Comandos Docker e Bancos"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c67adea943fe8e2d",
+    "type": "split",
+    "children": [
+      {
+        "id": "7f94fac6d95d309c",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "b3d208418cba8d57",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": true,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Explorador de arquivos"
+            }
+          },
+          {
+            "id": "6799eaa0401fe88c",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Procurar"
+            }
+          },
+          {
+            "id": "33421eb4891f0bd4",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {},
+              "icon": "lucide-bookmark",
+              "title": "Marcadores"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "0cb3db4072f264ea",
+    "type": "split",
+    "children": [
+      {
+        "id": "ae7e8020462e4528",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "1a081c67ef89a4bf",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "00-governance-systems/00-indice.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Links inversos para 00-indice"
+            }
+          },
+          {
+            "id": "a47cf86f744f12b9",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "00-governance-systems/00-indice.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Links de saída para 00-indice"
+            }
+          },
+          {
+            "id": "1f4270540b13d8b0",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Etiquetas"
+            }
+          },
+          {
+            "id": "5ccbf892bb21e72e",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "Todas as propriedades"
+            }
+          },
+          {
+            "id": "1f33ecb992167397",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "00-governance-systems/00-indice.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Sumário de 00-indice"
+            }
+          }
+        ],
+        "currentTab": 4
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Abrir a troca rápida": false,
+      "graph:Abrir visualização em gráfico": false,
+      "canvas:Criar novo canvas": false,
+      "daily-notes:Abrir a nota de hoje": false,
+      "templates:Inserir modelo": false,
+      "command-palette:Abrir paleta de comandos": false,
+      "bases:Criar nova base": false
+    }
+  },
+  "active": "6af12fa335908a1d",
+  "lastOpenFiles": [
+    "orbita-black-arquitetura/Playbook DevOps - Comandos Docker e Bancos.md.tmp.142901.a7735fe91a0d",
+    "arquitetura-jocley-lanchonete/indice-jocley-lanchonete.md.tmp.142901.fb497d03ec90",
+    "arquitetura-jocley-lanchonete/indice-jocley-lanchonete.md.tmp.142901.fe8e5093e139",
+    "arquitetura-jocley-lanchonete/indice-jocley-lanchonete.md.tmp.142901.6b4f3279363e",
+    "arquitetura-jocley-lanchonete/indice-jocley-lanchonete.md.tmp.142901.6003614f7c54",
+    "arquitetura-jocley-lanchonete/requisitos-funcionais-jocley-lanchonete.md.tmp.142901.05c1094ac9a4",
+    "arquitetura-jocley-lanchonete/requisitos-funcionais-jocley-lanchonete.md.tmp.142901.88368db0aed1",
+    "arquitetura-jocley-lanchonete/registro-de-decisoes-jocley-lanchonete.md.tmp.142901.0161aba34697",
+    "arquitetura-jocley-lanchonete/arquitetura-jocley-lanchonete.md.tmp.142901.5b5fe49fb77e",
+    "arquitetura-jocley-lanchonete/arquitetura-jocley-lanchonete.md",
+    "orbita-black-arquitetura/Playbook DevOps - Comandos Docker e Bancos.md",
+    "arquitetura-lane-confeitaria/indice-lane-confeitaria.md.tmp.63404.d78f0f618cca",
+    "arquitetura-lane-confeitaria/indice-lane-confeitaria.md.tmp.63404.2cc53f6d6d88",
+    "00-governance-systems/system-creation-threshold.md",
+    "00-governance-systems/08-registro-de-decisoes-engenharia-da-governanca.md",
+    "00-governance-systems/03-arquitetura-tecnica-engenharia-da-estrutura.md",
+    "00-governance-systems/01-prd-engenharia-da-decisao.md",
+    "00-governance-systems/00-indice.md",
+    "00-governance/ecosystem-guide.md",
+    "arquitetura-lane-confeitaria/modelo-de-dados-lane-confeitaria.md",
+    "arquitetura-lane-confeitaria/arquitetura-lane-confeitaria.md",
+    "orbita-black-arquitetura/04-carteira-de-clientes.md",
+    "orbita-black-arquitetura/06-precificação-Kernel.md",
+    "arquitetura-academiasandro/arquitetura-academiasandro.md",
+    "arquitetura-academiasandro/backlog-tarefas-academiasandro.md",
+    "arquitetura-academiasandro/design-system-academiasandro.md",
+    "arquitetura-academiasandro/indice-academiasandro.md",
+    "arquitetura-academiasandro/registro-de-decisoes-academiasandro.md",
+    "arquitetura-academiasandro/prd-academiasandro.md",
+    "arquitetura-lane-confeitaria/ux-flows-lane-confeitaria.md",
+    "arquitetura-lane-confeitaria/ui-kit-lane-confeitaria.md",
+    "arquitetura-lane-confeitaria/system-creation-lane-confeitaria.md",
+    "arquitetura-lane-confeitaria/requisitos-funcionais-lane-confeitaria.md",
+    "arquitetura-lane-confeitaria/registro-de-decisoes-lane-confeitaria.md",
+    "arquitetura-lane-confeitaria/prd-lane-confeitaria.md",
+    "arquitetura-lane-confeitaria/indice-lane-confeitaria.md",
+    "Sem título.canvas",
+    "00-types/mandala-ver03.png",
+    "00-types/00-types/mandala-ver03.png"
+  ]
+}

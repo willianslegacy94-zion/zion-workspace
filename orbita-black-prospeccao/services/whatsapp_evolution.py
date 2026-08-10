@@ -1,6 +1,6 @@
 """
 Adapter para a Evolution API (WhatsApp self-hosted, decisão estratégica documentada em
-orbita-black/orbita-black-arquitetura/08-modulo-de-inteligencia-artificial-e-agentes.md).
+kernel-hq/kernel-hq-arquitetura/08-modulo-de-inteligencia-artificial-e-agentes.md).
 
 O parser abaixo segue o formato PÚBLICO conhecido do evento `messages.upsert` da Evolution API,
 mas NÃO foi validado contra uma instância real rodando — isso exige parear um número via QR code

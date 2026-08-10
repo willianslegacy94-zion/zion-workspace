@@ -2,7 +2,7 @@
 #
 # Conector do Quasar com o Lane Confeitaria (CRM + Agenda + Financeiro da
 # Confeitaria Artesanal da Lane). Chama a API interna do sistema
-# (`/api/internal/*`, ver orbita-black/arquitetura-lane-confeitaria) em vez
+# (`/api/internal/*`, ver kernel-hq/arquitetura-lane-confeitaria) em vez
 # de guardar qualquer sabor/preço/regra aqui — mesmo princípio já usado pro
 # whitelabel (nenhum dado de negócio hardcoded do lado do agente).
 import os
