@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: orbita-whitelabel
+domain: kernel
 source: claude
 created: 2026-06-24
 updated: 2026-07-10
@@ -9,13 +9,13 @@ owner: willians
 
 # PRD — Sistema Orbita Whitelabel
 
-> Referência: [[indice-orbita-whitelabel]]
+> Referência: [[indice-kernel]]
 
 ---
 
 ## Identidade
 
-**Nome comercial: Kernel** (rebrand em 2026-08-02). **Domínio: `kercellwc.online`**, registrado em 2026-08-02 — ainda sem VPS/DNS/deploy apontados (ver [[registro-de-decisoes-orbita-whitelabel]]).
+**Nome comercial: Kernel** (rebrand em 2026-08-02). **Domínio: `kercellwc.online`**, registrado em 2026-08-02 — ainda sem VPS/DNS/deploy apontados (ver [[registro-de-decisoes-kernel]]).
 
 ---
 
@@ -84,7 +84,7 @@ Um sistema web com arquitetura monolítica simples (Node.js + React + PostgreSQL
 - Multi-unidade via feature flag
 - Autenticação JWT com recuperação de senha por email
 - Branding customizável por tenant (cores, nome, logo, terminologia), resolvido em runtime a partir do login/URL — não mais em build-time
-- Multi-tenant em banco compartilhado — um deployment atende N clientes, isolados por `tenant_id` (ver [[registro-de-decisoes-orbita-whitelabel]] 2026-07-10)
+- Multi-tenant em banco compartilhado — um deployment atende N clientes, isolados por `tenant_id` (ver [[registro-de-decisoes-kernel]] 2026-07-10)
 - Deploy via Docker Compose em qualquer VPS Linux, ou banco gerenciado (Supabase)
 
 ### Fora do escopo
@@ -95,7 +95,7 @@ Um sistema web com arquitetura monolítica simples (Node.js + React + PostgreSQL
 - Relatórios fiscais (NF-e, SPED)
 - Integração com sistemas externos de RH ou contabilidade
 - Row Level Security (RLS) no Postgres — isolação primária é `tenant_id` obrigatório em toda query; RLS fica como endurecimento futuro
-- Terminologia por nicho (`VITE_NICHO`) em runtime — continua build-time, um valor por deployment (ver limitação em [[requisitos-funcionais-orbita-whitelabel]])
+- Terminologia por nicho (`VITE_NICHO`) em runtime — continua build-time, um valor por deployment (ver limitação em [[requisitos-funcionais-kernel]])
 
 ---
 

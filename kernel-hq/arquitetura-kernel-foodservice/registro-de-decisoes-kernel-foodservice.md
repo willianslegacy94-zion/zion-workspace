@@ -29,7 +29,7 @@ Decisões cronológicas com o que mudou, por que, e o impacto. Entradas novas se
 
 Entre essas datas (`mtime` de `deploy/nginx/`, `public/`, `.env.example`, `docker-compose.yml`, `package.json` na forma atual), as três camadas que diferenciam este sistema do Jocley foram construídas: isolamento por `tenantId`, modulação por `features`, e onboarding via painel super-admin.
 
-**Por quê:** comentários no código citam o produto Kernel ([[arquitetura-orbita-whitelabel]]) nominalmente três vezes como referência conceitual — `admin-auth.ts` ("mesmo espírito do token `role: 'super_admin'` do Kernel"), `feature-guard.ts` ("mesmo espírito do `featureGate` do Kernel") e o schema Prisma (`SuperAdmin`, "mesmo espírito da conta `devmaster`"). Nunca código reaproveitado — o Kernel é Express+React, este é Next.js+Prisma — só o desenho.
+**Por quê:** comentários no código citam o produto Kernel ([[arquitetura-kernel]]) nominalmente três vezes como referência conceitual — `admin-auth.ts` ("mesmo espírito do token `role: 'super_admin'` do Kernel"), `feature-guard.ts` ("mesmo espírito do `featureGate` do Kernel") e o schema Prisma (`SuperAdmin`, "mesmo espírito da conta `devmaster`"). Nunca código reaproveitado — o Kernel é Express+React, este é Next.js+Prisma — só o desenho.
 
 **Impacto:** schema cresceu de 19 para 21 models (`+Tenant`, `+SuperAdmin`), `tenantId` propagado em 20 das 21 tabelas (exceto `OrderItem`, por decisão documentada no próprio schema — ver [[modelo-de-dados-kernel-foodservice]] §3).
 

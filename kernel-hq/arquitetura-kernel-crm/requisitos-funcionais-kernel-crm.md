@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: black
+domain: kernel-crm
 source: claude
 created: 2026-07-22
 updated: 2026-07-22
@@ -9,7 +9,7 @@ owner: willians
 
 # Requisitos Funcionais — Kernel v2: CRM Conversacional Multi-Tenant
 
-> Referência: [[prd-black]]
+> Referência: [[prd-kernel-crm]]
 
 ---
 
@@ -105,4 +105,4 @@ owner: willians
 | RNF-02 | Migração de banco nunca destrutiva — dado legado sempre em tabela separada | Segurança de dados |
 | RNF-03 | SQLite com `PRAGMA journal_mode=WAL` e `PRAGMA foreign_keys=ON` | Integridade |
 | RNF-04 | Erro de rede (503) e erro de API (502) sempre distinguíveis pelo chamador | Observabilidade |
-| RNF-05 | `.env` no diretório do próprio projeto (`kernel-hq-prospeccao/.env`) — decisão que supera D-07 do PRD original, ver [[registro-de-decisoes-black]] | Configuração |
+| RNF-05 | `.env` no diretório do próprio projeto (`kernel-hq-prospeccao/.env`) — decisão que supera D-07 do PRD original, ver [[registro-de-decisoes-kernel-crm]] | Configuração |

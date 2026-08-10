@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: orbita-whitelabel
+domain: kernel
 source: claude
 created: 2026-06-24
 updated: 2026-08-03
@@ -9,13 +9,13 @@ owner: willians
 
 # Modelo de Dados — Sistema Orbita Whitelabel
 
-> Referência: [[arquitetura-orbita-whitelabel]] | [[requisitos-funcionais-orbita-whitelabel]]
+> Referência: [[arquitetura-kernel]] | [[requisitos-funcionais-kernel]]
 
 ---
 
 ## Multi-tenant — `tenant_id` (desde 2026-07-10)
 
-> Ver [[registro-de-decisoes-orbita-whitelabel]] 2026-07-10 para a decisão completa.
+> Ver [[registro-de-decisoes-kernel]] 2026-07-10 para a decisão completa.
 
 Toda tabela de negócio abaixo tem uma coluna `tenant_id INTEGER REFERENCES tenants(id)` (nullable — retrofit não-destrutivo sobre tabelas com dado existente; a aplicação sempre popula, o banco não força `NOT NULL`). Não repetido campo a campo em cada tabela abaixo para não poluir — **assuma presente em todas**, exceto `tenants` em si.
 
@@ -33,17 +33,17 @@ Fonte da verdade de identidade, branding, plano e feature flags de cada cliente.
 | Campo | Tipo | Obrigatório | Calculado | Descrição |
 |---|---|---|---|---|
 | id | SERIAL | sim | sim | PK |
-| slug | VARCHAR(100) | sim | não | Único — identifica o tenant na URL (`/t/:slug`) e no login. **Imutável após criado** (validado em `POST/PUT /admin/tenants`, ver seção Painel Admin em [[arquitetura-orbita-whitelabel]]) |
+| slug | VARCHAR(100) | sim | não | Único — identifica o tenant na URL (`/t/:slug`) e no login. **Imutável após criado** (validado em `POST/PUT /admin/tenants`, ver seção Painel Admin em [[arquitetura-kernel]]) |
 | nome | VARCHAR(255) | sim | não | Nome do estabelecimento |
 | ativo | BOOLEAN | sim | não | Default true |
 | plano | VARCHAR(20) | não | não | `start` \| `pro` \| `full` \| `NULL` (avulso, sem pacote fechado) — modelo KERNEL OS, desde 2026-08-02/03. Só rótulo/preset de módulo pro Painel Admin, não gate nada sozinho — quem gate é `features` abaixo. Renomeada de `nivel` (modelo Nível 1/2/3, supersedido) |
 | limite_profissionais | INTEGER | não | não | `NULL` = sem limite. Capacidade de profissionais ativos do plano ("cadeira") — travado de verdade em `POST /profissionais/admin/cadastrar` (403 ao atingir), não só documentação |
 | usa_comissao | BOOLEAN | sim | não | Default true. `false` = tenant não trabalha com comissão (dono solo sem funcionário, ou time assalariado) — não muda nenhum cálculo (`percentual_comissao` continua existindo e sendo somado normalmente), só esconde/renomeia a palavra "Comissão" no frontend (Dashboard, cadastro de profissional, relatório DRE) |
-| features | JSONB | sim | não | Default `{}`. Flags opcionais do tenant, ex. `{"combos": true, "metas": true}`. Mescladas com o core sempre-true em `resolveFeatures()` (backend) — recalculada a cada `POST /auth/login` **e a cada `GET /auth/me`** desde 2026-08-03 (antes só no login; ver [[registro-de-decisoes-orbita-whitelabel]]) |
+| features | JSONB | sim | não | Default `{}`. Flags opcionais do tenant, ex. `{"combos": true, "metas": true}`. Mescladas com o core sempre-true em `resolveFeatures()` (backend) — recalculada a cada `POST /auth/login` **e a cada `GET /auth/me`** desde 2026-08-03 (antes só no login; ver [[registro-de-decisoes-kernel]]) |
 | branding | JSONB | sim | não | Default `{}`. `nome, slogan, logoUrl, loginBgUrl, temaPadrao, corPrimaria, corPrimariaEscuro, corFundo, corFundoEscuro, corSuperficie, corSuperficieEscuro` — servido publicamente (sem auth) via `GET /public/tenants/:slug` |
 | created_at | TIMESTAMPTZ | sim | sim | Default NOW() |
 
-**Bootstrap:** o primeiro tenant de um banco novo é criado por `seedTenantPadrao()` a partir de `TENANT_PADRAO`/`TENANT_PADRAO_NOME` no `.env` (mesma ideia de `UNIDADE_PADRAO`). **Qualquer tenant depois desse** é criado pelo Painel Admin (`POST /admin/tenants`, `/admin` no frontend, ver [[arquitetura-orbita-whitelabel]]) — não é mais `INSERT` manual.
+**Bootstrap:** o primeiro tenant de um banco novo é criado por `seedTenantPadrao()` a partir de `TENANT_PADRAO`/`TENANT_PADRAO_NOME` no `.env` (mesma ideia de `UNIDADE_PADRAO`). **Qualquer tenant depois desse** é criado pelo Painel Admin (`POST /admin/tenants`, `/admin` no frontend, ver [[arquitetura-kernel]]) — não é mais `INSERT` manual.
 
 **Módulos KERNEL OS → `features` (chaves reais, cada uma gate um `featureGate(...)` em `server.js`):**
 
@@ -54,7 +54,7 @@ Fonte da verdade de identidade, branding, plano e feature flags de cada cliente.
 | Estoque, Suprimentos & Compras Internas | `estoque` | Não |
 | Financeiro Avançado & DRE Analítico | `relatorios` | Não — só gate `GET /relatorios/inteligencia` desde 2026-08-03; `fluxo-caixa`/`dre`/`comissoes`/`resumo-operador` viraram Base |
 | Cortex — Notificações & Raio-X do Gestor | `notificacoes` | Não |
-| Autoatendimento & Google Reviews | `autoatendimentoPublico` | Não — flag própria desde 2026-08-03 (antes reusava `agenda` por engano, ver [[registro-de-decisoes-orbita-whitelabel]]); gate só o link público de agendamento (`agendamentos-publico.js`), não a agenda interna |
+| Autoatendimento & Google Reviews | `autoatendimentoPublico` | Não — flag própria desde 2026-08-03 (antes reusava `agenda` por engano, ver [[registro-de-decisoes-kernel]]); gate só o link público de agendamento (`agendamentos-publico.js`), não a agenda interna |
 | Legado (fora do documento de precificação, ajuste manual) | `metas`, `metasDiarias`, `gestaoTime`, `campanhas`, `atendimentoWhatsapp` | Não |
 
 ---
@@ -385,7 +385,7 @@ Filial/endereço físico do tenant. Ao contrário do sistema-thieco (unidade era
 | ativo | BOOLEAN | sim | Default true |
 | whatsapp_remetente | VARCHAR(20) | não | Número que aparece como remetente das mensagens dessa unidade (lembrete de agendamento, gatilhos ao cliente) — desde 2026-07-13 |
 | link_avaliacao | TEXT | não | Link de avaliação (Google Meu Negócio ou similar) usado no gatilho de pedido de avaliação pós-venda; sem link = gatilho não dispara pra essa unidade — desde 2026-07-13 |
-| atendimento_ia | JSONB | não | Default `{}`. Conteúdo consumido pelo Quasar (concierge de WhatsApp) pra montar o FAQ dessa unidade em tempo real — sem redeploy por cliente. Campos livres dentro do objeto: `nome_assistente, tom_voz, endereco, mapa_url, instagram, link_agendamento, regras_atendimento, mensagem_transbordo` (whitelist em `CAMPOS_ATENDIMENTO_IA`, `backend/routes/configuracoes.js`). Editado por `GET/PUT /configuracoes/atendimento-ia`, shape `{ <slug>: {...campos} }` — mesmo padrão de `whatsapp_remetente`/`link_avaliacao` acima. Desde 2026-07-28, ver [[registro-de-decisoes-orbita-whitelabel]] |
+| atendimento_ia | JSONB | não | Default `{}`. Conteúdo consumido pelo Quasar (concierge de WhatsApp) pra montar o FAQ dessa unidade em tempo real — sem redeploy por cliente. Campos livres dentro do objeto: `nome_assistente, tom_voz, endereco, mapa_url, instagram, link_agendamento, regras_atendimento, mensagem_transbordo` (whitelist em `CAMPOS_ATENDIMENTO_IA`, `backend/routes/configuracoes.js`). Editado por `GET/PUT /configuracoes/atendimento-ia`, shape `{ <slug>: {...campos} }` — mesmo padrão de `whatsapp_remetente`/`link_avaliacao` acima. Desde 2026-07-28, ver [[registro-de-decisoes-kernel]] |
 | taxas | JSONB | não | Default `{}`. Taxas de cartão/meios de pagamento dessa unidade — chaves `debito`, `credito`, `pix`, `dinheiro`, `cortesia` + variantes por bandeira (`debito_visa`, `credito_mastercard`, etc. — whitelist em `CHAVES_TAXA_VALIDAS`, `backend/routes/configuracoes.js`), valores decimais (`0.0349` = 3,49%). Consumido em tempo real por `calcularValorLiquido()` (`backend/routes/vendas.js`) — cache de 5min por `tenant_id`+`unidade`. Editado por `GET/PUT /configuracoes/taxas`, shape `{ <slug>: {...taxas} }`. Substitui o padrão `taxa_{unidade}_{forma}` do sistema-thieco (chave string numa tabela `configuracoes` genérica, pressupõe lista de unidades fixa) — desde 2026-07-28 |
 | created_at | TIMESTAMPTZ | sim | Default NOW() |
 

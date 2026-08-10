@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: black
+domain: kernel-crm
 source: claude
 created: 2026-07-22
 updated: 2026-07-22
@@ -9,7 +9,7 @@ owner: willians
 
 # Registro de Decisões — Kernel v2: CRM Conversacional Multi-Tenant
 
-> Referência: [[prd-black]] | [[arquitetura-black]]
+> Referência: [[prd-kernel-crm]] | [[arquitetura-kernel-crm]]
 
 Decisões cronológicas que moldaram o sistema. Cada entrada registra o contexto, a alternativa descartada e o impacto.
 

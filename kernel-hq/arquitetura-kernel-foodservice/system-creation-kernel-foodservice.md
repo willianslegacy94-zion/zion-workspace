@@ -42,7 +42,7 @@ Confirmado por leitura comparada dos dois repositórios, não por suposição:
 - `+ src/lib/features.ts`, `feature-guard.ts`, `admin-auth.ts`, `tenant-seed.ts`
 - schema: 19 → 21 models (`+ Tenant`, `+ SuperAdmin`) e `tenantId` propagado por todas as tabelas de negócio
 
-**Origem dos padrões de multi-tenancy: o produto Kernel** ([[arquitetura-orbita-whitelabel]], repo `kernel/`). Os comentários do código citam o Kernel nominalmente três vezes, sempre como referência conceitual adaptada — nunca como código reaproveitado (o Kernel é Express + React, este é Next.js + Prisma):
+**Origem dos padrões de multi-tenancy: o produto Kernel** ([[arquitetura-kernel]], repo `kernel/`). Os comentários do código citam o Kernel nominalmente três vezes, sempre como referência conceitual adaptada — nunca como código reaproveitado (o Kernel é Express + React, este é Next.js + Prisma):
 
 - `src/lib/admin-auth.ts` — "mesmo espírito do token `role: 'super_admin'` do Kernel, adaptado pra cookie em vez de header Authorization"
 - `src/lib/feature-guard.ts` — 404 em vez de 403 pra não revelar que o módulo existe, "mesmo espírito do `featureGate` do Kernel"

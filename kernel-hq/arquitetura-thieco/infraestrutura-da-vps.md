@@ -124,7 +124,7 @@ INTERNAL_SERVICE_KEY  # compartilhada com Cortex/Quasar
 CORTEX_URL, QUASAR_URL
 ```
 
-- **Evolution API** roda como stack Docker própria na mesma VPS (`evolution_api`/`evolution_postgres`/`evolution_redis`), rede `orbita_shared` compartilhada com o backend do thieco (e, desde 2026-07-28, também com o sistema-orbita-whitelabel — ver [[arquitetura-orbita-whitelabel]]).
+- **Evolution API** roda como stack Docker própria na mesma VPS (`evolution_api`/`evolution_postgres`/`evolution_redis`), rede `orbita_shared` compartilhada com o backend do thieco (e, desde 2026-07-28, também com o sistema-orbita-whitelabel — ver [[arquitetura-kernel]]).
 - **Órbita Cortex e Órbita Quasar** (microservices Python, fora deste repositório) também rodam na VPS, conectados via `orbita_shared` — não existe mais sessão Baileys local (`backend/data/whatsapp-auth` não é mais usado).
 - 3 instâncias Evolution API pareadas de verdade: Mutinga, Tamboré, admin.
 

@@ -20,7 +20,7 @@ Dois tipos de documento vivem aqui:
 
 | Documento | O que define |
 |---|---|
-| `system-creation-threshold.md` | As 6 perguntas que precisam ter resposta antes de abrir uma pasta de sistema. Sistemas aprovados: Thieco, Villamill, Horizon, Pulsar, Quasar (draft), Cortex, Insight, Prospecção, IVSSTORE, Orbita Whitelabel. |
+| `system-creation-threshold.md` | As 6 perguntas que precisam ter resposta antes de abrir uma pasta de sistema. Sistemas aprovados: Thieco, Villamill, Horizon, Pulsar, Quasar (draft), Cortex, Insight, Prospecção, IVSSTORE, Kernel. |
 
 ---
 

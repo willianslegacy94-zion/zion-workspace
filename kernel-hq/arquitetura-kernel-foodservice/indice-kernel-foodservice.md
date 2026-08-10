@@ -90,5 +90,5 @@ registro-de-decisoes-kernel-foodservice (atualização contínua)
 ## Links relacionados
 
 [[arquitetura-jocley-lanchonete]] — sistema de origem, mesmo domínio de foodservice
-[[arquitetura-orbita-whitelabel]] — produto Kernel, origem dos padrões de multi-tenancy
+[[arquitetura-kernel]] — produto Kernel, origem dos padrões de multi-tenancy
 [[arquitetura-kernelmei]] — outro vertical da família `kernel*`, mesmo movimento aplicado à confeitaria

@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: orbita-whitelabel
+domain: kernel
 source: claude
 created: 2026-06-24
 updated: 2026-07-10
@@ -9,7 +9,7 @@ owner: willians
 
 # Design System — Sistema Orbita Whitelabel
 
-> Referência: [[arquitetura-orbita-whitelabel]]
+> Referência: [[arquitetura-kernel]]
 
 ---
 
@@ -17,9 +17,9 @@ owner: willians
 
 O design system do Orbita é baseado em **tokens CSS custom properties** injetados em `:root` via `frontend/src/lib/theme.js`. Nenhuma cor específica de cliente é hardcoded nos componentes — tudo passa pelos tokens `--cor-*` consumidos via classes Tailwind (`gold`, `onix`, `surface`) definidas em `tailwind.config.js`.
 
-Desde 2026-07-10 (ver [[registro-de-decisoes-orbita-whitelabel]]), os valores de origem não vêm mais de `VITE_COR_*` no build — vêm de `tenants.branding` (JSONB no banco), buscado em runtime via `GET /public/tenants/:slug` e passado como argumento pra `applyTenantTheme(modo, branding)`. No primeiro paint (antes do fetch resolver), usa-se um branding neutro (`BRANDING_PADRAO`) — mesma paleta de fábrica descrita abaixo.
+Desde 2026-07-10 (ver [[registro-de-decisoes-kernel]]), os valores de origem não vêm mais de `VITE_COR_*` no build — vêm de `tenants.branding` (JSONB no banco), buscado em runtime via `GET /public/tenants/:slug` e passado como argumento pra `applyTenantTheme(modo, branding)`. No primeiro paint (antes do fetch resolver), usa-se um branding neutro (`BRANDING_PADRAO`) — mesma paleta de fábrica descrita abaixo.
 
-Duas fontes possíveis para os tokens (ver [[arquitetura-orbita-whitelabel]] § Sistema de Tema):
+Duas fontes possíveis para os tokens (ver [[arquitetura-kernel]] § Sistema de Tema):
 1. **Paleta de fábrica** — sem nenhuma cor customizada em `tenants.branding`, os valores vêm de 24 constantes hex exatas em `theme.js` (idênticas ao sistema-thieco original).
 2. **Paleta personalizada** — com `corPrimaria`/`corFundo`/`corSuperficie` configurados em `tenants.branding`, os valores são derivados por `lighten()`/`darken()` sobre as 3 cores base do tenant.
 

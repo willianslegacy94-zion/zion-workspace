@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: black
+domain: kernel-crm
 source: claude
 created: 2026-07-22
 updated: 2026-07-22
@@ -19,8 +19,8 @@ Todos os arquivos vivem em `kernel-hq/arquitetura-black/` com sufixo `-black`.
 
 | Documento | Agente | O que cobre |
 |---|---|---|
-| [[prd-black]] | @pm | Contexto da evolução, problema, objetivo, usuário, hipótese, escopo e métricas do CRM conversacional |
-| [[requisitos-funcionais-black]] | @pm | RFs por módulo: migração multi-tenant, agente de IA com tools, CRM (leads/interactions/meetings), painel visual, endpoints legados |
+| [[prd-kernel-crm]] | @pm | Contexto da evolução, problema, objetivo, usuário, hipótese, escopo e métricas do CRM conversacional |
+| [[requisitos-funcionais-kernel-crm]] | @pm | RFs por módulo: migração multi-tenant, agente de IA com tools, CRM (leads/interactions/meetings), painel visual, endpoints legados |
 
 ---
 
@@ -28,8 +28,8 @@ Todos os arquivos vivem em `kernel-hq/arquitetura-black/` com sufixo `-black`.
 
 | Documento | Agente | O que cobre |
 |---|---|---|
-| [[arquitetura-black]] | @architect | Stack, camadas, fluxo de dados, distinção erro de rede vs erro de API, estratégia de escala |
-| [[modelo-de-dados-black]] | @data-engineer | 4 tabelas ativas (`tenants_config`, `leads`, `interactions`, `meetings`) + `leads_prospeccao_legacy` como trilha de auditoria |
+| [[arquitetura-kernel-crm]] | @architect | Stack, camadas, fluxo de dados, distinção erro de rede vs erro de API, estratégia de escala |
+| [[modelo-de-dados-kernel-crm]] | @data-engineer | 4 tabelas ativas (`tenants_config`, `leads`, `interactions`, `meetings`) + `leads_prospeccao_legacy` como trilha de auditoria |
 
 ---
 
@@ -37,7 +37,7 @@ Todos os arquivos vivem em `kernel-hq/arquitetura-black/` com sufixo `-black`.
 
 | Documento | Agente | O que cobre |
 |---|---|---|
-| [[fluxos-black]] | @architect | Migração do banco, loop de tool-calling, disparo em lote, webhook de resposta, chat de teste, webhook WhatsApp |
+| [[fluxos-kernel-crm]] | @architect | Migração do banco, loop de tool-calling, disparo em lote, webhook de resposta, chat de teste, webhook WhatsApp |
 
 ---
 
@@ -45,7 +45,7 @@ Todos os arquivos vivem em `kernel-hq/arquitetura-black/` com sufixo `-black`.
 
 | Documento | Agente | O que cobre |
 |---|---|---|
-| [[registro-de-decisoes-black]] | @pm / todos | Decisões cronológicas: por que evoluir em vez de recriar, padrão de multi-tenant escolhido, destino do protótipo Node, gap de produto descoberto (Horizon/Insight/Cortex não cobrem o que seria vendido) |
+| [[registro-de-decisoes-kernel-crm]] | @pm / todos | Decisões cronológicas: por que evoluir em vez de recriar, padrão de multi-tenant escolhido, destino do protótipo Node, gap de produto descoberto (Horizon/Insight/Cortex não cobrem o que seria vendido) |
 
 ---
 

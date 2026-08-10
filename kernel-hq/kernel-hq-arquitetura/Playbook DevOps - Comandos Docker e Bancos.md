@@ -81,7 +81,7 @@ Conteúdo movido em 2026-08-10 para [[playbook-devops-thieco]] (`kernel-hq/arqui
 
 ## Sistema Órbita Whitelabel (sistema-orbita-whitelabel) — produto "Kernel"
 
-Conteúdo movido em 2026-08-10 para [[playbook-devops-orbita-whitelabel]] (`kernel-hq/arquitetura-orbita-whitelabel/playbook-devops-orbita-whitelabel.md`) — este playbook geral tinha crescido genérico demais, difícil de localizar informação por sistema. Pasta local hoje é `kernel/` (renomeada de `sistema-orbita-whitelabel/`).
+Conteúdo movido em 2026-08-10 para [[playbook-devops-kernel]] (`kernel-hq/arquitetura-kernel/playbook-devops-kernel.md`) — este playbook geral tinha crescido genérico demais, difícil de localizar informação por sistema. Pasta local hoje é `kernel/` (renomeada de `sistema-orbita-whitelabel/`).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: orbita-whitelabel
+domain: kernel
 source: claude
 created: 2026-08-10
 updated: 2026-08-10
@@ -9,13 +9,13 @@ owner: willians
 
 # Playbook DevOps — Orbita Whitelabel (Kernel)
 
-Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico demais, difícil de localizar). Contém plano de portabilidade, progresso e comandos específicos do Sistema Orbita Whitelabel — nome comercial **Kernel**, pasta local `kernel/` (renomeada de `sistema-orbita-whitelabel/`). Ver também [[indice-orbita-whitelabel]] e [[Playbook DevOps - Comandos Docker e Bancos]] (comandos gerais + risco do monorepo).
+Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico demais, difícil de localizar). Contém plano de portabilidade, progresso e comandos específicos do Sistema Orbita Whitelabel — nome comercial **Kernel**, pasta local `kernel/` (renomeada de `sistema-orbita-whitelabel/`). Ver também [[indice-kernel]] e [[Playbook DevOps - Comandos Docker e Bancos]] (comandos gerais + risco do monorepo).
 
 ## Sistema Órbita Whitelabel (sistema-orbita-whitelabel) — produto "Kernel"
 
 **Caminho:** `/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/sistema-orbita-whitelabel` (local; ainda sem deploy em VPS).
 
-**Nome comercial: Kernel** (rebrand em 2026-08-02) — **domínio `kercellwc.online` já registrado, ainda sem VPS/DNS/deploy apontados.** Não confundir com o nome do repositório/pasta, que continua `sistema-orbita-whitelabel`. Ver [[registro-de-decisoes-orbita-whitelabel]] (arquitetura, pasta `arquitetura-orbita-whitelabel`).
+**Nome comercial: Kernel** (rebrand em 2026-08-02) — **domínio `kercellwc.online` já registrado, ainda sem VPS/DNS/deploy apontados.** Não confundir com o nome do repositório/pasta, que continua `sistema-orbita-whitelabel`. Ver [[registro-de-decisoes-kernel]] (arquitetura, pasta `arquitetura-kernel`).
 
 O whitelabel é fork do sistema-thieco, mesma stack (Node/Express + React/Vite + Postgres + Docker Compose), mas **já nasceu multi-tenant de verdade** — diferença central que muda todo o plano abaixo:
 

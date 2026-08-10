@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: orbita-whitelabel
+domain: kernel
 source: claude
 created: 2026-06-24
 updated: 2026-08-03
@@ -25,8 +25,8 @@ O sistema nasce do `sistema-thieco` (instância real da Barbearia Thieco Leandro
 
 | Documento | Pergunta respondida |
 |---|---|
-| [[prd-orbita-whitelabel]] | O que é o produto, para quem, quais problemas resolve? |
-| [[requisitos-funcionais-orbita-whitelabel]] | O que o sistema faz, módulo a módulo? |
+| [[prd-kernel]] | O que é o produto, para quem, quais problemas resolve? |
+| [[requisitos-funcionais-kernel]] | O que o sistema faz, módulo a módulo? |
 
 ---
 
@@ -34,8 +34,8 @@ O sistema nasce do `sistema-thieco` (instância real da Barbearia Thieco Leandro
 
 | Documento | Pergunta respondida |
 |---|---|
-| [[arquitetura-orbita-whitelabel]] | Como os componentes se conectam? Qual é o stack e o fluxo de dados? |
-| [[modelo-de-dados-orbita-whitelabel]] | Quais entidades existem? Quais são seus atributos e relacionamentos? |
+| [[arquitetura-kernel]] | Como os componentes se conectam? Qual é o stack e o fluxo de dados? |
+| [[modelo-de-dados-kernel]] | Quais entidades existem? Quais são seus atributos e relacionamentos? |
 
 ---
 
@@ -43,7 +43,7 @@ O sistema nasce do `sistema-thieco` (instância real da Barbearia Thieco Leandro
 
 | Documento | Pergunta respondida |
 |---|---|
-| [[design-system-orbita-whitelabel]] | Quais são os tokens visuais e o sistema de branding por tenant? |
+| [[design-system-kernel]] | Quais são os tokens visuais e o sistema de branding por tenant? |
 
 ---
 
@@ -51,7 +51,7 @@ O sistema nasce do `sistema-thieco` (instância real da Barbearia Thieco Leandro
 
 | Documento | Pergunta respondida |
 |---|---|
-| [[registro-de-decisoes-orbita-whitelabel]] | Por que o sistema é como é? Quais mudanças aconteceram e por quê? |
+| [[registro-de-decisoes-kernel]] | Por que o sistema é como é? Quais mudanças aconteceram e por quê? |
 
 ---
 
@@ -59,7 +59,7 @@ O sistema nasce do `sistema-thieco` (instância real da Barbearia Thieco Leandro
 
 | Documento | Pergunta respondida |
 |---|---|
-| [[backlog-tarefas-orbita-whitelabel]] | O que falta pra terminar a migração multi-tenant/Supabase em curso? Status fase a fase. |
+| [[backlog-tarefas-kernel]] | O que falta pra terminar a migração multi-tenant/Supabase em curso? Status fase a fase. |
 
 ---
 
@@ -108,5 +108,5 @@ código alterado
 | Dados históricos | 8.580 vendas reais importadas | Banco limpo — cliente novo começa do zero. A Thieco permanece permanentemente no `sistema-thieco` — não há plano de migrá-la para este sistema, esse banco multi-tenant é só para clientes novos |
 | Comissão do dono | Thieco = 0% (hardcoded) | Qualquer profissional com `percentual_comissao = 0` |
 | Onboarding de cliente novo | — | Painel Admin (`/admin`, desde 2026-08-02) — tela própria, auth separada, não é mais `INSERT` manual. Não sobe infraestrutura nova |
-| Motor de Agendamento / Campanhas / Notificações avançadas | Rotas públicas escopadas só por `unidade` (2 valores hardcoded); templates com `NOME_BARBEARIA` fixo; taxas/remetente WhatsApp em chaves string na tabela `configuracoes` | Paridade de funcionalidade desde 2026-07-13 (ver [[registro-de-decisoes-orbita-whitelabel]]) — rotas públicas escopadas por `tenantSlug` + `unidade`; `{nome_barbearia}` resolvido de `tenants.nome`; remetente WhatsApp/link de avaliação viram coluna de `unidades`; cron itera todos os tenants ativos |
-| Atendimento via WhatsApp + IA (Cortex/Quasar) | Instância Evolution API `{prefixo}-{canal}`, tenant fixo em dicionário Python (`INSTANCIA_ADMIN_POR_TENANT`); conexão direta ao Postgres (`THIECO_DATABASE_URL` + role `cortex_readonly`) | Paridade desde 2026-07-28 (ver [[registro-de-decisoes-orbita-whitelabel]]) — instância `{tenantSlug}-{unidadeSlug}`, resolvida dinamicamente via `GET /internal/resolve-instancia`; nenhuma conexão direta ao Postgres, tudo mediado por `routes/internal.js` com `authenticateInternal`; FAQ do Quasar vem de `unidades.atendimento_ia` (JSONB), editável pelo admin do tenant |
+| Motor de Agendamento / Campanhas / Notificações avançadas | Rotas públicas escopadas só por `unidade` (2 valores hardcoded); templates com `NOME_BARBEARIA` fixo; taxas/remetente WhatsApp em chaves string na tabela `configuracoes` | Paridade de funcionalidade desde 2026-07-13 (ver [[registro-de-decisoes-kernel]]) — rotas públicas escopadas por `tenantSlug` + `unidade`; `{nome_barbearia}` resolvido de `tenants.nome`; remetente WhatsApp/link de avaliação viram coluna de `unidades`; cron itera todos os tenants ativos |
+| Atendimento via WhatsApp + IA (Cortex/Quasar) | Instância Evolution API `{prefixo}-{canal}`, tenant fixo em dicionário Python (`INSTANCIA_ADMIN_POR_TENANT`); conexão direta ao Postgres (`THIECO_DATABASE_URL` + role `cortex_readonly`) | Paridade desde 2026-07-28 (ver [[registro-de-decisoes-kernel]]) — instância `{tenantSlug}-{unidadeSlug}`, resolvida dinamicamente via `GET /internal/resolve-instancia`; nenhuma conexão direta ao Postgres, tudo mediado por `routes/internal.js` com `authenticateInternal`; FAQ do Quasar vem de `unidades.atendimento_ia` (JSONB), editável pelo admin do tenant |

@@ -123,9 +123,10 @@ O que diferencia esse sistema de material de suporte a outro sistema já existen
 | Motor de Prospecção | `arquitetura-prospeccao` | 2026-06-25 | Stable |
 | Órbita Quasar — Concierge Alto Ticket | `arquitetura-quasar` | 2026-06-25 | Draft |
 | IVSSTORE — ERP Vestuário/Perfumaria | `arquitetura-ivsstore` | 2026-06 | MVP local |
-| Orbita Whitelabel — Caixa SaaS | `arquitetura-orbita-whitelabel` | 2026-06-24 | Stable |
+| Kernel — Caixa SaaS | `arquitetura-kernel` | 2026-06-24 | Stable |
 | Jocley Lanchonete — PDV + CMV + Inteligência Financeira | `arquitetura-jocley-lanchonete` | 2026-07-29 | Testado em dev, pendente deploy |
 | Lane Confeitaria — CRM + Agenda + Inteligência Financeira | `arquitetura-lane-confeitaria` | 2026-07-30 | Testado em dev com banco PostgreSQL real (Docker local), pendente deploy |
+| KernelMei — Whitelabel Multi-Tenant de Confeitaria | `arquitetura-kernelmei` | 2026-08-10 (retroativo) | Draft — fundação multi-tenant verificada por script, UI parcial, sem commits, sem deploy |
 
 ---
 

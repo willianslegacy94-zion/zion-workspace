@@ -981,7 +981,7 @@ Todo script de importação em lote deve: (1) rodar dentro do container `thieco_
 - **Canal administrativo Cortex:** `GET /notificacoes/relatorio-sob-demanda` (novo) — admin manda mensagem tipo "faturamento de hoje" pro canal admin, Cortex classifica o pedido e chama esse endpoint, que devolve dado real agregado (faturamento, ranking de barbeiros, estoque parado, ticket médio — tipos foram adicionados incrementalmente, `1413ce7`→`64472f7`). `GET /notificacoes/admin-autorizado` (novo, `f792b79`) — checagem de telefone **antes** de processar qualquer pedido, corrigindo um loop infinito de resposta que acontecia quando alguém não-autorizado mandava mensagem pro canal admin.
 - **Alertas de sistema → WhatsApp real:** `d33cff7` — alertas voláteis (estoque zerado, meta batida) que já apareciam no SinoBadge (ver entrada 2026-07-23) passam também a notificar o admin via WhatsApp, não só ficar no sininho.
 - **Infra:** `backend/whatsappService.js`/Cortex/Quasar passam a se conectar entre si pela rede Docker compartilhada `orbita_shared` (fix `56174dc`), não mais `host.docker.internal` — necessário pra funcionar igual em dev e na VPS.
-**Status:** aplicado, testado ponta a ponta com mensagem real de WhatsApp pro número de Mutinga (resposta automática do Quasar confirmada) e deployado na VPS (Cortex e Quasar rodam como microservices Python compartilhadas, fora deste repositório — mesma dupla que depois foi portada pro sistema-orbita-whitelabel, ver [[arquitetura-orbita-whitelabel]] 2026-07-28).
+**Status:** aplicado, testado ponta a ponta com mensagem real de WhatsApp pro número de Mutinga (resposta automática do Quasar confirmada) e deployado na VPS (Cortex e Quasar rodam como microservices Python compartilhadas, fora deste repositório — mesma dupla que depois foi portada pro sistema-orbita-whitelabel, ver [[arquitetura-kernel]] 2026-07-28).
 **Artefatos atualizados:** arquitetura-thieco, requisitos-funcionais-thieco
 
 ---
@@ -993,7 +993,7 @@ Todo script de importação em lote deve: (1) rodar dentro do container `thieco_
 - `backend/routes/notificacoes.js`: `notificarAdminViaCortex(telefone, mensagem)` agora envia `{ instancia: 'thieco-admin', telefone, mensagem }` em vez de `{ tenant_id: 'sistema_thieco', telefone, mensagem }`. Mesmo destino real (a instância do canal admin do Thieco não mudou de nome), comportamento idêntico — mudança de contrato, não de resultado.
 **Status:** aplicado, verificado por leitura (mesmo destino, `thieco-admin` já era o nome da instância) — não exigiu novo teste ponta a ponta.
 **Artefatos atualizados:** —
-**Observação:** Decisão completa da portabilidade documentada em [[arquitetura-orbita-whitelabel]] e `registro-de-decisoes-orbita-whitelabel` (fora deste domínio) — essa entrada existe só para registrar o efeito colateral no lado thieco.
+**Observação:** Decisão completa da portabilidade documentada em [[arquitetura-kernel]] e `registro-de-decisoes-orbita-whitelabel` (fora deste domínio) — essa entrada existe só para registrar o efeito colateral no lado thieco.
 **Observação:** TASK-31 (Quasar, agendamento conversacional inbound) continua intocada e pendente — é uma frente diferente (inbound vs. outbound), sem relação com esta decisão.
 
 ---

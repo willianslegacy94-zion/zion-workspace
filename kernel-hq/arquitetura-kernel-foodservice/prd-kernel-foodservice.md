@@ -17,7 +17,7 @@ owner: willians
 
 Existem hoje três sistemas de foodservice separados no workspace, cada um com código próprio e banco próprio: `vilamill-sistema` (VillaMill Tamboré, em produção), `lanchonete-sistema` (Jocley Grill) e agora o Kernel Foodservice. O Jocley Grill é o mais recente e o mais completo dos dois primeiros — PDV mesa+balcão, CMV por ficha técnica, KDS, inteligência financeira, gestão de time — mas é **single-tenant por construção**: o nome do negócio vive numa constante (`NOME_LANCHONETE = "Jocley Grill"`), o cardápio de seed é o cardápio real do cliente, e cada novo cliente significaria um novo fork do repositório.
 
-O ecossistema já tem um precedente resolvido do mesmo problema no domínio de serviços: o produto **Kernel** ([[arquitetura-orbita-whitelabel]]) generalizou o `sistema-thieco` (barbearia) num SaaS multi-tenant real, com `tenant_id` no banco, branding e feature flags em JSONB resolvidas em runtime. O Kernel Foodservice aplica o mesmo movimento ao domínio de foodservice, partindo do Jocley Grill.
+O ecossistema já tem um precedente resolvido do mesmo problema no domínio de serviços: o produto **Kernel** ([[arquitetura-kernel]]) generalizou o `sistema-thieco` (barbearia) num SaaS multi-tenant real, com `tenant_id` no banco, branding e feature flags em JSONB resolvidas em runtime. O Kernel Foodservice aplica o mesmo movimento ao domínio de foodservice, partindo do Jocley Grill.
 
 ## 2. Problema
 
@@ -63,7 +63,7 @@ Manter **integralmente** o domínio de foodservice já validado no Jocley Grill 
 2. **Modulação** — `Tenant.features` (JSONB) com um único módulo core (`cardapio`) e 8 opcionais, aplicado em três pontos: sidebar, guard de página e guard de API
 3. **Onboarding** — painel super-admin isolado do app de tenant, com autenticação própria
 
-**Por que faz sentido:** o Kernel ([[arquitetura-orbita-whitelabel]]) já provou os três padrões em produção no domínio de serviços — `tenant_id` no banco, `features` em JSONB no JWT, `FeatureGate` na UI. O que muda aqui é a stack (Next.js + Prisma em vez de Express + React), não o desenho.
+**Por que faz sentido:** o Kernel ([[arquitetura-kernel]]) já provou os três padrões em produção no domínio de serviços — `tenant_id` no banco, `features` em JSONB no JWT, `FeatureGate` na UI. O que muda aqui é a stack (Next.js + Prisma em vez de Express + React), não o desenho.
 
 **Risco central identificado no código:** o e-mail de login é único **globalmente**, não por tenant (`User.email @unique`, sem chave composta com `tenantId`). O próprio schema documenta a consequência: dois tenants não podem ambos ter um usuário chamado "admin" — o onboarding precisa usar `admin@nome-do-cliente`. Isso é uma decisão deliberada (o tenant é resolvido a partir do usuário, sem slug na URL), mas é uma restrição de produto que vaza pro cliente final.
 

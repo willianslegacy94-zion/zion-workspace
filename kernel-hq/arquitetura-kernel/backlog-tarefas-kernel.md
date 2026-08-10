@@ -1,6 +1,6 @@
 ---
 status: in-progress
-domain: orbita-whitelabel
+domain: kernel
 source: claude
 created: 2026-07-10
 updated: 2026-08-03
@@ -9,7 +9,7 @@ owner: willians
 
 # Backlog de Tarefas — Migração para Supabase + multi-tenant real
 
-> Referência: [[arquitetura-orbita-whitelabel]] | [[modelo-de-dados-orbita-whitelabel]] | [[registro-de-decisoes-orbita-whitelabel]]
+> Referência: [[arquitetura-kernel]] | [[modelo-de-dados-kernel]] | [[registro-de-decisoes-kernel]]
 
 **Última atualização:** 2026-07-10
 
@@ -81,7 +81,7 @@ Stack Docker `orbita-test` rodando em `http://localhost:8080`.
 > recalcula `features`/`usaComissao` do tenant a cada chamada, e o frontend
 > revalida a cada 60s — editar `tenants.features` no banco (ou pelo Painel
 > Admin, ver abaixo) reflete em quem já está logado sem precisar de
-> logout/login. Ver [[registro-de-decisoes-orbita-whitelabel]] 2026-08-03.
+> logout/login. Ver [[registro-de-decisoes-kernel]] 2026-08-03.
 
 ## Pendências / próximos passos
 
@@ -125,7 +125,7 @@ e todas as rotas em `routes/*.js` (tenant_id propagado).
 
 ## Backlog — Portabilidade WhatsApp + IA (Cortex/Quasar), desde 2026-07-28
 
-> Ver [[registro-de-decisoes-orbita-whitelabel]] 2026-07-28 para a decisão completa. Playbook operacional: `kernel-hq-arquitetura/Playbook DevOps - Comandos Docker e Bancos.md`.
+> Ver [[registro-de-decisoes-kernel]] 2026-07-28 para a decisão completa. Playbook operacional: `kernel-hq-arquitetura/Playbook DevOps - Comandos Docker e Bancos.md`.
 
 | Item | Status | Descrição |
 |------|--------|-----------|

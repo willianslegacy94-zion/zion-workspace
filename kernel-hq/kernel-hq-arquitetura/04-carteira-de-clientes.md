@@ -33,7 +33,7 @@ Atualizado em: 2026-06-25
 ## 🏷️ Produto SaaS White Label
 
 - 🟡 **Orbita Whitelabel** — disponível para licenciamento
-  - Sistema: `arquitetura-orbita-whitelabel` — caixa e comissões multi-tenant
+  - Sistema: `arquitetura-kernel` — caixa e comissões multi-tenant
   - Nasce do `sistema-thieco` generalizado — clientes começam com banco limpo
 
 ---

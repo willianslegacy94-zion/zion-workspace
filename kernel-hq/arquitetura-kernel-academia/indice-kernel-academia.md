@@ -94,5 +94,5 @@ registro-de-decisoes-kernel-academia (atualização contínua)
 
 [[arquitetura-academiasandro]] — sistema de origem do domínio de negócio (cliente real, não confundir)
 [[arquitetura-kernel-foodservice]] — origem do padrão whitelabel (Tenant/SuperAdmin/ErrorLog/login global)
-[[arquitetura-orbita-whitelabel]] — produto Kernel original, raiz de toda a família de verticais
+[[arquitetura-kernel]] — produto Kernel original, raiz de toda a família de verticais
 [[arquitetura-kernelmei]] — outro vertical da família `kernel*`, mesmo movimento aplicado à confeitaria

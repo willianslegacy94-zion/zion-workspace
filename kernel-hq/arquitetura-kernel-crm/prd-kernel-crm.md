@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: black
+domain: kernel-crm
 source: claude
 created: 2026-07-22
 updated: 2026-07-22
@@ -69,7 +69,7 @@ Evoluir o mesmo projeto Python (não recriar do zero) incorporando: (a) schema m
 **Fora:**
 - Pareamento real de uma instância Evolution API via QR code (passo de infra interativo, próxima sessão)
 - Qualquer mudança em Horizon, Pulsar, Quasar, Cortex, Insight — o Black evolui isolado
-- **Produto A (atendimento a alunos sobre conteúdo de curso) e Produto B (inteligência de dados de plataformas de membros — Kiwify, Hotmart, The Members, Astron Members)** — são os produtos que o Black efetivamente venderia ao qualificar um lead, mas nenhum dos dois existe hoje (nem em Horizon/Insight/Cortex, verificado em código). Ver [[registro-de-decisoes-black]] D-06.
+- **Produto A (atendimento a alunos sobre conteúdo de curso) e Produto B (inteligência de dados de plataformas de membros — Kiwify, Hotmart, The Members, Astron Members)** — são os produtos que o Black efetivamente venderia ao qualificar um lead, mas nenhum dos dois existe hoje (nem em Horizon/Insight/Cortex, verificado em código). Ver [[registro-de-decisoes-kernel-crm]] D-06.
 - Autenticação real de tenant (hoje é só um campo `tenant_id` no payload, sem JWT/API key) — aceito como risco de fase de desenvolvimento, mesmo padrão de Horizon/Pulsar/Quasar
 
 ## 7. Métrica de sucesso

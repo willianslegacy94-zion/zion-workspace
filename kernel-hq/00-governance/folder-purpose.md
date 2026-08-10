@@ -104,20 +104,20 @@ Quando abrir: quando for trabalhar no IVSSTORE — estoque, PDV, fiado ou fluxo 
 
 ---
 
-## arquitetura-orbita-whitelabel
+## arquitetura-kernel
 
-**O que é:** artefatos do Sistema Orbita Whitelabel — produto SaaS de gestão de caixa e comissões para estabelecimentos de serviços (barbearias, salões, clínicas), multi-tenant via variáveis de ambiente. Nasce do `sistema-thieco` generalizado.
+**O que é:** artefatos do Kernel — produto SaaS de gestão de caixa e comissões para estabelecimentos de serviços (barbearias, salões, clínicas), multi-tenant via variáveis de ambiente. Nasce do `sistema-thieco` generalizado.
 
 **Stack:** React 18 + Node.js/Express + PostgreSQL + Docker (multi-tenant)
 
 Contém (7 artefatos):
-- `indice-orbita-whitelabel.md` — ponto de entrada e mapa de artefatos
-- `prd-orbita-whitelabel.md` — produto, personas, problema e escopo
-- `requisitos-funcionais-orbita-whitelabel.md` — RFs por módulo
-- `arquitetura-orbita-whitelabel.md` — stack, camadas, multi-tenancy
-- `modelo-de-dados-orbita-whitelabel.md` — entidades e relacionamentos
-- `design-system-orbita-whitelabel.md` — tokens visuais por tenant e branding
-- `registro-de-decisoes-orbita-whitelabel.md` — memória viva
+- `indice-kernel.md` — ponto de entrada e mapa de artefatos
+- `prd-kernel.md` — produto, personas, problema e escopo
+- `requisitos-funcionais-kernel.md` — RFs por módulo
+- `arquitetura-kernel.md` — stack, camadas, multi-tenancy
+- `modelo-de-dados-kernel.md` — entidades e relacionamentos
+- `design-system-kernel.md` — tokens visuais por tenant e branding
+- `registro-de-decisoes-kernel.md` — memória viva
 
 Quando abrir: quando for onboarding de novo cliente, implementar feature no produto ou comparar com o sistema-thieco de origem.
 
@@ -415,7 +415,7 @@ ERPs e Gestão:
   arquitetura-thieco            →  sistema de caixa barbearia (em produção)
   arquitetura-villamill         →  sistema villamill restaurante (em produção)
   arquitetura-ivsstore          →  ERP vestuário/perfumaria (MVP local)
-  arquitetura-orbita-whitelabel →  produto SaaS multi-tenant de caixa
+  arquitetura-kernel            →  produto SaaS multi-tenant de caixa (Kernel)
   arquitetura-lane-confeitaria  →  CRM + agenda + inteligência financeira para confeitaria (dev, validado)
   arquitetura-academiasandro    →  gestão de academia/CT (alunos, financeiro, agenda, pacotes) — em produção
   arquitetura-kernelmei         →  whitelabel multi-tenant de confeitaria (draft, fundação pronta, UI parcial)

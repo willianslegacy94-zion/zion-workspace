@@ -31,7 +31,7 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 | `arquitetura-thieco` | sistema — ERP | Sistema de Caixa Barbearia Thieco Leandro |
 | `arquitetura-villamill` | sistema — ERP | Sistema VillaMill Tamboré (restaurante/bar) |
 | `arquitetura-ivsstore` | sistema — ERP | IVSSTORE — ERP loja de vestuário infantil e perfumaria |
-| `arquitetura-orbita-whitelabel` | produto SaaS | Orbita Whitelabel — caixa e comissões multi-tenant |
+| `arquitetura-kernel` | produto SaaS | Kernel — caixa e comissões multi-tenant |
 | `arquitetura-kernelmei` | produto SaaS | KernelMei — whitelabel multi-tenant para confeitarias/doceiras |
 | `arquitetura-kernel-foodservice` | produto SaaS | Kernel Foodservice — whitelabel multi-tenant para restaurantes/lanchonetes |
 | `arquitetura-kernel-academia` | produto SaaS | Kernel Academia — whitelabel multi-tenant para academias/CTs |
@@ -135,17 +135,17 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 
 ---
 
-## arquitetura-orbita-whitelabel
+## arquitetura-kernel
 
 **Tipo:** produto SaaS (white label)
 
-**O que é:** Sistema Orbita Whitelabel — produto de prateleira de gestão de caixa e comissões para estabelecimentos de serviços (barbearias, salões, clínicas). Um único código-base serve múltiplos clientes com branding, terminologia e módulos configurados por variáveis de ambiente. Nasce do `sistema-thieco` generalizado.
+**O que é:** Kernel (nome do repositório: `sistema-orbita-whitelabel`, mantido no remote GitHub por continuidade) — produto de prateleira de gestão de caixa e comissões para estabelecimentos de serviços (barbearias, salões, clínicas). Um único código-base serve múltiplos clientes com branding, terminologia e módulos configurados por variáveis de ambiente. Nasce do `sistema-thieco` generalizado.
 
 **Stack:** React 18 + Node.js/Express + PostgreSQL + Docker (multi-tenant via env vars)
 
 **Quando abrir:** quando for onboarding de novo cliente, implementar feature no produto whitelabel ou comparar com o sistema-thieco de origem.
 
-**Ponto de entrada:** [[indice-orbita-whitelabel]]
+**Ponto de entrada:** [[indice-kernel]]
 
 ---
 
@@ -375,7 +375,7 @@ Os sistemas documentados em `kernel-hq` correspondem a implementações de softw
 | `arquitetura-thieco` | Barbearia Thieco Leandro — Sistema de Caixa | Node.js + Express + PostgreSQL + React | Em produção (2024) |
 | `arquitetura-villamill` | Villa Mill Tamboré — PDV Restaurante | Next.js 15 + PostgreSQL + NextAuth v5 | Em produção (2026-04) |
 | `arquitetura-ivsstore` | IVSSTORE — ERP Vestuário e Perfumaria | React + Node.js + PostgreSQL | MVP local (2026-06) |
-| `arquitetura-orbita-whitelabel` | Orbita Whitelabel — Caixa multi-tenant | React + Node.js + PostgreSQL | Produto SaaS |
+| `arquitetura-kernel` | Kernel — Caixa multi-tenant | React + Node.js + PostgreSQL | Produto SaaS |
 | `arquitetura-lane-confeitaria` | Lane Confeitaria — CRM + Agenda + Financeiro | Next.js 16 + Prisma 7 + PostgreSQL + NextAuth v5 | Em produção (2026-08) |
 | `arquitetura-academiasandro` | Centro de Treinamento Sandro Freire | Next.js 16 + Prisma 7 + PostgreSQL (Supabase) | Em produção (2026-08-03) |
 | `arquitetura-kernelmei` | KernelMei — Whitelabel Confeitaria multi-tenant | Next.js 16 + Prisma 7 + PostgreSQL + NextAuth v5 + jose | Draft (2026-08-10) — sem deploy, sem commits |
@@ -401,7 +401,7 @@ Os sistemas documentados em `kernel-hq` correspondem a implementações de softw
 - `arquitetura-thieco/indice-thieco.md`
 - `arquitetura-villamill/indice-villamill.md`
 - `arquitetura-ivsstore/prd-ivsstore.md` (sem indice — 4 artefatos)
-- `arquitetura-orbita-whitelabel/indice-orbita-whitelabel.md`
+- `arquitetura-kernel/indice-kernel.md`
 - `arquitetura-lane-confeitaria/indice-lane-confeitaria.md`
 - `arquitetura-academiasandro/indice-academiasandro.md`
 - `arquitetura-kernelmei/indice-kernelmei.md`

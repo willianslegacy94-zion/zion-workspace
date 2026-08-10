@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: black
+domain: kernel-crm
 source: claude
 created: 2026-07-22
 updated: 2026-07-22
@@ -9,7 +9,7 @@ owner: willians
 
 # Fluxos Operacionais — Kernel v2: CRM Conversacional Multi-Tenant
 
-> Referência: [[arquitetura-black]] | [[requisitos-funcionais-black]]
+> Referência: [[arquitetura-kernel-crm]] | [[requisitos-funcionais-kernel-crm]]
 
 ---
 

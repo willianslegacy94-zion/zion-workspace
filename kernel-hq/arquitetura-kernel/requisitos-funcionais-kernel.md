@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: orbita-whitelabel
+domain: kernel
 source: claude
 created: 2026-06-24
 updated: 2026-07-13
@@ -9,7 +9,7 @@ owner: willians
 
 # Requisitos Funcionais — Sistema Orbita Whitelabel
 
-> Referência: [[prd-orbita-whitelabel]]
+> Referência: [[prd-kernel]]
 
 ---
 
@@ -364,7 +364,7 @@ Editáveis diretamente em `tenants.branding` / `tenants.features` (JSONB), por t
 |---|---|
 | `combos`, `metas`, `metasDiarias`, `gestaoTime`, `clientes`, `estoque`, `relatorios`, `intelFinanceira`, `comissoes`, `painelColaborador`, `notificacoes`, `agenda` (desde 2026-07-13), `campanhas` (desde 2026-07-13) | `FEATURE_*` / `VITE_FEATURE_*` (um único par por flag, não mais duplicado backend/frontend) |
 
-Core sempre-true (`vendas`, `gastos`, `catalogo`, `profissionais`, `dashboard`) não têm chave em `tenants.features` — são forçados por `resolveFeatures()` no backend, ver [[arquitetura-orbita-whitelabel]] § Sistema de Feature Flags.
+Core sempre-true (`vendas`, `gastos`, `catalogo`, `profissionais`, `dashboard`) não têm chave em `tenants.features` — são forçados por `resolveFeatures()` no backend, ver [[arquitetura-kernel]] § Sistema de Feature Flags.
 
 ---
 

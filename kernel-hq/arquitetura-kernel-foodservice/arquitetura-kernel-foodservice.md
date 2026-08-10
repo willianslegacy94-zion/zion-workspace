@@ -218,4 +218,4 @@ O sistema se encaixa no padrão de VPS Hostinger compartilhada já usado por Thi
 [[modelo-de-dados-kernel-foodservice]] — schema Prisma detalhado por entidade
 [[indice-kernel-foodservice]] — mapa completo dos artefatos do sistema
 [[arquitetura-jocley-lanchonete]] — arquitetura do sistema de origem
-[[arquitetura-orbita-whitelabel]] — o produto Kernel, origem dos padrões de multi-tenancy
+[[arquitetura-kernel]] — o produto Kernel, origem dos padrões de multi-tenancy

@@ -377,7 +377,7 @@ se não souber o que linkar, linke ao menos para o índice do sistema:
 - arquivos em `arquitetura-thieco/` → `[[indice-thieco]]`
 - arquivos em `arquitetura-villamill/` → `[[indice-villamill]]`
 - arquivos em `arquitetura-ivsstore/` → `[[prd-ivsstore]]`
-- arquivos em `arquitetura-orbita-whitelabel/` → `[[indice-orbita-whitelabel]]`
+- arquivos em `arquitetura-kernel/` → `[[indice-kernel]]`
 - arquivos em `arquitetura-horizon/` → `[[indice-horizon]]`
 - arquivos em `arquitetura-pulsar/` → `[[indice-pulsar]]`
 - arquivos em `arquitetura-quasar/` → `[[prd-quasar]]`
@@ -397,7 +397,7 @@ regras técnicas e comportamentais específicas de cada sistema vivem dentro do 
 | thieco | `arquitetura-thieco/registro-de-decisoes-thieco.md` |
 | villamill | `arquitetura-villamill/registro-de-decisoes-villamill.md` |
 | ivsstore | `arquitetura-ivsstore/prd-ivsstore.md` (sem registro de decisões ainda) |
-| orbita-whitelabel | `arquitetura-orbita-whitelabel/registro-de-decisoes-orbita-whitelabel.md` |
+| kernel | `arquitetura-kernel/registro-de-decisoes-kernel.md` |
 | horizon | `arquitetura-horizon/registro-de-decisoes-horizon.md` |
 | pulsar | `arquitetura-pulsar/registro-de-decisoes-pulsar.md` |
 | quasar | `arquitetura-quasar/registro-de-decisoes-quasar.md` |

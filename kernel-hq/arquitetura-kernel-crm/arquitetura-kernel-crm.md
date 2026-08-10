@@ -1,6 +1,6 @@
 ---
 status: stable
-domain: black
+domain: kernel-crm
 source: claude
 created: 2026-07-22
 updated: 2026-07-22
@@ -9,7 +9,7 @@ owner: willians
 
 # Arquitetura Técnica — Kernel v2: CRM Conversacional Multi-Tenant
 
-> Referência: [[prd-black]] | [[requisitos-funcionais-black]]
+> Referência: [[prd-kernel-crm]] | [[requisitos-funcionais-kernel-crm]]
 
 ---
 
@@ -121,11 +121,11 @@ Nos routers, as duas exceções **nunca** são capturadas juntas — `LLMNetwork
 
 ## 6. Fronteiras de segurança
 
-- Chaves (`OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`) via `.env` no diretório do projeto — decisão que supera D-07 do PRD original (ver [[registro-de-decisoes-black]])
+- Chaves (`OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`) via `.env` no diretório do projeto — decisão que supera D-07 do PRD original (ver [[registro-de-decisoes-kernel-crm]])
 - `.env` protegido por `.gitignore` na raiz do workspace (`*.env`, `.env*`)
 - Banco SQLite local, sem porta exposta em rede
 - Endpoints sem autenticação de tenant real — mesmo risco aceito por Pulsar/Quasar, documentado como aceitável em fase de desenvolvimento
-- `tenant_id` simples no payload é o único isolamento — sem IDOR protection real (diferente do padrão RLS usado por `sistema-orbita-whitelabel`, avaliado e descartado por consistência com os agentes-irmãos, ver [[registro-de-decisoes-black]] D-02)
+- `tenant_id` simples no payload é o único isolamento — sem IDOR protection real (diferente do padrão RLS usado por `sistema-orbita-whitelabel`, avaliado e descartado por consistência com os agentes-irmãos, ver [[registro-de-decisoes-kernel-crm]] D-02)
 
 ---
 
