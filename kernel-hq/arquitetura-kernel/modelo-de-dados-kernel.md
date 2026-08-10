@@ -7,7 +7,7 @@ updated: 2026-08-03
 owner: willians
 ---
 
-# Modelo de Dados — Sistema Orbita Whitelabel
+# Modelo de Dados — Sistema Kernel Whitelabel
 
 > Referência: [[arquitetura-kernel]] | [[requisitos-funcionais-kernel]]
 

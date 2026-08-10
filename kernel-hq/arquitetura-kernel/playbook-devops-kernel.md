@@ -7,15 +7,15 @@ updated: 2026-08-10
 owner: willians
 ---
 
-# Playbook DevOps — Orbita Whitelabel (Kernel)
+# Playbook DevOps — Sistema Whitelabel (Kernel)
 
 Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico demais, difícil de localizar). Contém plano de portabilidade, progresso e comandos específicos do Sistema Orbita Whitelabel — nome comercial **Kernel**, pasta local `kernel/` (renomeada de `sistema-orbita-whitelabel/`). Ver também [[indice-kernel]] e [[Playbook DevOps - Comandos Docker e Bancos]] (comandos gerais + risco do monorepo).
 
-## Sistema Órbita Whitelabel (sistema-orbita-whitelabel) — produto "Kernel"
+## Sistema Kernel Whitelabel (sistema-orbita-whitelabel) — produto "Kernel"
 
-**Caminho:** `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/sistema-orbita-whitelabel` (local; ainda sem deploy em VPS).
+**Caminho:** `/mnt/c/Users/Willians DataMeet/Desktop/Ops/kernel` (pasta irmã do Kernel Workspace, repo próprio desde 2026-08-10; ainda sem deploy em VPS).
 
-**Nome comercial: Kernel** (rebrand em 2026-08-02) — **domínio `kercellwc.online` já registrado, ainda sem VPS/DNS/deploy apontados.** Não confundir com o nome do repositório/pasta, que continua `sistema-orbita-whitelabel`. Ver [[registro-de-decisoes-kernel]] (arquitetura, pasta `arquitetura-kernel`).
+**Nome comercial: Kernel** (rebrand em 2026-08-02) — **domínio `kercellwc.online` já registrado, ainda sem VPS/DNS/deploy apontados.** O nome do repositório no GitHub também foi atualizado pra `kernel` em 2026-08-10 (era `sistema-orbita-whitelabel`). Ver [[registro-de-decisoes-kernel]] (arquitetura, pasta `arquitetura-kernel`).
 
 O whitelabel é fork do sistema-thieco, mesma stack (Node/Express + React/Vite + Postgres + Docker Compose), mas **já nasceu multi-tenant de verdade** — diferença central que muda todo o plano abaixo:
 
@@ -103,7 +103,7 @@ Portado e validado rodando local (`docker compose up -d --build` + `orbita_share
 
 Portátil de verdade — testado rodando contra um banco 100% vazio (não só reaproveitando dado de um ambiente antigo): resolve o tenant por **slug** (`principal`), nunca por ID fixo, e cria catálogo/barbeiros do zero (não depende de nenhum dado pré-existente de nenhum ambiente específico). Idempotente por checagem (`\if` do psql), não por `ON CONFLICT`: se já existir um profissional "Rafael Mendes" pro tenant, o script detecta e não faz nada — seguro rodar de novo sem querer.
 
-**Onde rodar:** na raiz do projeto (`sistema-orbita-whitelabel/`), com os containers já no ar (`docker compose up -d`) — funciona tanto local quanto no servidor de produção, o que importa é estar no `docker compose` do ambiente que você quer popular:
+**Onde rodar:** na raiz do projeto (`kernel/`), com os containers já no ar (`docker compose up -d`) — funciona tanto local quanto no servidor de produção, o que importa é estar no `docker compose` do ambiente que você quer popular:
 
 ```bash
 make seed-demo

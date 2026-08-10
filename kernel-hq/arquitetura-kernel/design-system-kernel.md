@@ -7,7 +7,7 @@ updated: 2026-07-10
 owner: willians
 ---
 
-# Design System — Sistema Orbita Whitelabel
+# Design System — Sistema Whitelabel
 
 > Referência: [[arquitetura-kernel]]
 

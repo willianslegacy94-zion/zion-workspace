@@ -7,7 +7,7 @@ updated: 2026-08-03
 owner: willians
 ---
 
-# Índice — Sistema Orbita Whitelabel (produto: Kernel)
+# Índice — Sistema Whitelabel (produto: Kernel)
 
 > Ponto de entrada para toda a documentação técnica do produto.
 
@@ -15,7 +15,7 @@ owner: willians
 
 ## O que é este sistema
 
-**Sistema Orbita** é um produto SaaS whitelabel de gestão de caixa e comissões para estabelecimentos de serviços (barbearias, salões, clínicas, e similares). Um único código-base serve múltiplos clientes com branding, terminologia e módulos configurados por variáveis de ambiente — sem hardcode de regras de negócio específicas.
+**Sistema Kernel** é um produto SaaS whitelabel de gestão de caixa e comissões para estabelecimentos de serviços (barbearias, salões, clínicas, e similares). Um único código-base serve múltiplos clientes com branding, terminologia e módulos configurados por variáveis de ambiente — sem hardcode de regras de negócio específicas.
 
 O sistema nasce do `sistema-thieco` (instância real da Barbearia Thieco Leandro) e é generalizado como produto de prateleira.
 

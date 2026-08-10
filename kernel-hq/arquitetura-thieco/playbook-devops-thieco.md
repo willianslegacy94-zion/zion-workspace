@@ -17,7 +17,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 | | Local (seu Windows/WSL) | Produção (VPS) |
 |---|---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/sistema-thieco` | `/var/www/sistema-thieco` (SSH na VPS, IP `2.24.93.178`) |
+| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/sistema-thieco` (pasta irmã do `Kernel Workspace`, repo próprio) | `/var/www/sistema-thieco` (SSH na VPS, IP `2.24.93.178`) |
 | Containers | `thieco_api` (backend, sem porta pro host — só rede interna do Docker), `thieco_web` (frontend, `127.0.0.1:5173`), `thieco_db` (Postgres, `127.0.0.1:5432`) | mesmos nomes, mesma VPS do Villa Mill e do Depósito Lobo — todos isolados entre si, sem rede/volume compartilhado |
 | Domínio público | — | `barbeariatl.online` (Nginx do host, fora de container) |
 | Repositório | `github.com/willianslegacy94-zion/sistema-thieco` | mesmo — `git push` daqui não chega na VPS sozinho, alguém precisa entrar e fazer o pull/rebuild |

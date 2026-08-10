@@ -17,7 +17,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 | | Detalhe |
 |---|---|
-| Caminho (local) | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro` |
+| Caminho (local) | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/academia-sandro` |
 | Caminho (VPS) | `/opt/academia-sandro` (SSH `root@2.24.93.178`) |
 | Stack | Next.js 16 (App Router) + Prisma 7 (`@prisma/adapter-pg`, sem engine nativa) + PostgreSQL (Supabase) |
 | Banco | Supabase (pooler Supavisor) — mesmo banco em dev e produção (não existe separação hoje) |
@@ -32,7 +32,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 ```bash
 # do computador local (WSL, não PowerShell — rsync não existe no Windows nativo)
 rsync -avz --exclude node_modules --exclude .next --exclude .git \
-  "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro/" \
+  "/mnt/c/Users/Willians DataMeet/Desktop/Ops/academia-sandro/" \
   root@2.24.93.178:/opt/academia-sandro/
 
 # no VPS
@@ -88,7 +88,7 @@ Só precisa repetir isso se o site do nginx for perdido/recriado do zero — dep
 ### Rodar local
 
 ```bash
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/academia-sandro"
 npm run dev              # sobe em localhost:3000
 ```
 

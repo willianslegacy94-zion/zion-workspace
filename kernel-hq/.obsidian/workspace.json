@@ -11,10 +11,14 @@
             "id": "6af12fa335908a1d",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "arquitetura-kernel/playbook-devops-kernel.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "Nova aba"
+              "title": "playbook-devops-kernel"
             }
           }
         ]
@@ -184,13 +188,17 @@
   },
   "active": "6af12fa335908a1d",
   "lastOpenFiles": [
-    "arquitetura-kernel/prd-kernel.md",
-    "arquitetura-kernel/playbook-devops-kernel.md",
+    "arquitetura-thieco/playbook-devops-thieco.md.tmp.879.cbcb48e5199b",
+    "kernel-hq-arquitetura/Playbook DevOps - Comandos Docker e Bancos.md.tmp.879.446d0d19fed7",
     "arquitetura-kernel/modelo-de-dados-kernel.md",
     "arquitetura-kernel/indice-kernel.md",
     "arquitetura-kernel/design-system-kernel.md",
     "arquitetura-kernel/backlog-tarefas-kernel.md",
     "arquitetura-kernel/arquitetura-kernel.md",
+    "arquitetura-kernel/playbook-devops-kernel.md",
+    "arquitetura-jocley-lanchonete/playbook-devops-jocley-lanchonete.md",
+    "kernel-hq-arquitetura/# Guia completo Agente de SDR (What.md",
+    "arquitetura-kernel/prd-kernel.md",
     "arquitetura-kalel/system-creation-kalel.md",
     "arquitetura-kalel/requisitos-funcionais-kalel.md",
     "arquitetura-kalel/registro-de-decisoes-kalel.md",
@@ -206,12 +214,9 @@
     "arquitetura-jocley-lanchonete/requisitos-funcionais-jocley-lanchonete.md",
     "arquitetura-jocley-lanchonete/registro-de-decisoes-jocley-lanchonete.md",
     "arquitetura-jocley-lanchonete/prd-jocley-lanchonete.md",
-    "arquitetura-jocley-lanchonete/playbook-devops-jocley-lanchonete.md",
     "arquitetura-jocley-lanchonete/modelo-de-dados-jocley-lanchonete.md",
     "arquitetura-jocley-lanchonete/Manual do Usuario - Jocley Grill.pdf",
     "arquitetura-jocley-lanchonete/design-system-jocley-lanchonete.md",
-    "arquitetura-jocley-lanchonete/indice-jocley-lanchonete.md",
-    "arquitetura-jocley-lanchonete/arquitetura-jocley-lanchonete.md",
     "arquitetura-jocley-lanchonete",
     "arquitetura-insight",
     "arquitetura-horizon",
@@ -220,7 +225,6 @@
     "arquitetura-academiasandro",
     "00-types/mandala-ver03.png",
     "00-types",
-    "00-governance-systems",
     "Sem título.canvas",
     "00-types/00-types/mandala-ver03.png"
   ]

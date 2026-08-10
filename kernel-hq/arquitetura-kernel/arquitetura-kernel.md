@@ -7,7 +7,7 @@ updated: 2026-08-03
 owner: willians
 ---
 
-# Arquitetura — Sistema Orbita Whitelabel (produto: Kernel)
+# Arquitetura — Sistema Whitelabel (produto: Kernel)
 
 > Referência: [[prd-kernel]] | [[modelo-de-dados-kernel]]
 

@@ -7,15 +7,37 @@
 
 ## Terminal Linux
 
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/sistema-thieco"
+> Atualizado em 2026-08-10 — todos os itens abaixo são pastas irmãs do `Kernel Workspace` (nenhum vive mais dentro dele, exceto onde indicado).
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/sistema-thieco"
 
 cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/vilamill-sistema"
 
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/academia-sandro"
 
 cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema"
 
 cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lane-confeitaria"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/kernel"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/kernelmei"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/kernel-foodservice"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/kernel-academia"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/cortex"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/quasar"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/evolution-api"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel-Kalel"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel-brainiac"
+
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/orbita-black-prospeccao"   # único que ainda vive dentro do Kernel Workspace
 
 
 ## Docker
