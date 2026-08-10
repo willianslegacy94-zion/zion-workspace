@@ -201,7 +201,7 @@ Faturamento, produtos mais vendidos, estoque baixo e estoque parado (`Configurac
 
 **Gotcha de rede que mais custou tempo pra resolver: porta publicada em `127.0.0.1` do host não é alcançável de outro container, nem com `host.docker.internal`.**
 - `evolution_api` publica a porta só em `127.0.0.1:8081->8080` (loopback do host, por segurança) — Docker aceita conexão nessa regra **só vinda do próprio host**, nunca de outro container, nem passando por `host.docker.internal` (que resolve pro IP do bridge gateway, não pro loopback — tentado primeiro, não funcionou, `getaddrinfo ENOTFOUND` ou `ECONNREFUSED` dependendo da tentativa).
-- **Solução correta:** `evolution_api` já está numa rede Docker externa chamada **`orbita_shared`** (compartilhada entre os sistemas dessa VPS, incluindo os agentes Cortex/Quasar — mesmo padrão já usado pelo `sistema-thieco`, ver [[playbook-devops-orbita-whitelabel]]). Conectar o container do app nessa rede e falar pelo **nome do container + porta interna**, não a publicada:
+- **Solução correta:** `evolution_api` já está numa rede Docker externa chamada **`orbita_shared`** (compartilhada entre os sistemas dessa VPS, incluindo os agentes Cortex/Quasar). Conectar o container do app nessa rede e falar pelo **nome do container + porta interna**, não a publicada:
   ```yaml
   # docker-compose.yml do app
   services:
@@ -251,13 +251,13 @@ docker exec jocley-lanchonete-db psql -U jocley_prod -d jocley_lanchonete -c \
 
 ### Atualização (2026-08-10) — erro "sendMessage" da Evolution (sessão quebrada mesmo com status `open`) + reset de instância é sempre isolado por nome
 
-Cliente reportou `AppError` repetido no "Enviar teste", com o corpo cru da Evolution: `{"status":400,...,"response":{"message":["TypeError: Cannot read properties of undefined (reading 'sendMessage')"]}}`. Mesma família de sintoma já registrada em [[playbook-devops-thieco]] (2026-08-04/05, `"Cannot read properties of undefined (reading 'id')"`) — erro **interno do Baileys/Evolution** quando o socket da sessão está `undefined`, não um bug deste app. Confirma de novo a lição já registrada lá: status `open` reportado pela instância não é garantia de sessão viva.
+Cliente reportou `AppError` repetido no "Enviar teste", com o corpo cru da Evolution: `{"status":400,...,"response":{"message":["TypeError: Cannot read properties of undefined (reading 'sendMessage')"]}}`. Erro **interno do Baileys/Evolution** quando o socket da sessão está `undefined`, não um bug deste app — a instância acha que está conectada (`connectionStatus: "open"`), mas o objeto de sessão real por trás não existe mais. **Lição central: status `open` reportado pela instância não é garantia de sessão viva** — sempre validar com uma chamada real antes de confiar só no status.
 
 **Correção de código (não commitada até o fim desta sessão):**
 - `testar/route.ts` passou a chamar `statusInstanciaWhatsApp()` antes de enviar — se `estado !== "open"`, nem tenta chamar a Evolution.
 - `mensagemAmigavelEvolution()` (`src/lib/evolution-api.ts`) reconhece o padrão `sendMessage` na resposta da Evolution e devolve mensagem amigável ("sessão caiu, desconecte e escaneie o QR de novo") em vez do JSON cru — cobre o caso em que o status ainda diz `open`.
 
-**Reset de instância é sempre isolado por nome — nada de novo a implementar aqui, só confirmado:** `DELETE /instance/logout/{instance}` (já usado pelo botão "Desconectar sessão atual" da tela) atua só sobre `EVOLUTION_INSTANCE=jocley-grill` — mesmo comportamento já documentado em [[playbook-devops-thieco]] (incidente 2026-08-05, instâncias da mesma Evolution API compartilhada são independentes; resetar uma nunca derruba as outras). Se precisar resetar na unha, sem passar pela UI:
+**Reset de instância é sempre isolado por nome:** `DELETE /instance/logout/{instance}` (já usado pelo botão "Desconectar sessão atual" da tela) atua só sobre `EVOLUTION_INSTANCE=jocley-grill` — instâncias da mesma Evolution API compartilhada são independentes entre si; resetar uma nunca derruba as outras que rodam no mesmo container. Se precisar resetar na unha, sem passar pela UI:
 ```bash
 EVO_KEY=$(docker exec jocley-lanchonete-app env | grep '^EVOLUTION_API_KEY=' | cut -d= -f2-)
 curl -s -X DELETE "http://127.0.0.1:8081/instance/logout/jocley-grill" -H "apikey: $EVO_KEY"

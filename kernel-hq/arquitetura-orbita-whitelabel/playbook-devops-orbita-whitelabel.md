@@ -9,7 +9,7 @@ owner: willians
 
 # Playbook DevOps — Orbita Whitelabel (Kernel)
 
-Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico demais, difícil de localizar). Contém plano de portabilidade, progresso e comandos específicos do Sistema Orbita Whitelabel — nome comercial **Kernel**, pasta local `kernel/` (renomeada de `sistema-orbita-whitelabel/`). Ver também [[indice-orbita-whitelabel]], [[playbook-devops-thieco]] (sistema de origem do fork) e [[Playbook DevOps - Comandos Docker e Bancos]] (comandos gerais + risco do monorepo).
+Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico demais, difícil de localizar). Contém plano de portabilidade, progresso e comandos específicos do Sistema Orbita Whitelabel — nome comercial **Kernel**, pasta local `kernel/` (renomeada de `sistema-orbita-whitelabel/`). Ver também [[indice-orbita-whitelabel]] e [[Playbook DevOps - Comandos Docker e Bancos]] (comandos gerais + risco do monorepo).
 
 ## Sistema Órbita Whitelabel (sistema-orbita-whitelabel) — produto "Kernel"
 
