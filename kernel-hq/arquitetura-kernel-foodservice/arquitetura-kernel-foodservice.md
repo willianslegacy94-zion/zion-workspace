@@ -11,7 +11,7 @@ owner: willians
 
 > Referência: [[prd-kernel-foodservice]] | [[modelo-de-dados-kernel-foodservice]]
 
-Documento reconstruído por leitura do código em 2026-08-10. Tudo aqui é verificável em `Kernel Workspace/kernel-foodservice/`.
+Documento reconstruído por leitura do código em 2026-08-10. Tudo aqui é verificável em `kernel-foodservice/`.
 
 ---
 
@@ -32,7 +32,7 @@ Documento reconstruído por leitura do código em 2026-08-10. Tudo aqui é verif
 | Hash de senha | bcryptjs ^3 | Herdado |
 | Testes | **nenhum** | Nenhum test runner em `package.json`, nenhum arquivo de teste no repo |
 
-**Repositório:** `Kernel Workspace/kernel-foodservice/` — git local **sem nenhum commit** e **sem remote**. Todos os 174 arquivos versionáveis estão untracked.
+**Repositório:** `kernel-foodservice/` — git local **sem nenhum commit** e **sem remote**. Todos os 174 arquivos versionáveis estão untracked.
 
 **Portas em dev (fixadas de propósito, comentário em `scripts/dev.js`):** app em `3003`, Postgres em `5440`. O comentário explica: sem `-p` explícito, o Next.js cairia na porta livre mais baixa, descasando de `NEXTAUTH_URL`/`AUTH_URL` e quebrando o redirect pós-login. Mesmo motivo da renomeação dos cookies.
 

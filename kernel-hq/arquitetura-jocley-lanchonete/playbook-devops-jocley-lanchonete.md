@@ -28,7 +28,7 @@ Esse projeto específico (`lanchonete-sistema`) não tem `.aiox-core/` — não 
 
 | | Detalhe |
 |---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema` |
+| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema` |
 | Nome de exibição | "Jocley Grill" (renomeado de "Jocley Lanchonete" em 2026-07-30 — constante `NOME_LANCHONETE`, `src/lib/constants.ts`, usada em toda a UI) |
 | Stack | Next.js 15 + Prisma 6 + PostgreSQL (Docker local) + NextAuth v5 (credentials, campos `usuario`/`senha`, não `username`/`password`) |
 | Containers | `jocley-lanchonete-db` (Postgres — porta do host configurável via `POSTGRES_HOST_PORT`, default **5436** local — escolhida em 2026-08-10 pra não colidir com nenhum outro sistema do workspace; **5435** na VPS, valor específico daquele ambiente), `jocley-lanchonete-app` (`3001:3000`, só usado se subir via `docker compose up` completo — dev local normal roda o Next fora do container, ver abaixo) |
@@ -38,7 +38,7 @@ Esse projeto específico (`lanchonete-sistema`) não tem `.aiox-core/` — não 
 ### Rodar local
 
 ```bash
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema"
 npm run dev   # scripts/dev.js: sobe o Postgres via Docker (se não estiver rodando), roda `prisma migrate deploy` + `prisma generate`, depois `next dev`
 ```
 
@@ -59,7 +59,7 @@ Mesmo princípio já registrado pro Villa Mill/Sistema Thieco: um `git push` daq
 
 **Variante (2026-08-07): `scp` de um arquivo único em vez de `git pull` completo, pra um fix pequeno e pontual.** Diferente do Cortex/Quasar (que não têm `.git` na VPS e por isso *dependem* de `scp`), a lanchonete tem git funcionando normal — `scp` aqui é só um atalho opcional pra não esperar confirmar o estado do repo remoto antes de um ajuste de uma linha. Rodar do terminal LOCAL (o caminho local não existe na VPS):
 ```bash
-scp "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema/CAMINHO/DO/ARQUIVO.tsx" \
+scp "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema/CAMINHO/DO/ARQUIVO.tsx" \
   root@2.24.93.178:/opt/lanchonete-sistema/CAMINHO/DO/ARQUIVO.tsx
 # depois, sempre precisa do rebuild pra valer (o Next standalone já está compilado, copiar o .tsx sozinho não muda o app rodando):
 ssh root@2.24.93.178 "cd /opt/lanchonete-sistema && docker compose up -d --build"
@@ -125,7 +125,7 @@ Diferente de editar um arquivo existente (isso o watcher pega normal), **criar u
 
 ```bash
 pkill -f "next dev"; pkill -f "scripts/dev.js"   # mata só os processos deste projeto, confirme com `ps aux | grep next` antes se tiver outro Next local rodando (ex: academia-sandro)
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema" && npm run dev
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema" && npm run dev
 ```
 Se depois do restart ainda vier conteúdo antigo (ex: mudou uma constante e o valor velho continua aparecendo), o cache do Turbopack ficou preso — `rm -rf .next/cache` antes de subir de novo resolve.
 
@@ -139,7 +139,7 @@ Sintoma: página carrega, mas sem CSS nenhum (parece HTML cru), e o log do servi
 ```bash
 pkill -f "next dev"; pkill -f "scripts/dev.js"   # só os processos da lanchonete
 rm -rf .next                                      # pasta inteira, não só .next/cache
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema" && npm run dev
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema" && npm run dev
 ```
 Confirmar que resolveu: `curl -s <url>/login | grep -o 'layout.css[^"]*'` deve devolver um link de CSS, e baixar esse link deve devolver alguns KB de conteúdo real (não vazio).
 
@@ -268,7 +268,7 @@ curl -s -X PUT "http://127.0.0.1:8081/instance/restart/jocley-grill" -H "apikey:
 
 **Deploy desta correção — variante `scp` de 3 arquivos (comandos fornecidos ao cliente, execução não confirmada nesta sessão):**
 ```bash
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema"
 scp src/app/api/configuracoes/whatsapp/testar/route.ts root@2.24.93.178:/opt/lanchonete-sistema/src/app/api/configuracoes/whatsapp/testar/route.ts
 scp src/lib/evolution-api.ts root@2.24.93.178:/opt/lanchonete-sistema/src/lib/evolution-api.ts
 scp src/components/configuracoes/notificacoes-tab.tsx root@2.24.93.178:/opt/lanchonete-sistema/src/components/configuracoes/notificacoes-tab.tsx

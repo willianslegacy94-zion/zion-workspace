@@ -136,7 +136,7 @@ Combo - Corte + Barba: R$ 130,00 | Combo - 3 Corte + 3 Barba + 3 Sobrancelha: R$
 
 
 # Conteúdo de negócio do Lane Confeitaria — fonte: docs/brand/brand-context.md
-# e docs/prd/prd.md do próprio sistema (orbita-workspace/lane-confeitaria),
+# e docs/prd/prd.md do próprio sistema (lane-confeitaria),
 # extraídos literalmente do material de divulgação real da cliente. Preço
 # por sabor e vagas de agenda NUNCA vêm daqui — são sempre consultados ao
 # vivo via tools/lane_confeitaria.py (Artigo IV — No Invention).

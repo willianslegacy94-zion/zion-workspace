@@ -9,7 +9,7 @@ owner: willians
 
 # Arquitetura Técnica — KernelMei
 
-Documento derivado da leitura do código real em `Kernel Workspace/kernelmei/` em 2026-08-10. Nenhuma decisão listada aqui foi inferida: cada uma aponta para o arquivo que a evidencia.
+Documento derivado da leitura do código real em `kernelmei/` em 2026-08-10. Nenhuma decisão listada aqui foi inferida: cada uma aponta para o arquivo que a evidencia.
 
 ## 1. Stack de decisão
 
@@ -29,7 +29,7 @@ Documento derivado da leitura do código real em `Kernel Workspace/kernelmei/` e
 | Gráficos | recharts ^3.10.1 — **declarado, nunca importado** | provisionado pras telas de dashboard que não existem |
 | Validação | zod ^4.4.3 — **declarado, nunca importado** | validação hoje é manual, dentro dos services |
 
-**Repositório:** `Kernel Workspace/kernelmei/` — polyrepo, código fora do Obsidian, git local **sem nenhum commit e sem remote** (ver seção 9).
+**Repositório:** `kernelmei/` — polyrepo, código fora do Obsidian, git local **sem nenhum commit e sem remote** (ver seção 9).
 
 ---
 

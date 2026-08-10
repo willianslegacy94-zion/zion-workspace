@@ -11,7 +11,7 @@ owner: willians
 
 Mapa completo dos artefatos de governança do sistema.
 Todos os arquivos vivem em `kernel-hq/arquitetura-kernel-foodservice/` com sufixo `-kernel-foodservice`.
-Código-fonte real em `Kernel Workspace/kernel-foodservice/` (fora do Obsidian) — **sem `.git` com commits, sem remote, nunca deployado**.
+Código-fonte real em `kernel-foodservice/` (fora do Obsidian) — **sem `.git` com commits, sem remote, nunca deployado**.
 
 > Documentação **reconstruída a partir do código** em 2026-08-10, não capturada num kickoff. O sistema já estava implementado (174 arquivos) quando esta pasta foi criada. Ver [[system-creation-kernel-foodservice]] para as lacunas que impedem promover o status de `draft`.
 

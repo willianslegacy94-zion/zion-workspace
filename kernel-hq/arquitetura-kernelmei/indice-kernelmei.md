@@ -11,7 +11,7 @@ owner: willians
 
 Mapa completo dos artefatos de governança do sistema.
 Todos os arquivos vivem em `kernel-hq/arquitetura-kernelmei/` com sufixo `-kernelmei`.
-Código-fonte real em `Kernel Workspace/kernelmei/` (fora do Obsidian).
+Código-fonte real em `kernelmei/` (fora do Obsidian).
 
 **O que é o KernelMei:** whitelabel multi-tenant para confeitarias/doceiras. Mesmo domínio de negócio do [[indice-lane-confeitaria|lane-confeitaria]] (CRM em funil, agenda de produção, financeiro/CMV), reconstruído para várias clientes no mesmo código-base e no mesmo banco, com marca e módulos por tenant e um painel de onboarding próprio.
 

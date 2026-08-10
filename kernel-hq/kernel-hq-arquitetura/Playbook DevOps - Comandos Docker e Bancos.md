@@ -9,13 +9,13 @@
 
 cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/sistema-thieco"
 
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/vilamill-sistema"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/vilamill-sistema"
 
 cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro"
 
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema"
 
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lane-confeitaria"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lane-confeitaria"
 
 
 ## Docker

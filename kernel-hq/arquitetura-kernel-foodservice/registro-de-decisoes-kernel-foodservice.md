@@ -11,7 +11,7 @@ owner: willians
 
 Decisões cronológicas com o que mudou, por que, e o impacto. Entradas novas sempre **no final** do arquivo (ver [[system-rules]], seção `ordem-de-entradas-em-logs`).
 
-> **Fonte primária deste registro é atípica.** O repositório `Kernel Workspace/kernel-foodservice/` tem **zero commits** e nunca foi publicado — não existe mensagem de commit, PR ou issue pra reconstruir decisão nenhuma. As datas abaixo vêm de `mtime` de arquivo (aproximação, não histórico auditável) cruzadas com comentários densos deixados no próprio código, que neste projeto costumam explicar o *porquê*, não só o *o quê*. Onde não havia comentário explicando uma escolha, não há decisão registrada aqui — só o fato observado.
+> **Fonte primária deste registro é atípica.** O repositório `kernel-foodservice/` tem **zero commits** e nunca foi publicado — não existe mensagem de commit, PR ou issue pra reconstruir decisão nenhuma. As datas abaixo vêm de `mtime` de arquivo (aproximação, não histórico auditável) cruzadas com comentários densos deixados no próprio código, que neste projeto costumam explicar o *porquê*, não só o *o quê*. Onde não havia comentário explicando uma escolha, não há decisão registrada aqui — só o fato observado.
 
 ---
 

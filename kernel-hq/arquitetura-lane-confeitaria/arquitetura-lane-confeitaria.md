@@ -23,7 +23,7 @@ owner: willians
 | Ícones                | lucide-react                                         | Padrão dos dois projetos de referência                                                                                      |
 | Testes                | Vitest                                               | Introduzido desde a Story 1.1 — nenhum dos projetos de referência tinha suíte de testes; decisão de não repetir essa lacuna |
 
-**Repositório:** `Kernel Workspace/lane-confeitaria/` — polyrepo (não monorepo), código fora do Obsidian.
+**Repositório:** `lane-confeitaria/` — polyrepo (não monorepo), código fora do Obsidian.
 
 ---
 

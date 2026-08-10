@@ -19,7 +19,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 | | Local (dev) | Produção (VPS) |
 |---|---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lane-confeitaria` | `~/lane-confeitaria` (root da VPS) |
+| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/lane-confeitaria` | `~/lane-confeitaria` (root da VPS) |
 | Containers | `lane-confeitaria-db` (Postgres 16, `docker run` avulso, `5437:5432`) | `docker-compose.yml` no repo: `app` (`127.0.0.1:3020`) + `db` (`127.0.0.1:5434`) + `migrate` (one-off) — todos containerizados agora |
 | Domínio | `localhost:PORTA` (Next escolhe porta livre) | `conflane.online`/`www.conflane.online`, nginx do host + certbot |
 | Stack | Next.js 16 (App Router, Turbopack) + Prisma 7 + PostgreSQL + NextAuth v5 (credentials, campo `email`) + Tailwind v4 + Recharts + SWR | mesma stack, buildada via `Dockerfile` multi-stage |
@@ -37,7 +37,7 @@ docker run -d --name lane-confeitaria-db \
   -p 5437:5432 postgres:16
 
 # 2. Schema + seed (primeira vez ou depois de mudar prisma/schema.prisma)
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lane-confeitaria"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lane-confeitaria"
 npx prisma migrate dev --name init   # ou um nome descritivo da mudança
 npm run db:seed                      # popula 44 sabores de bolo + 12 docinhos + usuário inicial + config padrão
 

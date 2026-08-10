@@ -11,7 +11,7 @@ owner: willians
 
 Mapa completo dos artefatos de governança do sistema.
 Todos os arquivos vivem em `kernel-hq/arquitetura-jocley-lanchonete/` com sufixo `-jocley-lanchonete`.
-Código-fonte real em `Kernel Workspace/lanchonete-sistema/` (fora do Obsidian).
+Código-fonte real em `lanchonete-sistema/` (fora do Obsidian).
 
 ---
 

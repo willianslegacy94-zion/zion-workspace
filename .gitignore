@@ -44,3 +44,9 @@ orbita-quasar/orbita_quasar.db
 # Repos aninhados com .git próprio, extraídos pra pasta irmã (ver PLANO-reorganizacao-workspace.md)
 # — nunca devem voltar a ser trackeados aqui, cada um já tem seu próprio remote/histórico.
 sistema-thieco/
+kernel/
+vilamill-sistema/
+lane-confeitaria/
+lanchonete-sistema/
+kernelmei/
+kernel-foodservice/
