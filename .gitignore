@@ -40,3 +40,7 @@ orbita-cortex/orbita_cortex.db
 orbita-horizon/orbita_horizon.db
 orbita-pulsar/orbita_pulsar.db
 orbita-quasar/orbita_quasar.db
+
+# Repos aninhados com .git próprio, extraídos pra pasta irmã (ver PLANO-reorganizacao-workspace.md)
+# — nunca devem voltar a ser trackeados aqui, cada um já tem seu próprio remote/histórico.
+sistema-thieco/
