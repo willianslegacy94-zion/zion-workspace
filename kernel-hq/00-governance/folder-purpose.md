@@ -3,7 +3,7 @@ status: stable
 domain: governance
 source: claude
 created: 2026-05-24
-updated: 2026-08-03
+updated: 2026-08-10
 owner: willians
 ---
 
@@ -203,6 +203,56 @@ Quando abrir: quando for trabalhar no motor analítico — flags de classificaç
 
 ---
 
+## arquitetura-kalel
+
+**O que é:** artefatos do Kernel Kalel — agente de atendimento e agendamento conversacional por WhatsApp **exclusivo do Kernel**. Fork do Quasar (2026-08-05), sem nenhuma lógica de sistema-thieco ou lane-confeitaria. Toda a persona e as regras de negócio vêm em tempo real do backend do Kernel (`/internal/*`); o agente não guarda configuração de tenant. Nome do assistente é customizável por tenant — "Kalel" é só o padrão.
+
+**Stack:** Python 3.12 + FastAPI 0.110 + SQLite (só histórico de conversa) + OpenRouter + Evolution API
+
+**Código-fonte:** `orbita-workspace/Kernel-Kalel/` — repositório próprio `github.com/willianslegacy94-zion/kernel-kalel` (privado, `main`)
+
+Contém (8 artefatos):
+- `system-creation-kalel.md` — threshold respondido
+- `indice-kalel.md` — ponto de entrada e mapa de artefatos
+- `prd-kalel.md` — problema, objetivo, usuário e métricas
+- `requisitos-funcionais-kalel.md` — 21 RFs em 5 módulos: entrada, contexto/prompt, geração, ferramentas, saída no WhatsApp
+- `arquitetura-kalel.md` — stack, camadas, fluxo de dados, Docker (porta 5013) e segurança
+- `modelo-de-dados-kalel.md` — tabela `historico_conversas` e o que o Kalel deliberadamente não guarda
+- `integracoes-kalel.md` — contratos com Kernel, Brainiac, OpenRouter, Evolution API e Telegram
+- `registro-de-decisoes-kalel.md` — memória viva (RD-001 a RD-013)
+
+Status do sistema: **experimental** — testado ponta a ponta localmente (2026-08-05), chaves OpenRouter/Evolution ainda placeholder e deploy na VPS nova pendente.
+
+Quando abrir: quando for trabalhar no atendimento por WhatsApp do Kernel — persona/FAQ dinâmico, ferramentas de confirmação/cancelamento de agendamento, transbordo para humano ou integração com a Evolution API.
+
+**Nota de governança:** o par do Kalel é o **Brainiac** (abaixo) — os dois formam os agentes próprios do Kernel.
+
+---
+
+## arquitetura-brainiac
+
+**O que é:** artefatos do Kernel Brainiac — agente de notificações e "Raio-X do gestor" **exclusivo do Kernel**. Fork do Cortex (2026-08-05) **sem o núcleo analítico**: entrega no WhatsApp do admin as notificações geradas pelo backend, interpreta pergunta livre do gestor (faturamento, produtos mais vendidos, serviços mais realizados, estoque parado) e devolve o relatório formatado. Também serve o contexto de cliente que o Kalel consome.
+
+**Stack:** Python 3.12 + FastAPI 0.110 + OpenRouter + Evolution API — **sem banco próprio** (todo dado vem do backend do Kernel via `/internal/*`)
+
+**Código-fonte:** `orbita-workspace/Kernel-brainiac/` — repositório próprio `github.com/willianslegacy94-zion/kernel-brainiac` (privado, `main`, desde 2026-08-10)
+
+Contém (8 artefatos):
+- `system-creation-brainiac.md` — threshold respondido
+- `indice-brainiac.md` — ponto de entrada, mapa de artefatos e comparativo Brainiac × Cortex
+- `prd-brainiac.md` — problema, objetivo, usuário, métricas e a divergência entre o nome e o papel real
+- `requisitos-funcionais-brainiac.md` — 4 módulos (contexto de cliente, notificação do admin, relatório sob demanda, observabilidade) + pontos de atenção
+- `arquitetura-brainiac.md` — stack, camadas, fluxo de dados, Docker (porta 5010) e segurança
+- `modelo-de-dados-brainiac.md` — ausência de persistência própria, estado volátil em memória e dados de terceiros
+- `integracoes-brainiac.md` — contratos com Kalel, Kernel, Evolution API, OpenRouter e Telegram
+- `registro-de-decisoes-brainiac.md` — memória viva (RD-001 a RD-012)
+
+Status do sistema: **experimental** — testado ponta a ponta localmente (2026-08-05), chaves OpenRouter/Evolution ainda placeholder, deploy pendente. **Cutover pendente:** o backend do Kernel ainda chama o Cortex (`CORTEX_URL`), então `POST /api/v1/brainiac/notificar-admin` ainda não tem chamador em produção.
+
+Quando abrir: quando for trabalhar no canal do gestor do Kernel — relatório sob demanda por WhatsApp, notificação de admin, alerta Telegram de falha de envio ou o cutover Cortex→Brainiac.
+
+---
+
 ## arquitetura-insight
 
 **O que é:** artefatos do Órbita Insight — engine SaaS de BI preditivo para infoprodutores. Ingere dados, classifica comportamento via IA e entrega insights acionáveis via API (24 RFs em 5 módulos). Complementa o Cortex no nível de análise preditiva.
@@ -271,11 +321,87 @@ Quando abrir: quando for trabalhar no sistema do Centro de Treinamento — cadas
 
 ---
 
+## arquitetura-kernelmei
+
+**O que é:** artefatos do KernelMei — whitelabel multi-tenant para confeitarias/doceiras. Mesmo domínio de negócio do `arquitetura-lane-confeitaria` (CRM em funil kanban, agenda de produção com limite diário, financeiro/CMV, metas, ranking), reconstruído para atender várias clientes no mesmo código-base e no mesmo banco, com marca (`Tenant.branding`) e módulos (`Tenant.features`) por tenant, mais um painel de operação (`/admin`) para provisionar e gerenciar clientes.
+
+**Stack:** Next.js 16 + Prisma 7 (`@prisma/adapter-pg`) + PostgreSQL 16 + NextAuth v5 (tenant) + `jose` (SuperAdmin) + Tailwind v4 + Docker
+
+Contém (7 artefatos):
+- `system-creation-kernelmei.md` — threshold respondido **retroativamente**, com rastreio por arquivo e a lista do que não foi possível responder
+- `indice-kernelmei.md` — mapa dos artefatos, ordem de leitura e estado real do sistema
+- `prd-kernelmei.md` — problema, dois perfis de usuário (confeiteira e SuperAdmin), escopo entregue vs. lacunas
+- `requisitos-funcionais-kernelmei.md` — 60 RFs em 9 módulos + 8 RNFs, cada um marcado como OK / sem tela / stub
+- `arquitetura-kernelmei.md` — stack, herança dupla (lane-confeitaria + kernel-foodservice), Prisma Extension de isolamento, sessões duplas, observabilidade e lacunas técnicas
+- `modelo-de-dados-kernelmei.md` — 19 entidades, 5 enums, heurística de quem carrega `tenantId` e regras de cálculo
+- `design-system-kernelmei.md` — mecanismo de branding por tenant (token estável, valor variável) e inventário de componentes
+- `registro-de-decisoes-kernelmei.md` — memória viva: 15 decisões + 8 pendências que exigem decisão do Willians
+
+**Sem `ui-kit` e `ux-flows` de propósito:** 4 das 7 telas do menu ainda não existem; documentar inventário ou jornada agora exigiria supor. Registrados como backlog no índice.
+
+Status do sistema: **draft**. Fundação multi-tenant completa e verificada por script; interface parcial; **git local com zero commits e sem remote**; nunca deployado; sem testes (Vitest instalado, nenhum arquivo de teste).
+
+**Nota de governança:** documentação criada em 2026-08-10 para um sistema já construído — o threshold foi respondido depois da construção, invertendo a ordem prescrita por `00-governance-systems/system-creation-threshold.md`. Assumido explicitamente em `system-creation-kernelmei.md`.
+
+Quando abrir: quando for trabalhar no KernelMei — onboarding de tenant, isolamento multi-tenant, feature flags, branding, ou completar as telas de agenda/financeiro/dashboard/projeção.
+
+---
+
+## arquitetura-kernel-foodservice
+
+**O que é:** artefatos do Kernel Foodservice — whitelabel multi-tenant pro domínio de restaurante/lanchonete. Fork do `arquitetura-jocley-lanchonete` (PDV mesa+balcão, CMV por ficha técnica com rendimento, KDS, DRE, gestão de time) generalizado com os mesmos três padrões do produto Kernel: isolamento por `tenantId`, feature flags (`Tenant.features`) e onboarding via painel super-admin isolado.
+
+**Stack:** Next.js 15 + Prisma 6.4 + PostgreSQL 16 + NextAuth v5 (tenant) + HMAC-SHA256 nativo (super-admin) + Tailwind v4 + Docker
+
+Contém (7 artefatos):
+- `system-creation-kernel-foodservice.md` — threshold respondido retroativamente; 2 das 6 perguntas sem resposta no código (público-alvo, por que agora)
+- `indice-kernel-foodservice.md` — mapa dos artefatos e estado real do sistema
+- `prd-kernel-foodservice.md` — problema, dois públicos (super-admin e equipe do tenant), escopo dentro/fora, métricas propostas
+- `requisitos-funcionais-kernel-foodservice.md` — 19 RFs em 4 módulos novos (auth/isolamento, modulação, onboarding, notificações); domínio de foodservice herdado sem RF duplicado
+- `arquitetura-kernel-foodservice.md` — stack, as 3 camadas novas com cobertura verificada, **8 riscos não mitigados (R1–R8)**
+- `modelo-de-dados-kernel-foodservice.md` — 21 models / 13 enums, `Tenant`+`SuperAdmin` novos, `OrderItem` como única tabela sem `tenantId`
+- `registro-de-decisoes-kernel-foodservice.md` — memória viva reconstruída por `mtime` + comentários (zero commits no repo)
+
+**Sem `design-system`, `ui-kit` e `ux-flows` de propósito:** UI herdada do Jocley Grill sem mudança visual documentada além da cor primária por tenant. Criar se/quando a modulação de UI exigir decisão de design própria.
+
+Status do sistema: **draft**. Implementado (174 arquivos) e nunca commitado, nunca deployado, sem testes. Risco de maior severidade: instância de WhatsApp compartilhada entre todos os tenants (R1) — quebra a premissa de whitelabel se não corrigido antes do primeiro cliente real.
+
+**Nota de governança:** mesmo padrão do `arquitetura-kernelmei` — documentação criada em 2026-08-10 para sistema já construído, threshold respondido depois da construção.
+
+Quando abrir: quando for trabalhar no Kernel Foodservice — onboarding de tenant, isolamento multi-tenant, feature flags, ou mitigação dos riscos R1-R8.
+
+---
+
+## arquitetura-kernel-academia
+
+**O que é:** artefatos do Kernel Academia — whitelabel multi-tenant pro domínio de academia/CT. Fork do `arquitetura-academiasandro` (gestão de alunos, financeiro com ciclo de 12 parcelas, agenda de aulas, pacotes de desconto, portal do aluno) generalizado com o padrão whitelabel emprestado do `arquitetura-kernel-foodservice` (`Tenant`/`SuperAdmin`/`ErrorLog`, login global, painel `/admin-kernel`). **Não confundir com `arquitetura-academiasandro`** — são dois sistemas diferentes, o primeiro é de um cliente real em produção, este é o derivado whitelabel sem cliente real ainda.
+
+**Stack:** Next.js + Prisma + PostgreSQL 16 (Docker local, porta 5441) + NextAuth (tenant) + auth própria (SuperAdmin) + Evolution API
+
+Contém (7 artefatos):
+- `system-creation-kernel-academia.md` — threshold aprovado retroativamente; origem dupla (domínio + padrão whitelabel); tabela "não confundir" com o academia-sandro; 4 perguntas abertas
+- `indice-kernel-academia.md` — mapa dos artefatos e estado real do sistema
+- `prd-kernel-academia.md` — problema, dois públicos, escopo, métricas propostas
+- `requisitos-funcionais-kernel-academia.md` — 51 RFs em 10 módulos
+- `arquitetura-kernel-academia.md` — stack, herança dupla, multi-tenancy, **8 bloqueantes pro primeiro cliente real**
+- `modelo-de-dados-kernel-academia.md` — 16 models herdados + `tenantId` em 15 deles, `Tenant`/`SuperAdmin` novos
+- `registro-de-decisoes-kernel-academia.md` — memória viva reconstruída por `mtime` + nome de migration (sem git)
+
+**Sem `design-system`, `ui-kit` e `ux-flows` de propósito:** UI herdada do `academia-sandro` sem mudança visual documentada além de `Tenant.branding`.
+
+Status do sistema: **draft**. **Bloqueante crítico e único entre os sistemas da família `kernel*`:** a marca do cliente de origem (Centro de Treinamento Sandro Freire) vazou pro produto whitelabel — título da página, termo de consentimento LGPD, mensagens de WhatsApp e default de `EVOLUTION_INSTANCE_NAME` citam o nome do cliente real. Um tenant diferente assinaria consentimento pra academia errada. Sem `.git`, nunca deployado, sem testes.
+
+**Nota de governança:** mesmo padrão dos outros `kernel-*` — documentação criada em 2026-08-10 para sistema já construído.
+
+Quando abrir: quando for trabalhar no Kernel Academia — onboarding de tenant, correção do vazamento de marca (bloqueante), ou qualquer um dos outros 7 bloqueantes registrados.
+
+---
+
 ## Pastas pendentes de classificação
 
 | Pasta | Situação |
 |---|---|
-| — | nenhuma pasta pendente no momento |
+| — | `kernel-hq-arquitetura` já classificada — é a pasta de documentos de negócio (portfólio, precificação, playbooks operacionais, contrato de sociedade), renomeada de `orbita-black-arquitetura` em 2026-08-10 junto com o rename do cofre inteiro (`orbita-black` → `kernel-hq`). Não é um sistema, não segue o padrão `arquitetura-{nome}` — é infraestrutura documental do próprio cofre, mesmo papel que já tinha antes do rename. |
 
 ---
 
@@ -292,11 +418,16 @@ ERPs e Gestão:
   arquitetura-orbita-whitelabel →  produto SaaS multi-tenant de caixa
   arquitetura-lane-confeitaria  →  CRM + agenda + inteligência financeira para confeitaria (dev, validado)
   arquitetura-academiasandro    →  gestão de academia/CT (alunos, financeiro, agenda, pacotes) — em produção
+  arquitetura-kernelmei         →  whitelabel multi-tenant de confeitaria (draft, fundação pronta, UI parcial)
+  arquitetura-kernel-foodservice →  whitelabel multi-tenant de restaurante (draft, 174 arquivos, nunca commitado)
+  arquitetura-kernel-academia    →  whitelabel multi-tenant de academia/CT (draft, marca do cliente de origem vazada — bloqueante)
 
 Holding de Robôs — Agentes:
   arquitetura-horizon     →  suporte EAD multi-tenant (infoprodutores)
   arquitetura-pulsar      →  atendimento + disparos para PMEs
   arquitetura-quasar      →  concierge alto ticket + agendamento (em dev)
+  arquitetura-kalel       →  atendimento/agendamento por WhatsApp, exclusivo do Kernel (fork do Quasar)
+  arquitetura-brainiac    →  notificações + raio-X do gestor, exclusivo do Kernel (fork do Cortex, sem núcleo analítico)
 
 Holding de Robôs — Módulos de IA:
   arquitetura-cortex      →  cérebro analítico central
