@@ -11,7 +11,7 @@ owner: willians
 
 Decisões cronológicas com o que mudou, por que, e o impacto. Entradas novas sempre **no final** do arquivo (ver [[system-rules]], seção `ordem-de-entradas-em-logs`).
 
-> **Fonte primária deste registro é atípica.** Não existe Dev Agent Record, story, PRD ou commit message para este sistema — o repositório `orbita-workspace/kernelmei/` tem **zero commits**. As decisões abaixo foram reconstruídas a partir de **comentários de código**, que neste projeto são densos e explicam rationale (não apenas o "o quê"). Toda entrada cita o arquivo de onde veio. Onde não havia comentário, não há decisão registrada — e isso está dito.
+> **Fonte primária deste registro é atípica.** Não existe Dev Agent Record, story, PRD ou commit message para este sistema — o repositório `Kernel Workspace/kernelmei/` tem **zero commits**. As decisões abaixo foram reconstruídas a partir de **comentários de código**, que neste projeto são densos e explicam rationale (não apenas o "o quê"). Toda entrada cita o arquivo de onde veio. Onde não havia comentário, não há decisão registrada — e isso está dito.
 
 ---
 

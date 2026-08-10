@@ -11,7 +11,7 @@ owner: willians
 
 Decisões cronológicas com o que mudou, por que, e o impacto. Entradas novas sempre **no final** do arquivo (ver [[system-rules]], seção `ordem-de-entradas-em-logs`).
 
-> **Fonte primária deste registro é atípica.** O repositório `orbita-workspace/kernel-academia/` não tem `.git` — não existe commit, mensagem, PR ou issue pra reconstruir decisão nenhuma. As datas abaixo vêm de `mtime` de arquivo e de nome de migration (aproximação, não histórico auditável), cruzadas com comentários de código e com o `.env`, que aqui é incomumente explícito sobre riscos (ex.: o aviso duplicado pra nunca apontar pro Supabase do `academia-sandro`). Onde não havia evidência, não há decisão registrada — só o fato observado.
+> **Fonte primária deste registro é atípica.** O repositório `Kernel Workspace/kernel-academia/` não tem `.git` — não existe commit, mensagem, PR ou issue pra reconstruir decisão nenhuma. As datas abaixo vêm de `mtime` de arquivo e de nome de migration (aproximação, não histórico auditável), cruzadas com comentários de código e com o `.env`, que aqui é incomumente explícito sobre riscos (ex.: o aviso duplicado pra nunca apontar pro Supabase do `academia-sandro`). Onde não havia evidência, não há decisão registrada — só o fato observado.
 
 ---
 

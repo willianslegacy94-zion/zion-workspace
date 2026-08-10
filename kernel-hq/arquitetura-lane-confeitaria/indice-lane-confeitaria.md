@@ -11,7 +11,7 @@ owner: willians
 
 Mapa completo dos artefatos de governança do sistema.
 Todos os arquivos vivem em `kernel-hq/arquitetura-lane-confeitaria/` com sufixo `-lane-confeitaria`.
-Código-fonte real em `orbita-workspace/lane-confeitaria/` (fora do Obsidian).
+Código-fonte real em `Kernel Workspace/lane-confeitaria/` (fora do Obsidian).
 
 ---
 

@@ -13,11 +13,11 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 ## Academia Prof. Sandro (academia-sandro) — o que saber pra mexer sem mim
 
-**Desde 2026-08-03, sistema em produção** — `https://sandrofreiresf.online`, VPS Hostinger **compartilhada com VillaMill e Sistema Thieco** (mesmo IP `2.24.93.178` dos dois). Ainda **não tem repositório próprio no GitHub** — continua sendo uma subpasta dentro do repo compartilhado `orbita-workspace` (`github.com/willianslegacy94-zion/zion-workspace`, **público**). Banco é Supabase (nuvem), **mesmo banco em dev e produção** — não existe separação, cuidado ao rodar script/seed local, ele mexe no banco real.
+**Desde 2026-08-03, sistema em produção** — `https://sandrofreiresf.online`, VPS Hostinger **compartilhada com VillaMill e Sistema Thieco** (mesmo IP `2.24.93.178` dos dois). Ainda **não tem repositório próprio no GitHub** — continua sendo uma subpasta dentro do repo compartilhado `Kernel Workspace` (`github.com/willianslegacy94-zion/zion-workspace`, **público**). Banco é Supabase (nuvem), **mesmo banco em dev e produção** — não existe separação, cuidado ao rodar script/seed local, ele mexe no banco real.
 
 | | Detalhe |
 |---|---|
-| Caminho (local) | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/academia-sandro` |
+| Caminho (local) | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro` |
 | Caminho (VPS) | `/opt/academia-sandro` (SSH `root@2.24.93.178`) |
 | Stack | Next.js 16 (App Router) + Prisma 7 (`@prisma/adapter-pg`, sem engine nativa) + PostgreSQL (Supabase) |
 | Banco | Supabase (pooler Supavisor) — mesmo banco em dev e produção (não existe separação hoje) |
@@ -32,7 +32,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 ```bash
 # do computador local (WSL, não PowerShell — rsync não existe no Windows nativo)
 rsync -avz --exclude node_modules --exclude .next --exclude .git \
-  "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/academia-sandro/" \
+  "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro/" \
   root@2.24.93.178:/opt/academia-sandro/
 
 # no VPS
@@ -88,7 +88,7 @@ Só precisa repetir isso se o site do nginx for perdido/recriado do zero — dep
 ### Rodar local
 
 ```bash
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/academia-sandro"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/academia-sandro"
 npm run dev              # sobe em localhost:3000
 ```
 

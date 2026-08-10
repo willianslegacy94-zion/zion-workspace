@@ -52,7 +52,7 @@ Atualizar sempre que uma decisão com impacto sistêmico for tomada.
 ## RD-005 — `.env` global na raiz do workspace
 **Data:** 2026-06-25
 **Contexto:** O `OPENROUTER_API_KEY` é compartilhado por todos os agentes da Holding.
-**Decisão:** Carregar o `.env` de `parents[1]/.env` (raiz do workspace `orbita-workspace/`), não do diretório do projeto.
+**Decisão:** Carregar o `.env` de `parents[1]/.env` (raiz do workspace `Kernel Workspace/`), não do diretório do projeto.
 **Impacto:** Uma única chave de API centralizada. Agentes não precisam de `.env` próprios para a mesma chave.
 
 ---

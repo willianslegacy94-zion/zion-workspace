@@ -13,7 +13,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 ## Sistema Órbita Whitelabel (sistema-orbita-whitelabel) — produto "Kernel"
 
-**Caminho:** `/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/sistema-orbita-whitelabel` (local; ainda sem deploy em VPS).
+**Caminho:** `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/sistema-orbita-whitelabel` (local; ainda sem deploy em VPS).
 
 **Nome comercial: Kernel** (rebrand em 2026-08-02) — **domínio `kercellwc.online` já registrado, ainda sem VPS/DNS/deploy apontados.** Não confundir com o nome do repositório/pasta, que continua `sistema-orbita-whitelabel`. Ver [[registro-de-decisoes-kernel]] (arquitetura, pasta `arquitetura-kernel`).
 

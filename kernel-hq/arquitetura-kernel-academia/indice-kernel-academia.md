@@ -11,7 +11,7 @@ owner: willians
 
 Mapa completo dos artefatos de governança do sistema.
 Todos os arquivos vivem em `kernel-hq/arquitetura-kernel-academia/` com sufixo `-kernel-academia`.
-Código-fonte real em `orbita-workspace/kernel-academia/` (fora do Obsidian) — **sem `.git`, não versionado nem no monorepo pai, nunca deployado**.
+Código-fonte real em `Kernel Workspace/kernel-academia/` (fora do Obsidian) — **sem `.git`, não versionado nem no monorepo pai, nunca deployado**.
 
 > **Não confundir com [[arquitetura-academiasandro]].** São dois sistemas diferentes: `academia-sandro` é o sistema em produção de **um** cliente real (Centro de Treinamento Sandro Freire); `kernel-academia` é o produto whitelabel multi-tenant derivado dele, sem cliente real ainda. Documentação reconstruída a partir do código em 2026-08-10, não de um kickoff.
 

@@ -17,7 +17,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 | | Local (seu Windows/WSL) | Produção (VPS) |
 |---|---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/sistema-thieco` | `/var/www/sistema-thieco` (SSH na VPS, IP `2.24.93.178`) |
+| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/sistema-thieco` | `/var/www/sistema-thieco` (SSH na VPS, IP `2.24.93.178`) |
 | Containers | `thieco_api` (backend, sem porta pro host — só rede interna do Docker), `thieco_web` (frontend, `127.0.0.1:5173`), `thieco_db` (Postgres, `127.0.0.1:5432`) | mesmos nomes, mesma VPS do Villa Mill e do Depósito Lobo — todos isolados entre si, sem rede/volume compartilhado |
 | Domínio público | — | `barbeariatl.online` (Nginx do host, fora de container) |
 | Repositório | `github.com/willianslegacy94-zion/sistema-thieco` | mesmo — `git push` daqui não chega na VPS sozinho, alguém precisa entrar e fazer o pull/rebuild |
@@ -159,7 +159,7 @@ Desconectar **não apaga histórico de conversa nem configuração de remetente*
 A entrada de 2026-07-28 acima disse que a mudança de contrato do Cortex (`instancia` em vez de `tenant_id`) tinha "comportamento idêntico pro thieco". Isso valia pro **código**, mas o deploy do lado do Cortex nunca aconteceu de verdade — o container na VPS continuou rodando a versão antiga (`PayloadNotificarAdmin` ainda exigindo `tenant_id`), então toda chamada de `notificar-admin` vinda do thieco (que já mandava `instancia`) falhava com **HTTP 422** desde 28/07 — quase uma semana de notificação administrativa (faturamento/ranking/estoque, alertas de sistema) silenciosamente não entregue. `notificado_admin: false` nunca foi investigado a fundo até um relato do Willians em 04/08.
 
 **Causa raiz real, em camadas (achadas em ordem, cada uma escondendo a próxima):**
-1. Contrato desalinhado (acima) → corrigido, commit `34abea5` no `orbita-workspace` (`orbita-cortex/main.py`).
+1. Contrato desalinhado (acima) → corrigido, commit `34abea5` no `Kernel Workspace` (`orbita-cortex/main.py`).
 2. Depois de corrigir o 422, a Evolution API passou a devolver **HTTP 400** (`Cannot read properties of undefined (reading 'id')`, erro típico de sessão Baileys quebrada).
 3. Investigando o 400: **os 3 canais Evolution API (`thieco-admin`, `thieco-mutinga`, `thieco-tambore`) estavam com `connectionStatus: "connecting"` desde 28/07/2026** — Willians tinha usado o botão "Desconectar" (item acima, `74b0d21`) nos 3 canais pra testar com o número pessoal dele, e nenhum reconectou depois. `thieco-tambore` nunca teve `ownerJid` — nunca chegou a ser pareado de verdade. **Impacto real: o atendimento automático do Theo (Quasar) pode ter ficado fora do ar pra cliente de Mutinga e Tamboré a semana inteira**, não só a notificação do admin.
 
@@ -252,8 +252,8 @@ WhatsApp/Baileys não permite o mesmo número ser sessão primária de duas inst
 
 **Confirmação de que o deploy do Cortex/Quasar continua sem git** (mesma pendência da entrada 2026-08-04, ainda não resolvida): atualizar código lá é `scp` manual a partir do repo local, rodado do terminal LOCAL (não da sessão SSH da VPS — o caminho local não existe lá):
 ```bash
-scp "orbita-workspace/orbita-cortex/main.py" root@2.24.93.178:/var/www/orbita-agents/cortex/main.py
-scp "orbita-workspace/orbita-quasar/main.py" root@2.24.93.178:/var/www/orbita-agents/quasar/main.py
+scp "Kernel Workspace/orbita-cortex/main.py" root@2.24.93.178:/var/www/orbita-agents/cortex/main.py
+scp "Kernel Workspace/orbita-quasar/main.py" root@2.24.93.178:/var/www/orbita-agents/quasar/main.py
 # depois, na sessão SSH da VPS:
 cd /var/www/orbita-agents/cortex && docker compose up -d --build
 cd /var/www/orbita-agents/quasar && docker compose up -d --build
@@ -333,7 +333,7 @@ scp "/mnt/c/.../arquivo.py" root@2.24.93.178:/caminho/no/servidor/arquivo.py
 ssh root@2.24.93.178 "cd /caminho && docker compose up -d --build"
 ```
 
-**4 melhorias no Theo (Quasar) nesta sessão, já commitadas (`orbita-workspace`, `main.py`/`database.py`) e replicadas na VPS (`scp` pro caminho sem git, ver seção Cortex/Quasar acima) — confirmadas ao vivo em produção depois do deploy:**
+**4 melhorias no Theo (Quasar) nesta sessão, já commitadas (`Kernel Workspace`, `main.py`/`database.py`) e replicadas na VPS (`scp` pro caminho sem git, ver seção Cortex/Quasar acima) — confirmadas ao vivo em produção depois do deploy:**
 1. Saudação sem "digital", e agora **com o nome do cliente** antes do "!" (`"Boa tarde Aline! Aqui é o Theo..."`) — só quando o WhatsApp manda um `pushName` real, senão cai na saudação genérica.
 2. Horário de funcionamento passou a ser **específico por unidade** (Mutinga: Seg-Sex 9h-20h, Sáb 9h-19h · Tamboré: Seg-Sex 9h-19h, Sáb 9h-17h) — antes as duas compartilhavam o mesmo bloco (com o horário certo só pra Mutinga).
 3. **Preço de serviço/combo passou a ser consultado em tempo real** (`calcular_total_servicos`, chama `GET /agendamentos/servicos` do sistema-thieco de verdade) em vez da tabela estática do FAQ, que já estava desatualizada (ex.: Combo Corte+Barba real é R$80,00, tabela dizia R$79,00) — tabela virou só fallback pra quando a API estiver fora do ar. Soma de múltiplos serviços também é calculada por código (match de substring contra o catálogo real), não pelo modelo de cabeça.
@@ -349,7 +349,7 @@ ssh root@2.24.93.178 "cd /caminho && docker compose up -d --build"
 1. **Nome completo em vez de primeiro nome** — o `pushName` do WhatsApp às vezes vem com nome completo; o Theo usava inteiro ("Thiago Leandro"). Corrigido **em código**, não só no prompt — `nome_cliente.split()[0]` logo na entrada de `gerar_resposta_quasar` (produto thieco), antes de o nome ser usado em qualquer lugar. Mais confiável que só pedir pro modelo lembrar disso em toda mensagem da conversa (ele não lembrava).
 2. **Repetição de "Nome, tudo bem?" em quase toda resposta** — a regra de tom adicionada na sessão anterior ("cheque com tudo bem? sempre que voltar a falar") foi mal calibrada e o modelo aplicava em TODA mensagem, não só na retomada da conversa. Reescrita pra deixar explícito: nome/saudação aparecem **uma vez só**, no começo; da segunda mensagem em diante vai direto ao assunto.
 
-Commit `7800154` (`orbita-workspace`), replicado na VPS via `scp` (mesmo padrão de sempre, ver seção acima) — confirmado ao vivo reproduzindo a conversa exata do print.
+Commit `7800154` (`Kernel Workspace`), replicado na VPS via `scp` (mesmo padrão de sempre, ver seção acima) — confirmado ao vivo reproduzindo a conversa exata do print.
 
-**Gotcha de colaboração via git, útil se acontecer de novo:** entre um commit e outro desta mesma sessão, **outra sessão/processo comitou e deu push** direto no `main` do `orbita-workspace` (`f7ca3bf`, trabalho da Lane Confeitaria que estava pendente desde 04/08) — sem coordenação com esta sessão. O efeito prático: a técnica de "reconstruir a versão limpa a partir do HEAD" (ver entrada anterior) usa um HEAD guardado em cache (scratchpad) que **ficou desatualizado** assim que isso aconteceu — o próximo diff isolado saiu gigante e cheio de conteúdo da Lane que não deveria estar lá, porque a base de comparação (HEAD antigo) já não era mais o HEAD real. **Sinal de alerta:** um diff isolado que deveria ser pequeno (uma ou duas linhas de mudança) aparecendo com centenas de linhas — antes de desconfiar da própria lógica de isolamento, rodar `git log --oneline -5` e comparar com o que se esperava ser o HEAD; se mudou, refazer a base (`git show HEAD:arquivo` de novo) antes de continuar.
+**Gotcha de colaboração via git, útil se acontecer de novo:** entre um commit e outro desta mesma sessão, **outra sessão/processo comitou e deu push** direto no `main` do `Kernel Workspace` (`f7ca3bf`, trabalho da Lane Confeitaria que estava pendente desde 04/08) — sem coordenação com esta sessão. O efeito prático: a técnica de "reconstruir a versão limpa a partir do HEAD" (ver entrada anterior) usa um HEAD guardado em cache (scratchpad) que **ficou desatualizado** assim que isso aconteceu — o próximo diff isolado saiu gigante e cheio de conteúdo da Lane que não deveria estar lá, porque a base de comparação (HEAD antigo) já não era mais o HEAD real. **Sinal de alerta:** um diff isolado que deveria ser pequeno (uma ou duas linhas de mudança) aparecendo com centenas de linhas — antes de desconfiar da própria lógica de isolamento, rodar `git log --oneline -5` e comparar com o que se esperava ser o HEAD; se mudou, refazer a base (`git show HEAD:arquivo` de novo) antes de continuar.
 

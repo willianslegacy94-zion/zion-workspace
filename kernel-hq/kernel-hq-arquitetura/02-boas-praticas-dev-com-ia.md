@@ -1,7 +1,7 @@
 
 Prompt 1
 
-Claude, quero planejar uma nova implantação no sistema [NOME]. A melhoria consiste em: [Descreva brevemente, ex: integrar uma nova API de pagamento]. Antes de começarmos, analise os arquivos `00-governance/system-rules.md` e `00-governance/operational-workflow.md`  que estão na pasta C:\Users\Willians DataMeet\Desktop\Ops\orbita-workspace\kernel-hq\00-governance e me diga: essa implantação viola alguma regra de arquitetura ou dependência do nosso ecossistema?"
+Claude, quero planejar uma nova implantação no sistema [NOME]. A melhoria consiste em: [Descreva brevemente, ex: integrar uma nova API de pagamento]. Antes de começarmos, analise os arquivos `00-governance/system-rules.md` e `00-governance/operational-workflow.md`  que estão na pasta C:\Users\Willians DataMeet\Desktop\Ops\Kernel Workspace\kernel-hq\00-governance e me diga: essa implantação viola alguma regra de arquitetura ou dependência do nosso ecossistema?"
    
 Prompt 2
 

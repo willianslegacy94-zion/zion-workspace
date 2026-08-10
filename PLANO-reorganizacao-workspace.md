@@ -1,10 +1,10 @@
-# Replicar padrão datameet-workspace no orbita-workspace (Zion/Orbita)
+# Replicar padrão datameet-workspace no Kernel Workspace (Zion/Orbita)
 
-> **Como retomar esta sessão:** este documento foi gerado originalmente em 2026-07-17 (fora do `orbita-workspace`) e **revalidado em 2026-08-10** dentro do próprio repo, porque o estado tinha mudado desde a análise original. Ele é self-contained — não depende de contexto de conversa anterior. Antes de executar qualquer passo: (1) rode `git status` neste repo e em cada um dos sub-repos listados na seção "Estado observado" para confirmar que nada mudou desde esta revalidação; (2) se algo mudou, revalide a seção correspondente antes de agir; (3) siga a ordem dos passos — cada um assume que o anterior foi concluído; (4) **não commitar nada automaticamente** — cada commit descrito abaixo precisa de autorização explícita no momento, mesmo que o usuário já tenha aprovado o plano como um todo.
+> **Como retomar esta sessão:** este documento foi gerado originalmente em 2026-07-17 (fora do `Kernel Workspace`) e **revalidado em 2026-08-10** dentro do próprio repo, porque o estado tinha mudado desde a análise original. Ele é self-contained — não depende de contexto de conversa anterior. Antes de executar qualquer passo: (1) rode `git status` neste repo e em cada um dos sub-repos listados na seção "Estado observado" para confirmar que nada mudou desde esta revalidação; (2) se algo mudou, revalide a seção correspondente antes de agir; (3) siga a ordem dos passos — cada um assume que o anterior foi concluído; (4) **não commitar nada automaticamente** — cada commit descrito abaixo precisa de autorização explícita no momento, mesmo que o usuário já tenha aprovado o plano como um todo.
 
 ## Contexto
 
-`orbita-workspace` (remote `https://github.com/willianslegacy94-zion/zion-workspace`) é o workspace de agência multi-cliente (barbearia, jurídico, academia, imobiliária, loja, família de produtos whitelabel `orbita-*`/`Kernel`) — diferente do `datameet-workspace`, que é uma única empresa com poucos repos padronizados (API+front). Esse plano adapta o padrão do `datameet-workspace` (orquestrador leve + guardrails de IA) para esse cenário mais heterogêneo, sem copiar 1:1.
+`Kernel Workspace` (remote `https://github.com/willianslegacy94-zion/zion-workspace`) é o workspace de agência multi-cliente (barbearia, jurídico, academia, imobiliária, loja, família de produtos whitelabel `orbita-*`/`Kernel`) — diferente do `datameet-workspace`, que é uma única empresa com poucos repos padronizados (API+front). Esse plano adapta o padrão do `datameet-workspace` (orquestrador leve + guardrails de IA) para esse cenário mais heterogêneo, sem copiar 1:1.
 
 Decisões já confirmadas pelo usuário na sessão original (2026-07-17):
 
@@ -95,7 +95,7 @@ Não faziam parte da análise de 17/07 e da decisão original do usuário. Antes
 
 Ordem sugerida: começar pelos 3 sem ambiguidade de gerenciador (`kernel`, `ivsstore-sistema`, `sistema-thieco`), deixar `vilamill-sistema` (ambíguo) por último, após confirmar com o usuário. `orbita-lobo` saiu da lista (descontinuado).
 
-Para cada repo, com `orbita-workspace` como `$BASE` (`/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace`) e destino em `$BASE/../<nome>`:
+Para cada repo, com `Kernel Workspace` como `$BASE` (`/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace`) e destino em `$BASE/../<nome>`:
 
 - [ ] `mv "$BASE/<nome>" "$BASE/../<nome>"` (mv simples preserva `.git` interno e o working tree com as mudanças não commitadas)
 - [ ] Dentro do novo local, `cd` e rodar `git status` — deve mostrar exatamente as mesmas mudanças pendentes de antes da mudança de pasta
@@ -105,13 +105,13 @@ Para cada repo, com `orbita-workspace` como `$BASE` (`/c/Users/Willians DataMeet
 ### Passo 2 — Destrackear `node_modules`
 
 - [ ] Reconferir `git ls-files node_modules | wc -l` (contagem não revalidada nesta rodada)
-- [ ] `git rm -r --cached node_modules` no repo pai (raiz do `orbita-workspace`)
+- [ ] `git rm -r --cached node_modules` no repo pai (raiz do `Kernel Workspace`)
 - [ ] Se `.aiox-core/` ainda não foi arquivado (passo 3), rodar também `git rm -r --cached .aiox-core/node_modules` — ou pular, já que arquivar `.aiox-core/` inteiro no passo 3 resolve isso junto
 - [ ] Deixar staged junto com o passo 1 — **não commitar ainda**
 
 ### Passo 3 — Arquivar a camada AIOX
 
-- [ ] Criar `Desktop/Ops/_archive-aiox-orbita-workspace/` (fora do repo)
+- [ ] Criar `Desktop/Ops/_archive-aiox-Kernel Workspace/` (fora do repo)
 - [ ] Mover para lá: `.aiox-core/`, os arquivos de agente AIOX/squad listados na seção "Estado observado", `.claude/rules/`, `.claude/commands/AIOX`, `.claude/commands/synapse`, `.claude/skills/AIOX`, `.claude/skills/synapse`, `.claude/CLAUDE.md` (o atual), `.claude/hooks/enforce-git-push-authority.cjs`, `.claude/hooks/synapse-engine.cjs`
 - [ ] Confirmar que `.claude/skills/architect-first`, `checklist-runner`, `coderabbit-review`, `tech-search`, `mcp-builder`, `skill-creator` **permanecem** (não são AIOX)
 
@@ -160,4 +160,4 @@ Para cada repo, com `orbita-workspace` como `$BASE` (`/c/Users/Willians DataMeet
 
 ---
 
-_Plano gerado em sessão de análise via Claude Code (datameet-workspace → orbita-workspace) em 2026-07-17. Revalidado e atualizado em 2026-08-10 dentro do próprio `orbita-workspace`: `orbita-lobo` removido do escopo (descontinuado, docs órfãs apagadas), `sistema-orbita-whitelabel` atualizado para `kernel` (rename), 4 novos repos aninhados descobertos e registrados como pendência de decisão. Pendente de execução, aguardando autorização passo a passo dentro deste próprio repo._
+_Plano gerado em sessão de análise via Claude Code (datameet-workspace → Kernel Workspace) em 2026-07-17. Revalidado e atualizado em 2026-08-10 dentro do próprio `Kernel Workspace`: `orbita-lobo` removido do escopo (descontinuado, docs órfãs apagadas), `sistema-orbita-whitelabel` atualizado para `kernel` (rename), 4 novos repos aninhados descobertos e registrados como pendência de decisão. Pendente de execução, aguardando autorização passo a passo dentro deste próprio repo._

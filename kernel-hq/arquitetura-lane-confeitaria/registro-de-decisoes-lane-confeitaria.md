@@ -149,7 +149,7 @@ Lado do Quasar (`orbita-quasar/`, fora deste sistema) configurado com um tenant 
 **Bug real encontrado durante a validação (deste sistema, não do Quasar):** logo depois de adicionar `valorFinal`/`valorSinal` na resposta de `POST /internal/pedidos`, o `curl` de teste continuou recebendo só `{"pedidoId": "..."}` — o dev server (Turbopack) estava servindo uma versão em cache da rota, de antes da edição. Resolvido matando o processo, apagando `.next/cache` e subindo `npm run dev` de novo. Mesma classe de problema já registrada no Playbook DevOps ("watcher do Next não pega mudança de config a quente") — aqui aconteceu numa edição comum de arquivo, não só em config especial, então vale desconfiar disso sempre que uma mudança de API não aparecer na resposta.
 
 **Dois bloqueios externos identificados, nenhum resolvido (fora do meu controle — exigem ação do usuário):**
-1. `OPENROUTER_API_KEY` vazia em `orbita-workspace/.env` — sem ela nenhum tenant do Quasar recebe resposta real da IA (401, cai no fallback genérico). Não é específico do Lane.
+1. `OPENROUTER_API_KEY` vazia em `Kernel Workspace/.env` — sem ela nenhum tenant do Quasar recebe resposta real da IA (401, cai no fallback genérico). Não é específico do Lane.
 2. Rede: container do Quasar (Docker Desktop) não alcança `localhost:3002` deste sistema via `host.docker.internal`, apesar do Windows alcançar (WSL2 encaminha só pra `127.0.0.1` do Windows, não pras interfaces que o Docker Desktop usa). Correção pendente exige `netsh interface portproxy` num PowerShell como Administrador.
 
 **Validado apesar dos bloqueios:** as 4 ferramentas do Quasar rodadas localmente em Python (fora do container, mesma rede do dev server) contra a API real deste sistema — leitura (catálogo, agenda, cliente) e escrita (`registrar_pedido`, retornando valor final e sinal corretos: R$280 final / R$140 de sinal num teste real). Dados de teste removidos depois.
@@ -158,11 +158,11 @@ Lado do Quasar (`orbita-quasar/`, fora deste sistema) configurado com um tenant 
 
 ## 2026-07-31 — Repositório Git próprio criado e publicado no GitHub
 
-Mesmo padrão do Villa Mill/Depósito Lobo/Jocley Grill: o sistema vivia como pasta solta dentro do `orbita-workspace`, sem versionamento nenhum, até esta data.
+Mesmo padrão do Villa Mill/Depósito Lobo/Jocley Grill: o sistema vivia como pasta solta dentro do `Kernel Workspace`, sem versionamento nenhum, até esta data.
 
 **Preparação local (qualquer agente pode fazer, per `agent-authority.md`):** `git init`, branch `main` direto (sem passar por `master`). Dois ajustes no `.gitignore` padrão do `create-next-app` antes do commit: `.env*` estava excluindo também o `.env.example` (deveria ser versionado, é só um template) — corrigido com `!.env.example`; e `/src/generated/prisma` (Prisma Client gerado) tinha entrado no primeiro commit por engano — removido num segundo commit, mesmo padrão já usado no `academia-sandro`.
 
-**Decisão consciente:** a pasta NÃO foi adicionada ao `.gitignore` da raiz do `orbita-workspace` (monorepo), apesar do risco documentado no Playbook DevOps (incidente real com o `orbita-lobo`, onde um merge na raiz apagou 31 arquivos de um repo aninhado sem isolamento). Motivo: nenhum dos sistemas irmãos que já viraram repositório próprio (`lanchonete-sistema`, `sistema-thieco`, `vilamill-sistema`) está gitignorado na raiz — segui o padrão real já em uso em vez de aplicar uma regra mais rígida que não é seguida em nenhum outro caso.
+**Decisão consciente:** a pasta NÃO foi adicionada ao `.gitignore` da raiz do `Kernel Workspace` (monorepo), apesar do risco documentado no Playbook DevOps (incidente real com o `orbita-lobo`, onde um merge na raiz apagou 31 arquivos de um repo aninhado sem isolamento). Motivo: nenhum dos sistemas irmãos que já viraram repositório próprio (`lanchonete-sistema`, `sistema-thieco`, `vilamill-sistema`) está gitignorado na raiz — segui o padrão real já em uso em vez de aplicar uma regra mais rígida que não é seguida em nenhum outro caso.
 
 **Push feito por `@devops` (Gage)**, conforme exclusividade de `agent-authority.md` — não pelo agente que preparou o commit. Quality gates rodados antes do push: lint ✅, 38 testes unitários ✅, build de produção ✅ (incluindo confirmar que `npx prisma generate` recria o client do zero a partir do schema versionado, validando que remover `/src/generated/prisma` do git não quebra um clone novo). CodeRabbit **não disponível neste ambiente** (`coderabbit` não instalado) — gate pulado com essa lacuna documentada, não escondida.
 
@@ -186,7 +186,7 @@ Sessão de teste local revelou que o projeto tinha sido rodado tanto por um proc
 
 ## 2026-08-02 — Quasar testado ponta a ponta pela primeira vez contra dados reais, com chave de IA configurada
 
-Diferente da sessão anterior (2026-07-30, onde as ferramentas do Quasar foram validadas rodando Python isolado, sem `OPENROUTER_API_KEY` configurada — toda resposta caía no fallback genérico), nesta sessão `OPENROUTER_API_KEY` foi preenchida em `orbita-workspace/.env` e o fluxo completo (`/api/v1/quasar/chat` → Claude/GPT com tool-calling → ferramentas reais deste sistema) rodou de ponta a ponta pela primeira vez.
+Diferente da sessão anterior (2026-07-30, onde as ferramentas do Quasar foram validadas rodando Python isolado, sem `OPENROUTER_API_KEY` configurada — toda resposta caía no fallback genérico), nesta sessão `OPENROUTER_API_KEY` foi preenchida em `Kernel Workspace/.env` e o fluxo completo (`/api/v1/quasar/chat` → Claude/GPT com tool-calling → ferramentas reais deste sistema) rodou de ponta a ponta pela primeira vez.
 
 **Bug real e sério encontrado no Quasar (não neste sistema, mas com impacto direto na integração):** a 2ª chamada ao modelo (depois de executar `consultar_catalogo_bolos`/`consultar_disponibilidade_agenda`) não reenviava a lista de ferramentas (`tools`) — o modelo ficava fisicamente impedido de chamar `registrar_pedido` depois de checar catálogo/agenda numa mesma rodada de conversa, porque a API não oferecia mais essa opção na rechamada. Resultado observado repetidamente: a IA dizia "vou registrar o pedido agora" e nunca chamava a ferramenta de verdade. Corrigido no lado do Quasar com um loop de tool-calling propriamente dito (até 5 rodadas, reenviando `tools`/`tool_choice` a cada chamada). Detalhe completo em `kernel-hq/arquitetura-quasar/registro-de-decisoes-quasar.md`.
 

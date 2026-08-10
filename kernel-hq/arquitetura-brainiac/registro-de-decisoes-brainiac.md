@@ -211,7 +211,7 @@ comentários do `docker-compose.yml` dos dois agentes.
 
 ## RD-012 — Repositório Git próprio
 **Data:** 2026-08-10
-**Contexto:** antes disso o Brainiac vivia como pasta solta dentro do `orbita-workspace`,
+**Contexto:** antes disso o Brainiac vivia como pasta solta dentro do `Kernel Workspace`,
 sem versionamento próprio.
 **Decisão:** publicar como repositório privado próprio —
 `willianslegacy94-zion/kernel-brainiac`, branch `main` desde o início. Dois commits:

@@ -13,13 +13,13 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 ## Lane Confeitaria (lane-confeitaria) — o que saber pra mexer sem mim
 
-**Mesmo padrão do Villa Mill/Depósito Lobo/Jocley Grill: repositório Git próprio, nascido em 2026-07-31** — antes disso vivia como pasta solta dentro do `orbita-workspace`, sem versionamento nenhum. Desde 2026-07-31, tem remote próprio: **`https://github.com/willianslegacy94-zion/lane-confeitaria`** (privado — regras de negócio reais de uma cliente).
+**Mesmo padrão do Villa Mill/Depósito Lobo/Jocley Grill: repositório Git próprio, nascido em 2026-07-31** — antes disso vivia como pasta solta dentro do `Kernel Workspace`, sem versionamento nenhum. Desde 2026-07-31, tem remote próprio: **`https://github.com/willianslegacy94-zion/lane-confeitaria`** (privado — regras de negócio reais de uma cliente).
 
 **Desde 2026-08-03/04, em produção real na VPS da Holding** (`https://conflane.online`, mesma VPS de vilamill/thieco/academia-sandro/agentes de IA) — deixou de ser "só ambiente local". Ver `docs/architecture/deploy-playbook.md` (dentro do próprio repo) pro runbook operacional completo; aqui vai só o resumo + gotchas descobertos no dia do primeiro deploy real.
 
 | | Local (dev) | Produção (VPS) |
 |---|---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lane-confeitaria` | `~/lane-confeitaria` (root da VPS) |
+| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lane-confeitaria` | `~/lane-confeitaria` (root da VPS) |
 | Containers | `lane-confeitaria-db` (Postgres 16, `docker run` avulso, `5437:5432`) | `docker-compose.yml` no repo: `app` (`127.0.0.1:3020`) + `db` (`127.0.0.1:5434`) + `migrate` (one-off) — todos containerizados agora |
 | Domínio | `localhost:PORTA` (Next escolhe porta livre) | `conflane.online`/`www.conflane.online`, nginx do host + certbot |
 | Stack | Next.js 16 (App Router, Turbopack) + Prisma 7 + PostgreSQL + NextAuth v5 (credentials, campo `email`) + Tailwind v4 + Recharts + SWR | mesma stack, buildada via `Dockerfile` multi-stage |
@@ -37,7 +37,7 @@ docker run -d --name lane-confeitaria-db \
   -p 5437:5432 postgres:16
 
 # 2. Schema + seed (primeira vez ou depois de mudar prisma/schema.prisma)
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lane-confeitaria"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lane-confeitaria"
 npx prisma migrate dev --name init   # ou um nome descritivo da mudança
 npm run db:seed                      # popula 44 sabores de bolo + 12 docinhos + usuário inicial + config padrão
 

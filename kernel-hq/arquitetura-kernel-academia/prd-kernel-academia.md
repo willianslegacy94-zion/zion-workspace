@@ -9,7 +9,7 @@ owner: willians
 
 # PRD — Kernel Academia
 
-> **Rastreabilidade:** este PRD foi reconstruído a partir do código existente em `orbita-workspace/kernel-academia/`, não de um briefing registrado. Cada afirmação aponta para um arquivo real. Onde o código não permite concluir a intenção de negócio, está escrito explicitamente que é pergunta aberta — nada foi suposto.
+> **Rastreabilidade:** este PRD foi reconstruído a partir do código existente em `Kernel Workspace/kernel-academia/`, não de um briefing registrado. Cada afirmação aponta para um arquivo real. Onde o código não permite concluir a intenção de negócio, está escrito explicitamente que é pergunta aberta — nada foi suposto.
 
 ## 1. Contexto
 

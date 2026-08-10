@@ -209,7 +209,7 @@ Quando abrir: quando for trabalhar no motor analítico — flags de classificaç
 
 **Stack:** Python 3.12 + FastAPI 0.110 + SQLite (só histórico de conversa) + OpenRouter + Evolution API
 
-**Código-fonte:** `orbita-workspace/Kernel-Kalel/` — repositório próprio `github.com/willianslegacy94-zion/kernel-kalel` (privado, `main`)
+**Código-fonte:** `Kernel Workspace/Kernel-Kalel/` — repositório próprio `github.com/willianslegacy94-zion/kernel-kalel` (privado, `main`)
 
 Contém (8 artefatos):
 - `system-creation-kalel.md` — threshold respondido
@@ -235,7 +235,7 @@ Quando abrir: quando for trabalhar no atendimento por WhatsApp do Kernel — per
 
 **Stack:** Python 3.12 + FastAPI 0.110 + OpenRouter + Evolution API — **sem banco próprio** (todo dado vem do backend do Kernel via `/internal/*`)
 
-**Código-fonte:** `orbita-workspace/Kernel-brainiac/` — repositório próprio `github.com/willianslegacy94-zion/kernel-brainiac` (privado, `main`, desde 2026-08-10)
+**Código-fonte:** `Kernel Workspace/Kernel-brainiac/` — repositório próprio `github.com/willianslegacy94-zion/kernel-brainiac` (privado, `main`, desde 2026-08-10)
 
 Contém (8 artefatos):
 - `system-creation-brainiac.md` — threshold respondido

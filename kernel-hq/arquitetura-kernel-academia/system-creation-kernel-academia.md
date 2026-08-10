@@ -13,7 +13,7 @@ Resposta às 6 perguntas obrigatórias de [[system-creation-threshold]].
 
 Status: **threshold aprovado retroativamente** — a pasta foi criada em 2026-08-10, depois do código já existir. O sistema é real (schema multi-tenant migrado, 2 migrations aplicadas, painel de onboarding funcional), mas **nunca foi implantado em produção** e **não está versionado em git**.
 
-> **Aviso de rastreabilidade:** este documento foi escrito lendo o código de `orbita-workspace/kernel-academia/`, não a partir de um kickoff registrado. Tudo aqui rastreia para arquivo, comentário de código, schema ou config. O que não pôde ser confirmado está marcado como pergunta aberta na seção final — não foi inventado.
+> **Aviso de rastreabilidade:** este documento foi escrito lendo o código de `Kernel Workspace/kernel-academia/`, não a partir de um kickoff registrado. Tudo aqui rastreia para arquivo, comentário de código, schema ou config. O que não pôde ser confirmado está marcado como pergunta aberta na seção final — não foi inventado.
 
 ---
 
@@ -71,7 +71,7 @@ O `.env` do `kernel-academia` avisa isso duas vezes, com todas as letras:
 - Migration `20260809195433_error_logs` — captura automática de erro por tenant
 - Build local funcionando (`tsconfig.tsbuildinfo` e `.next/` de 2026-08-09), `db:seed` cria SuperAdmin + 2 tenants demo + contas fixas `devaluno`/`devmaster`
 - **Sem suíte de testes** — não há dependência de teste no `package.json`
-- **Sem git próprio e não versionado no monorepo pai** — `git status` do `orbita-workspace` mostra a pasta inteira como `?? kernel-academia/`
+- **Sem git próprio e não versionado no monorepo pai** — `git status` do `Kernel Workspace` mostra a pasta inteira como `?? kernel-academia/`
 - **Sem deploy** — `docker-compose.yml` aponta para `.env.production`, arquivo que não existe no repositório
 
 ---

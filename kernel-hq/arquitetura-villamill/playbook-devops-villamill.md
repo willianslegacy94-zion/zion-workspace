@@ -17,7 +17,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 | | Local (seu Windows/WSL) | Produção (VPS) |
 |---|---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/vilamill-sistema` | `/var/www/vilamill-sistema` (SSH na VPS, IP `2.24.93.178`) |
+| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/vilamill-sistema` | `/var/www/vilamill-sistema` (SSH na VPS, IP `2.24.93.178`) |
 | Tem Node/npm? | Sim | **Não** — só Docker |
 | Quem acessa | Só você, testando | Clientes reais, via `villamill.online` (Nginx + SSL na frente) |
 | Containers | `villamill-app` (3000), `villamill-db` (5433) | mesmos nomes/portas, mas isolados — não é a mesma instância |
@@ -44,7 +44,7 @@ docker exec villamill-app node -e "<script inline>"
 ### Ambiente local — testar mudança de código sem afetar ninguém
 
 ```bash
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/vilamill-sistema"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/vilamill-sistema"
 npx prisma generate                                      # gera o client após clonar ou mudar o schema
 NEXTAUTH_URL=http://localhost:3001 npx next dev -p 3001   # sobe em paralelo ao container local (porta 3000), sem conflito
 ```

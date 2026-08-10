@@ -79,6 +79,6 @@ Decisões cronológicas que moldaram o sistema. Cada entrada registra o contexto
 
 **Data:** 2026-06-25
 **Decisão:** `OPENROUTER_API_KEY` lida de `Path(__file__).resolve().parents[1] / ".env"` — dois níveis acima, na raiz do workspace.
-**Contexto:** o workspace (`orbita-workspace/`) tem múltiplos projetos que podem reutilizar a mesma chave OpenRouter. Um único `.env` na raiz evita duplicação de credenciais entre projetos.
+**Contexto:** o workspace (`Kernel Workspace/`) tem múltiplos projetos que podem reutilizar a mesma chave OpenRouter. Um único `.env` na raiz evita duplicação de credenciais entre projetos.
 **Alternativa descartada:** `.env` dentro de `kernel-hq-prospeccao/`. Descartado para seguir o padrão de workspace unificado — a mesma chave serve para todos os robôs Órbita.
 **Impacto:** ao rodar `python main.py` de dentro da pasta do projeto, o `.env` é encontrado corretamente via path absoluto.

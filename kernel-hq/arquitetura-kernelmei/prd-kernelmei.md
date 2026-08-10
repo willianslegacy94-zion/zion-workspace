@@ -9,7 +9,7 @@ owner: willians
 
 # PRD — KernelMei
 
-> **Aviso de origem.** Este PRD foi escrito **a partir do código**, não antes dele. Não existe PRD original, README, story ou commit message no repositório `orbita-workspace/kernelmei/` (o git local tem zero commits). Toda afirmação aqui rastreia a um arquivo real; onde a intenção do produto não é evidenciável, está marcado como pendente de confirmação, nunca preenchido por dedução.
+> **Aviso de origem.** Este PRD foi escrito **a partir do código**, não antes dele. Não existe PRD original, README, story ou commit message no repositório `Kernel Workspace/kernelmei/` (o git local tem zero commits). Toda afirmação aqui rastreia a um arquivo real; onde a intenção do produto não é evidenciável, está marcado como pendente de confirmação, nunca preenchido por dedução.
 
 ## 1. Contexto
 

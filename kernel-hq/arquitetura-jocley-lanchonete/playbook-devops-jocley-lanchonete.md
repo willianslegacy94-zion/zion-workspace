@@ -13,7 +13,7 @@ Extraído do Playbook DevOps geral do kernel-hq em 2026-08-10 (estava genérico 
 
 ## Jocley Grill (lanchonete-sistema) — o que saber pra mexer sem mim
 
-**Mesmo padrão do Villa Mill/Depósito Lobo: repositório Git próprio, nascido em 2026-07-30** — antes disso vivia como pasta solta dentro do `orbita-workspace`, sem versionamento nenhum. Desde 2026-07-30, tem remote próprio: **`https://github.com/willianslegacy94-zion/lanchonete-sistema`** (privado — decisão do `@devops` dado que o `docker-compose.yml` tem credenciais default de dev; `gh repo edit --visibility public` reverte se quiser paridade com os irmãos públicos). **Desde 2026-08-03, em produção na VPS compartilhada** (`2.24.93.178`, mesma dos outros sistemas abaixo) — domínio `jocleygrill.online`. Ver "Deploy na VPS (produção)" mais abaixo.
+**Mesmo padrão do Villa Mill/Depósito Lobo: repositório Git próprio, nascido em 2026-07-30** — antes disso vivia como pasta solta dentro do `Kernel Workspace`, sem versionamento nenhum. Desde 2026-07-30, tem remote próprio: **`https://github.com/willianslegacy94-zion/lanchonete-sistema`** (privado — decisão do `@devops` dado que o `docker-compose.yml` tem credenciais default de dev; `gh repo edit --visibility public` reverte se quiser paridade com os irmãos públicos). **Desde 2026-08-03, em produção na VPS compartilhada** (`2.24.93.178`, mesma dos outros sistemas abaixo) — domínio `jocleygrill.online`. Ver "Deploy na VPS (produção)" mais abaixo.
 
 ### Deploy — push, historicamente feito pelo `@devops` (Gage); em sessões sem framework AIOX ativo, feito direto com confirmação do usuário
 
@@ -24,11 +24,11 @@ roda quality gate (tsc + lint + build + scan de segredos) e só então git push 
 ```
 Esse projeto específico (`lanchonete-sistema`) não tem `.aiox-core/` — não roda dentro do framework AIOX, então não existe agente `@devops` de fato disponível nas sessões sobre ele. **Na prática (confirmado em 2026-08-04, sessão das 10 melhorias operacionais):** push feito direto pelo Claude Code puro, perguntando confirmação explícita ao usuário antes de cada `git push origin main` — sem quality gate automatizado formal, mas com `tsc --noEmit` + `npm run lint` rodados manualmente antes de cada commit. Em outros projetos do workspace que rodam dentro do AIOX de verdade, a regra de `@devops` exclusivo continua valendo.
 
-**Reconfirmado em 2026-08-07 (sessão de entrada rápida de estoque + ficha técnica de espetos):** a tentativa de invocar o subagente `aiox-devops` via Agent tool falhou (`Agent type 'aiox-devops' not found`) — o `.claude/agents/aiox-devops.md` existe no `orbita-workspace` (nível pai), mas não é descoberto quando a sessão roda com cwd dentro de `lanchonete-sistema` (subpasta). Solução usada: spawnar um agente `general-purpose` com instrução explícita para ler `.claude/commands/AIOX/agents/devops.md` (persona Gage) + a task de pre-push quality gate, e então rodar `tsc`/`lint` + `git push origin main` (nunca `-f`) — funcionou nas duas vezes (commits `7abd46c` e `1b56d7f`), sempre só depois de confirmação explícita do usuário ("sim") pra cada push. Padrão reaproveitável pra qualquer projeto do workspace sem `.aiox-core/` que precise do fluxo de push com quality gate mesmo sem o subagente nativo disponível.
+**Reconfirmado em 2026-08-07 (sessão de entrada rápida de estoque + ficha técnica de espetos):** a tentativa de invocar o subagente `aiox-devops` via Agent tool falhou (`Agent type 'aiox-devops' not found`) — o `.claude/agents/aiox-devops.md` existe no `Kernel Workspace` (nível pai), mas não é descoberto quando a sessão roda com cwd dentro de `lanchonete-sistema` (subpasta). Solução usada: spawnar um agente `general-purpose` com instrução explícita para ler `.claude/commands/AIOX/agents/devops.md` (persona Gage) + a task de pre-push quality gate, e então rodar `tsc`/`lint` + `git push origin main` (nunca `-f`) — funcionou nas duas vezes (commits `7abd46c` e `1b56d7f`), sempre só depois de confirmação explícita do usuário ("sim") pra cada push. Padrão reaproveitável pra qualquer projeto do workspace sem `.aiox-core/` que precise do fluxo de push com quality gate mesmo sem o subagente nativo disponível.
 
 | | Detalhe |
 |---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lanchonete-sistema` |
+| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema` |
 | Nome de exibição | "Jocley Grill" (renomeado de "Jocley Lanchonete" em 2026-07-30 — constante `NOME_LANCHONETE`, `src/lib/constants.ts`, usada em toda a UI) |
 | Stack | Next.js 15 + Prisma 6 + PostgreSQL (Docker local) + NextAuth v5 (credentials, campos `usuario`/`senha`, não `username`/`password`) |
 | Containers | `jocley-lanchonete-db` (Postgres — porta do host configurável via `POSTGRES_HOST_PORT`, default **5436** local — escolhida em 2026-08-10 pra não colidir com nenhum outro sistema do workspace; **5435** na VPS, valor específico daquele ambiente), `jocley-lanchonete-app` (`3001:3000`, só usado se subir via `docker compose up` completo — dev local normal roda o Next fora do container, ver abaixo) |
@@ -38,7 +38,7 @@ Esse projeto específico (`lanchonete-sistema`) não tem `.aiox-core/` — não 
 ### Rodar local
 
 ```bash
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lanchonete-sistema"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema"
 npm run dev   # scripts/dev.js: sobe o Postgres via Docker (se não estiver rodando), roda `prisma migrate deploy` + `prisma generate`, depois `next dev`
 ```
 
@@ -59,7 +59,7 @@ Mesmo princípio já registrado pro Villa Mill/Sistema Thieco: um `git push` daq
 
 **Variante (2026-08-07): `scp` de um arquivo único em vez de `git pull` completo, pra um fix pequeno e pontual.** Diferente do Cortex/Quasar (que não têm `.git` na VPS e por isso *dependem* de `scp`), a lanchonete tem git funcionando normal — `scp` aqui é só um atalho opcional pra não esperar confirmar o estado do repo remoto antes de um ajuste de uma linha. Rodar do terminal LOCAL (o caminho local não existe na VPS):
 ```bash
-scp "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lanchonete-sistema/CAMINHO/DO/ARQUIVO.tsx" \
+scp "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema/CAMINHO/DO/ARQUIVO.tsx" \
   root@2.24.93.178:/opt/lanchonete-sistema/CAMINHO/DO/ARQUIVO.tsx
 # depois, sempre precisa do rebuild pra valer (o Next standalone já está compilado, copiar o .tsx sozinho não muda o app rodando):
 ssh root@2.24.93.178 "cd /opt/lanchonete-sistema && docker compose up -d --build"
@@ -105,7 +105,7 @@ No caso da lanchonete, `5434` colidia com o `lane-confeitaria-db` — resolvido 
 
 ### Gotcha: disputa de porta com outros projetos locais do workspace (`academia-sandro`, `lane-confeitaria`) — e por que **não** fixar a porta
 
-Vários projetos do `orbita-workspace` sobem `next dev` sem porta fixa, todos preferindo `3000` por padrão. Quem sobe primeiro pega `3000`; os outros caem em cascata pra `3001`, `3002`... **A porta que a lanchonete acaba usando muda dependendo da ordem em que os projetos foram iniciados** — não é fixo em `3001` como o `.env` (`NEXTAUTH_URL`/`AUTH_URL`) sugere. Confirme sempre com `ss -tlnp | grep -E ':(3000|3001|3002)'` + `readlink /proc/<pid>/cwd` antes de assumir a porta.
+Vários projetos do `Kernel Workspace` sobem `next dev` sem porta fixa, todos preferindo `3000` por padrão. Quem sobe primeiro pega `3000`; os outros caem em cascata pra `3001`, `3002`... **A porta que a lanchonete acaba usando muda dependendo da ordem em que os projetos foram iniciados** — não é fixo em `3001` como o `.env` (`NEXTAUTH_URL`/`AUTH_URL`) sugere. Confirme sempre com `ss -tlnp | grep -E ':(3000|3001|3002)'` + `readlink /proc/<pid>/cwd` antes de assumir a porta.
 
 **Já tentei "corrigir" isso fixando a porta com `next dev -p 3001` no `scripts/dev.js` — piorou.** Sem `-p`, o Next cai graciosamente pra próxima porta livre se a preferida estiver ocupada; **com** `-p` explícito, ele **falha** (`EADDRINUSE`) em vez de cair pra outra porta, porque o fallback automático só existe no modo "porta preferida, sem exigência". Revertido — `scripts/dev.js` está de volta sem `-p`, deliberadamente.
 
@@ -125,7 +125,7 @@ Diferente de editar um arquivo existente (isso o watcher pega normal), **criar u
 
 ```bash
 pkill -f "next dev"; pkill -f "scripts/dev.js"   # mata só os processos deste projeto, confirme com `ps aux | grep next` antes se tiver outro Next local rodando (ex: academia-sandro)
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lanchonete-sistema" && npm run dev
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema" && npm run dev
 ```
 Se depois do restart ainda vier conteúdo antigo (ex: mudou uma constante e o valor velho continua aparecendo), o cache do Turbopack ficou preso — `rm -rf .next/cache` antes de subir de novo resolve.
 
@@ -139,7 +139,7 @@ Sintoma: página carrega, mas sem CSS nenhum (parece HTML cru), e o log do servi
 ```bash
 pkill -f "next dev"; pkill -f "scripts/dev.js"   # só os processos da lanchonete
 rm -rf .next                                      # pasta inteira, não só .next/cache
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lanchonete-sistema" && npm run dev
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema" && npm run dev
 ```
 Confirmar que resolveu: `curl -s <url>/login | grep -o 'layout.css[^"]*'` deve devolver um link de CSS, e baixar esse link deve devolver alguns KB de conteúdo real (não vazio).
 
@@ -268,7 +268,7 @@ curl -s -X PUT "http://127.0.0.1:8081/instance/restart/jocley-grill" -H "apikey:
 
 **Deploy desta correção — variante `scp` de 3 arquivos (comandos fornecidos ao cliente, execução não confirmada nesta sessão):**
 ```bash
-cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/orbita-workspace/lanchonete-sistema"
+cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/Kernel Workspace/lanchonete-sistema"
 scp src/app/api/configuracoes/whatsapp/testar/route.ts root@2.24.93.178:/opt/lanchonete-sistema/src/app/api/configuracoes/whatsapp/testar/route.ts
 scp src/lib/evolution-api.ts root@2.24.93.178:/opt/lanchonete-sistema/src/lib/evolution-api.ts
 scp src/components/configuracoes/notificacoes-tab.tsx root@2.24.93.178:/opt/lanchonete-sistema/src/components/configuracoes/notificacoes-tab.tsx
