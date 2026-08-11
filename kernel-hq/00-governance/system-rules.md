@@ -376,7 +376,6 @@ objetivo: manter o grafo do Obsidian como representação visual real do ecossis
 se não souber o que linkar, linke ao menos para o índice do sistema:
 - arquivos em `arquitetura-thieco/` → `[[indice-thieco]]`
 - arquivos em `arquitetura-villamill/` → `[[indice-villamill]]`
-- arquivos em `arquitetura-ivsstore/` → `[[prd-ivsstore]]`
 - arquivos em `arquitetura-kernel/` → `[[indice-kernel]]`
 - arquivos em `arquitetura-horizon/` → `[[indice-horizon]]`
 - arquivos em `arquitetura-pulsar/` → `[[indice-pulsar]]`
@@ -396,7 +395,6 @@ regras técnicas e comportamentais específicas de cada sistema vivem dentro do 
 |---|---|
 | thieco | `arquitetura-thieco/registro-de-decisoes-thieco.md` |
 | villamill | `arquitetura-villamill/registro-de-decisoes-villamill.md` |
-| ivsstore | `arquitetura-ivsstore/prd-ivsstore.md` (sem registro de decisões ainda) |
 | kernel | `arquitetura-kernel/registro-de-decisoes-kernel.md` |
 | horizon | `arquitetura-horizon/registro-de-decisoes-horizon.md` |
 | pulsar | `arquitetura-pulsar/registro-de-decisoes-pulsar.md` |

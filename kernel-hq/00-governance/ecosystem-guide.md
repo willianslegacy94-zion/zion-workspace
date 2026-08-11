@@ -30,7 +30,7 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 | `00-types` | compartilhado | Padrões reutilizáveis entre sistemas |
 | `arquitetura-thieco` | sistema — ERP | Sistema de Caixa Barbearia Thieco Leandro |
 | `arquitetura-villamill` | sistema — ERP | Sistema VillaMill Tamboré (restaurante/bar) |
-| `arquitetura-ivsstore` | sistema — ERP | IVSSTORE — ERP loja de vestuário infantil e perfumaria |
+| ~~`arquitetura-ivsstore`~~ | descontinuado | IVSSTORE apagado em 2026-08-10 (código e docs) — ver nota no rodapé |
 | `arquitetura-kernel` | produto SaaS | Kernel — caixa e comissões multi-tenant |
 | `arquitetura-kernelmei` | produto SaaS | KernelMei — whitelabel multi-tenant para confeitarias/doceiras |
 | `arquitetura-kernel-foodservice` | produto SaaS | Kernel Foodservice — whitelabel multi-tenant para restaurantes/lanchonetes |
@@ -119,19 +119,9 @@ Cada sistema que passa pelo threshold de criação (`00-governance-systems`) gan
 
 ---
 
-## arquitetura-ivsstore
+## arquitetura-ivsstore (descontinuado)
 
-**Tipo:** sistema em produção (MVP local)
-
-**O que é:** IVSSTORE — ERP para loja de vestuário infantil e perfumaria. Importação automática de NF-e via XML, PDV com suporte a fiado (vencimentos dias 15/30), caderninho de clientes com cobrança via WhatsApp e fluxo de caixa integrado.
-
-**Contexto:** loja de vestuário infantil e perfumaria. MVP v1.1 funcional em produção local. Propriedade 100% Willians.
-
-**Stack:** React 18 + Node.js/Express + PostgreSQL + Docker
-
-**Quando abrir:** quando for trabalhar no IVSSTORE — desenvolvimento, decisão técnica, sessão com IA.
-
-**Ponto de entrada:** [[prd-ivsstore]] → [[arquitetura-ivsstore]] → [[modelo-de-dados-ivsstore]]
+> **Apagado em 2026-08-10** — código (`ivsstore-sistema/`) e esta documentação removidos por decisão do usuário (sistema descontinuado). Era um ERP para loja de vestuário infantil e perfumaria, MVP local, React + Node.js/Express + PostgreSQL. Nenhum artefato sobrevive — não há mais [[prd-ivsstore]]/[[arquitetura-ivsstore]]/[[modelo-de-dados-ivsstore]] pra consultar.
 
 ---
 
@@ -388,7 +378,7 @@ Os sistemas documentados em `kernel-hq` correspondem a implementações de softw
 |---|---|---|---|
 | `arquitetura-thieco` | Barbearia Thieco Leandro — Sistema de Caixa | Node.js + Express + PostgreSQL + React | Em produção (2024) |
 | `arquitetura-villamill` | Villa Mill Tamboré — PDV Restaurante | Next.js 15 + PostgreSQL + NextAuth v5 | Em produção (2026-04) |
-| `arquitetura-ivsstore` | IVSSTORE — ERP Vestuário e Perfumaria | React + Node.js + PostgreSQL | MVP local (2026-06) |
+| ~~`arquitetura-ivsstore`~~ | IVSSTORE — ERP Vestuário e Perfumaria | React + Node.js + PostgreSQL | **Descontinuado** (2026-08-10) |
 | `arquitetura-kernel` | Kernel — Caixa multi-tenant | React + Node.js + PostgreSQL | Produto SaaS |
 | `arquitetura-lane-confeitaria` | Lane Confeitaria — CRM + Agenda + Financeiro | Next.js 16 + Prisma 7 + PostgreSQL + NextAuth v5 | Em produção (2026-08) |
 | `arquitetura-academiasandro` | Centro de Treinamento Sandro Freire | Next.js 16 + Prisma 7 + PostgreSQL (Supabase) | Em produção (2026-08-03) |
@@ -414,7 +404,6 @@ Os sistemas documentados em `kernel-hq` correspondem a implementações de softw
 **ERPs:**
 - `arquitetura-thieco/indice-thieco.md`
 - `arquitetura-villamill/indice-villamill.md`
-- `arquitetura-ivsstore/prd-ivsstore.md` (sem indice — 4 artefatos)
 - `arquitetura-kernel/indice-kernel.md`
 - `arquitetura-lane-confeitaria/indice-lane-confeitaria.md`
 - `arquitetura-academiasandro/indice-academiasandro.md`

@@ -25,7 +25,7 @@ Documento reconstruído por leitura do código em 2026-08-10. Tudo aqui é verif
 | Banco | PostgreSQL 16 (container `kernel-foodservice-db`) | Volume próprio `kernel_foodservice_pgdata`, porta host 5440 (configurável por `POSTGRES_HOST_PORT`) |
 | Auth (tenant) | NextAuth v5 beta, Credentials, sessão JWT | Herdado; cookies renomeados pra `kernelfs.*` |
 | Auth (super-admin) | HMAC-SHA256 sobre `crypto` nativo, cookie `kernel_admin_session` | Deliberadamente fora do NextAuth — ver §4 |
-| Estilo | Tailwind CSS ^4 (CSS-first, `@theme`) | Ver [[design-system-kernel-foodservice]] |
+| Estilo | Tailwind CSS ^4 (CSS-first, `@theme`) | Herdado do Jocley Grill sem mudança documentada — sem design-system próprio (ver [[indice-kernel-foodservice]], seção "Lacunas de artefato") |
 | Dados no client | SWR ^2.4 | Herdado (polling nas telas operacionais) |
 | Gráficos | Recharts ^2.12 | Herdado |
 | Ícones | lucide-react | Herdado |
