@@ -3,7 +3,7 @@ status: draft
 domain: academiasandro
 source: claude
 created: 2026-07-11
-updated: 2026-07-23
+updated: 2026-08-12
 owner: willians
 ---
 
@@ -17,6 +17,10 @@ owner: willians
 ## Inventário de componentes
 
 Desde 2026-07-12, `src/components/` existe com três componentes extraídos: `AppShell.tsx` (sidebar + topbar, client component), `NotificacaoSino.tsx` (sino de alertas) e `PageHeader.tsx` (cabeçalho de página com ícone + título serifado + subtítulo). Desde 2026-07-23, mais dois: `AlunoShell.tsx` (sidebar da Área do Aluno, client component) e `AgendaGrid.tsx` (grade de horários, server-compatible, reaproveitada no admin e no aluno). Fora esses cinco, o restante do HTML/Tailwind ainda vive inline dentro de cada `page.tsx`. O inventário abaixo documenta os padrões visuais repetidos, como referência para futuras extrações.
+
+> **Lacuna conhecida (registrada em 2026-08-12, não fechada nesta rodada):** este inventário não foi atualizado entre 2026-07-23 e 2026-08-12 — componentes criados nesse intervalo (`MatricularAcaoCelula.tsx`, `CriarPacoteForm.tsx`, `CopiarLink.tsx`, `WhatsappConexao.tsx`, entre outros das sessões de 2026-07-29/31 e 2026-08-03) não estão listados abaixo. Só o componente mais recente (`CampoSenha.tsx`, 2026-08-12) foi adicionado nesta atualização, sem fazer o catch-up completo dos anteriores — considerar uma sessão dedicada só a isso se este documento passar a ser referência ativa de design.
+
+**`CampoSenha.tsx` (2026-08-12):** input de senha com toggle de mostrar/esconder (ícones `Eye`/`EyeOff` do `lucide-react`), usado em `/login` e `/resetar-senha`. Aceita as mesmas props de um `<input>` nativo — drop-in replacement de `<input type="password">`.
 
 ### Padrões inline repetidos
 

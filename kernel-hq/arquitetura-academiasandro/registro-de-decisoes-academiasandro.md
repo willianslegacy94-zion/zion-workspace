@@ -3,7 +3,7 @@ status: draft
 domain: academiasandro
 source: claude
 created: 2026-07-11
-updated: 2026-08-03
+updated: 2026-08-12
 owner: willians
 ---
 
@@ -604,3 +604,77 @@ Entradas em ordem cronológica crescente — as mais recentes no final.
 - Efeito colateral (esperado, mesmo padrão da correção de `valorEfetivoAluno` registrada na entrada "12 melhorias..."): a tabela "Preço individual dos alunos" em Configurações → Preços também reflete o novo total, já que usa a mesma função
 **Status:** aplicado — commit `71835cf` (só `src/lib/precos.ts`), push via `aiox-devops` (3º push da sessão, fast-forward puro de novo, `origin/main` sem divergência nas 3 vezes). `npx tsc --noEmit` limpo, verificado pelo próprio `aiox-devops` antes de publicar
 **Artefatos atualizados:** registro-de-decisoes-academiasandro (esta entrada), backlog-tarefas-academiasandro, Playbook DevOps
+
+---
+
+## 2026-08-12 — Descoberta: projeto tem repositório próprio e privado (não é mais subpasta do monorepo)
+
+**Motivo:** Nenhuma decisão nova — descoberta feita ao rodar `git remote -v` durante o deploy desta sessão. O remote configurado é `github.com/willianslegacy94-zion/academia-sandro.git`, um repositório **dedicado e privado**, com histórico próprio começando do zero (commit `5a8da64`, "commit inicial do sistema academia-sandro") — não tem ligação com o histórico do `zion-workspace` descrito nas entradas de 2026-08-03 acima ("Commit fechando lacuna de histórico...").
+**Impacto:**
+- Toda a governança de `git push` documentada nas entradas anteriores (reservado ao agente `aiox-devops`, por causa do risco de árvore suja do monorepo) deixou de se aplicar **a este projeto especificamente** — nesta sessão, `git push origin main` foi feito 6 vezes direto, sem intermediação, sem incidente
+- **Não fica claro nesta sessão quando/por que a migração aconteceu, nem se foi deliberada** — não há registro anterior nesta arquitetura documentando a criação do repo `academia-sandro.git`. Perguntar ao usuário numa próxima sessão se isso foi intencional e se vale replicar o padrão pros outros sistemas da Holding (sistema-thieco, orbita-lobo, etc.), que presumivelmente ainda estão no monorepo
+- `arquitetura-academiasandro.md` (seção 8) e `playbook-devops-academiasandro.md` (topo) atualizados pra refletir o repo novo
+**Status:** confirmado, não é uma mudança que se "aplica" — é constatação de estado já existente
+**Artefatos atualizados:** arquitetura-academiasandro (seção 8 + histórico de versão v3.3), Playbook DevOps (topo + gotcha de `git push`), esta entrada
+
+---
+
+## 2026-08-12 — Valor fixo no pacote combo, removendo o desconto percentual da criação
+
+**Motivo:** Usuário pediu campo de valor monetário pro combo que estava criando — o modelo `Pacote` só tinha desconto percentual (`descontoPadrao`/`descontoPercentual`), sem noção de preço fixo. Depois de implementado, usuário pediu também pra tirar o campo de desconto (%) da tela de criação de combo — desconto deveria existir só como propriedade ajustável por aluno depois, não definida no momento da criação.
+**Impacto:**
+- `Pacote.valor` (`Decimal(10,2)?`, novo campo, só relevante pra `COMBO_MODALIDADES`) — quando preenchido, `valorEfetivoAluno` (`src/lib/precos.ts`) usa esse valor **direto** como total, sem aplicar desconto nem somar extras
+- `CriarPacoteForm.tsx`: campo "Desconto no valor total (%)" removido do bloco de criação de combo, substituído por "Valor do combo (R$)" (opcional)
+- `criarPacote` (`precos-actions.ts`) não lê mais `desconto` do formulário na criação de combo — `PacoteMembro.descontoPercentual` nasce em 0, ajustável depois via "salvar %" na lista de integrantes ou na ficha do aluno
+- Testado via script direto contra o banco (sem browser disponível, ver Playbook DevOps): criação com valor fixo, cálculo de `valorEfetivoAluno` batendo com o valor fixo em vez do cálculo por desconto
+**Status:** aplicado — commits `0136040` (feature) via `git push` direto (ver entrada de migração de repo acima). `npx tsc --noEmit` e `npm run lint` limpos
+**Artefatos atualizados:** modelo-de-dados-academiasandro (`Pacote.valor`), esta entrada
+
+---
+
+## 2026-08-12 — WhatsApp automático: acesso do aluno, cobrança de vencendo/atrasado, aniversário, confirmação de aula experimental
+
+**Motivo:** Sequência de pedidos do usuário, encadeados na mesma sessão, todos na linha de "automatizar o que hoje depende de o admin clicar um link `wa.me` manualmente" — usando a infra já existente e validada em produção desde 2026-08-03 (`src/lib/whatsapp-gateway.ts#enviarWhatsapp`).
+**Impacto (acesso do aluno):**
+- `enviarAcessoPortalWhatsapp` (nova, `src/lib/acesso-portal.ts`) — chamada explicitamente pelos 2 fluxos de **cadastro** (autocadastro `/cadastro-aluno` e `createAluno` do admin, incluindo aprovação de pré-cadastro) logo após `criarUsuarioAluno`, manda usuário+link de definir senha automaticamente
+- **Escopo confirmado com o usuário:** não chamada por `criarAcessoAluno` (ação manual do admin, pra aluno já existente) — essa mantém só o botão/link manual, decisão deliberada (criação manual = admin decide se/quando avisa)
+- Aprovação de pré-cadastro sem e-mail preenchido passou a gerar acesso mesmo assim (e-mail placeholder `${username}@sistema.local`), já que só `telefone` é garantido nesse formulário — antes, pré-cadastro sem e-mail nunca ganhava acesso automático
+**Impacto (cobrança e aniversário, via cron):**
+- `src/lib/cobranca.ts` (`dispararCobrancasPendentes`) e `src/lib/aniversario.ts` (`dispararMensagensAniversario`) — cada um com rota `api/cron/*` protegida por `CRON_SECRET` (novo, query string), diferente da rota de limpeza de comprovantes (sem auth)
+- Controle de duplicidade: `Aluno.ultimoAvisoCobrancaEm`/`ultimoParabensEm`, só atualizado quando o envio teve sucesso — falha não marca como "avisado", próximo cron tenta de novo
+- **Cadência confirmada com o usuário:** 1 aviso por dia (não por evento) — opção mais simples entre as duas apresentadas (a outra era "só em dias-chave: 3 dias antes, 1 dia antes, no vencimento, depois 1x/semana")
+**Impacto (confirmação de aula experimental):**
+- Aviso de aula experimental pro admin (existente desde 2026-08-03) ganhou 2 links (confirmar/recusar) apontando pra `api/aula-experimental/[id]/confirmar`
+- **Decisão de design confirmada com o usuário:** não usar botões nativos do WhatsApp (`sendButtons` da Evolution API) — instáveis/depreciados nesse tipo de gateway não-oficial (Baileys) pra número pessoal, só confiável em conta Business oficial da Meta. Links de clique normal, sem necessidade de sessão (mesmo padrão de segurança do `/resetar-senha`, confia no uuid do `PreCadastro`)
+- `PreCadastro.aulaConfirmada`/`aulaConfirmadaEm` (novos campos) — "primeira resposta vence", clique duplicado não regrava nem reenvia WhatsApp pro lead
+**Testes:** nenhuma das features desta entrada foi confirmada com envio real de WhatsApp — ambiente de dev não alcança o gateway Evolution API (só existe na rede Docker da VPS). Toda a lógica (criação de registro, geração de link, controle de duplicidade, idempotência) foi validada via scripts diretos contra o banco de produção (mesmo banco dev/prod), sem passar por browser (não disponível neste ambiente, ver Playbook DevOps). Deploy feito na VPS ao fim da sessão (rsync + build + migrate + up), mas confirmação de mensagem chegando de verdade fica pendente pro usuário testar.
+**Status:** aplicado — commits `49c067b`, `906ac59`, `19f0ad3`, `ec0faef`, todos via `git push origin main` direto. `npx tsc --noEmit` e `npm run lint` limpos em cada um
+**Artefatos atualizados:** modelo-de-dados-academiasandro (`Aluno.ultimoAvisoCobrancaEm`/`ultimoParabensEm`, `PreCadastro.aulaConfirmada`/`aulaConfirmadaEm`), arquitetura-academiasandro (seções 5, 6, 7), Playbook DevOps (seção de cron + WhatsApp), backlog-tarefas-academiasandro, esta entrada
+
+---
+
+## 2026-08-12 — Autocadastro: data de vencimento informada pelo aluno + trava de duplicidade por telefone (tentativa de convite por token revertida)
+
+**Motivo:** Usuário pediu 2 mudanças no `/cadastro-aluno`: (1) campo pro aluno informar a data real de vencimento da própria mensalidade (em vez do sistema calcular automaticamente hoje+30 dias, que não reflete a realidade de quem já é aluno ativo há tempo); (2) o link de autocadastro deveria poder ser usado só uma vez.
+**Decisão e reversão registradas (relevante pra não redescobrir do zero):**
+- Primeira implementação do item 2: convite individual por token (`model ConviteAutocadastro`, gerado pelo admin em `/alunos`, cada link único e de uso único, com envio automático por WhatsApp se telefone informado). Migration aplicada (`20260812051157_convite_autocadastro`)
+- Usuário reconsiderou depois de ver a mudança na tela de Alunos (o link fixo de sempre tinha sumido, substituído pelo gerador de convite) — pediu algo "mais simples de operar": manter o link único e fixo, travar duplicidade por telefone em vez de token individual
+- Revertido na mesma sessão: modelo `ConviteAutocadastro` removido do schema, migration de remoção aplicada (`20260812052446_remove_convite_autocadastro`) — as duas migrations ficam no histórico (add + remove), não foram squashed
+**Impacto (versão final aplicada):**
+- `/cadastro-aluno` ganhou campo obrigatório "Data de vencimento da mensalidade" (`type="date"`) — `criarAlunoAutocadastro` usa esse valor direto em vez de `calcularVencimento(dataMatricula)`
+- Trava de duplicidade: `criarAlunoAutocadastro` rejeita (dentro da mesma transação) se já existe `Aluno` com aquele `telefone` — sem migration nova, é checagem em aplicação, não constraint de banco (`Aluno.telefone` continua sem `@unique` no schema, deliberado — ver nota de risco abaixo)
+**Risco não resolvido (registrar pra decisão futura):** a trava de duplicidade é "check-then-create" dentro de uma transação Postgres em isolation level padrão (Read Committed) — não impede 100% uma corrida de 2 submits simultâneos com o mesmo telefone (janela pequena, mas existe). Não foi adicionado `@unique` em `Aluno.telefone` porque o campo é opcional e pode já existir duplicidade real nos dados (ex: membros de uma família compartilhando telefone) — arriscado adicionar constraint sem auditar os dados existentes primeiro. Aceito como suficiente pro volume de tráfego atual (autocadastro não é de alto tráfego).
+**Status:** aplicado (versão final, sem `ConviteAutocadastro`) — commit `82e698f`, via `git push origin main` direto. Testado via script direto contra o banco: cadastro normal com data informada, e tentativa de reuso do mesmo telefone corretamente rejeitada
+**Artefatos atualizados:** arquitetura-academiasandro (nota "Tentativa revertida" na seção 7), esta entrada
+
+---
+
+## 2026-08-12 — Termo de aceite (cláusula de lesão), botão de mostrar/esconder senha, aviso de autocadastro pro admin
+
+**Motivo:** Três pedidos menores, agrupados por terem sido feitos em sequência rápida na mesma sessão.
+**Impacto:**
+- `TermosAceite.tsx` (`/matricule-se`) ganhou parágrafo novo: lead declara responsabilidade total por lesão/condição de saúde não informada no campo "Lesões", CT isento de responsabilidade por omissão. Texto genérico, mesma ressalva já registrada sobre o parágrafo de LGPD (não é texto jurídico validado por advogado). **Pendente:** `/cadastro-aluno` não tem `TermosAceite` nem esse consentimento — só `/matricule-se`
+- `CampoSenha.tsx` (novo client component) — toggle de mostrar/esconder senha (ícones `Eye`/`EyeOff` do `lucide-react`, já dependência do projeto), usado em `/login` e `/resetar-senha`. Aceita as mesmas props de um `<input>` nativo (`ComponentProps<"input">`), só troca `type` internamente — drop-in replacement dos `<input type="password">` que existiam antes
+- Autocadastro (`/cadastro-aluno`) e admin criando aluno (`createAluno`) passaram a avisar o admin por WhatsApp a cada novo cadastro, mesmo padrão já usado pro aviso de aula experimental agendada
+**Status:** aplicado — commits `c2d7ab9` (olhinho), `19f0ad3` (termo de aceite, junto com aniversário/confirmação de aula), `ec0faef` (aviso de autocadastro). `npx tsc --noEmit` e `npm run lint` limpos em todos
+**Artefatos atualizados:** arquitetura-academiasandro (seção 5, seção 7, client components), esta entrada

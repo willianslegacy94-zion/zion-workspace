@@ -3,7 +3,7 @@ status: draft
 domain: academiasandro
 source: claude
 created: 2026-07-11
-updated: 2026-08-03
+updated: 2026-08-12
 owner: willians
 ---
 
@@ -263,6 +263,71 @@ Sequência do item 17: usuário pareou o WhatsApp na VPS e pediu pra testar os d
 
 ---
 
+## ✅ 19. Valor fixo no pacote combo, sem desconto na criação — CONCLUÍDO (2026-08-12)
+
+### 📌 Contexto
+Usuário pediu campo de valor monetário pro combo (só existia desconto percentual) e, depois, pediu pra tirar o campo de desconto (%) do formulário de criação — desconto vira só propriedade ajustável por aluno depois.
+
+### 🛠️ Como foi implementado
+- `Pacote.valor` (novo campo, `Decimal(10,2)?`, só `COMBO_MODALIDADES`) — quando preenchido, substitui o cálculo por desconto percentual em `valorEfetivoAluno`
+- Campo "Desconto no valor total (%)" removido da criação de combo (`CriarPacoteForm.tsx`); `descontoPercentual` do membro nasce em 0, ajustável só depois
+- Detalhes completos em [[registro-de-decisoes-academiasandro]]
+
+---
+
+## ✅ 20. Automação de WhatsApp: acesso do aluno, cobrança, aniversário, confirmação de aula experimental — CONCLUÍDO (2026-08-12)
+
+### 📌 Contexto
+Sequência de pedidos pra automatizar avisos que hoje dependiam de clique manual em link `wa.me` — usuário/senha no cadastro do aluno, cobrança de vencendo/atrasado, parabéns de aniversário, e confirmação de aula experimental (link em vez de botão nativo do WhatsApp, decisão explícita por instabilidade de botões nesse tipo de gateway).
+
+### 🛠️ Como foi implementado
+- `enviarAcessoPortalWhatsapp` (`src/lib/acesso-portal.ts`) — chamada só nos fluxos de **cadastro** (autocadastro + admin cadastrando/aprovando pré-cadastro), não na criação manual de acesso
+- `src/lib/cobranca.ts` + `api/cron/cobranca`, `src/lib/aniversario.ts` + `api/cron/aniversario` — ambos protegidos por `CRON_SECRET` novo, 1 aviso/dia por aluno (`Aluno.ultimoAvisoCobrancaEm`/`ultimoParabensEm`)
+- `api/aula-experimental/[id]/confirmar` — 2 links (confirmar/recusar) no aviso de aula experimental pro admin; grava `PreCadastro.aulaConfirmada`/`aulaConfirmadaEm`, avisa o lead automaticamente, "primeira resposta vence"
+- Pré-cadastro sem e-mail agora ganha acesso ao portal mesmo assim (e-mail placeholder), já que só telefone é garantido nesse formulário
+- **Pendente:** envio real não confirmado com WhatsApp de verdade (testado só via script contra o banco, gateway não alcançável em dev) — deploy já feito na VPS, falta o usuário confirmar em produção
+- Detalhes completos em [[registro-de-decisoes-academiasandro]]
+
+---
+
+## ✅ 21. Autocadastro: data de vencimento + trava de duplicidade por telefone — CONCLUÍDO (2026-08-12)
+
+### 📌 Contexto
+Usuário pediu campo pro aluno informar a própria data de vencimento (em vez de calcular automático) e que o link de autocadastro só pudesse ser usado uma vez por pessoa.
+
+### 🛠️ Como foi implementado
+- Campo "Data de vencimento da mensalidade" (obrigatório) em `/cadastro-aluno`
+- Trava de duplicidade por `telefone` (rejeita se já existe `Aluno` com aquele telefone) — abordagem final, mais simples de operar
+- **Tentativa revertida no caminho:** convite individual por token (`ConviteAutocadastro`) foi implementado e depois descartado pelo próprio usuário em favor da trava por telefone — ver [[registro-de-decisoes-academiasandro]] pra não redescobrir do zero se o requisito voltar
+
+---
+
+## ✅ 22. Termo de aceite (lesão), olhinho de senha, aviso de autocadastro pro admin — CONCLUÍDO (2026-08-12)
+
+### 📌 Contexto
+Três pedidos menores na mesma sessão.
+
+### 🛠️ Como foi implementado
+- `TermosAceite.tsx` (`/matricule-se`) ganhou cláusula de responsabilidade por lesão/condição de saúde não informada
+- `CampoSenha.tsx` (novo client component, toggle mostrar/esconder) em `/login` e `/resetar-senha`
+- Admin avisado por WhatsApp a cada novo autocadastro (mesmo padrão do aviso de aula experimental)
+
+---
+
+## ✅ 23. Deploy das mudanças da sessão em produção — CONCLUÍDO (2026-08-12)
+
+### 📌 Contexto
+Depois de implementar os itens 19-22, usuário pediu deploy real na VPS.
+
+### 🛠️ O que foi feito
+- `rsync` + `docker compose build/migrate/up` rodados com sucesso — todas as migrations da sessão já aplicadas (mesmo banco Supabase dev/prod)
+- `CRON_SECRET` gerado e salvo em `.env.production`
+- **Achado no processo:** o remote git do projeto é `academia-sandro.git` próprio e privado, não mais subpasta do monorepo `zion-workspace` — mudou a governança de `git push` (ver [[registro-de-decisoes-academiasandro]])
+- **Pendente:** confirmar as 2 linhas de crontab novas (`cobranca`/`aniversario`) foram de fato adicionadas (`crontab -l`), e confirmar envio real de WhatsApp em produção
+- Detalhes completos em [[registro-de-decisoes-academiasandro]]
+
+---
+
 ### 📆 Status do Backlog
 - [x] Schema inicial (Aluno + TransacaoFinanceira)
 - [x] Conexão com Supabase estabilizada (`sslmode=no-verify` + driver adapter `pg`)
@@ -317,5 +382,18 @@ Sequência do item 17: usuário pareou o WhatsApp na VPS e pediu pra testar os d
 - [ ] Padronizar o log de falha de envio de WhatsApp — `criarPreCadastro` (aviso de aula experimental) não loga nada se o envio falhar/for pulado, diferente de `criarBloqueio` (já loga `console.error`); achado ao debugar o primeiro teste ao vivo, que falhou sem deixar rastro nenhum (causa real era `Usuario.telefone` do admin vazio)
 - [x] Corrigir "Valor total" do financeiro pra somar extras por matrícula, não por nome de modalidade distinto (2026-08-03) — `somaExtrasAluno`, `src/lib/precos.ts`
 - [ ] Decidir se o "Valor total" do financeiro deve somar por matrícula (não por nome de modalidade) — hoje um aluno com 2 matrículas na mesma modalidade extra (2 horários) só conta o valor uma vez no total, mas gera 2 cobranças reais separadas
-- [ ] Avaliar fixar `"dev": "next dev --webpack"` no `package.json` — Turbopack teve cache corrompido nesta sessão (`.next/dev/cache/turbopack`), causa aparente ligada a processos `next dev` não encerrados corretamente neste ambiente (WSL, `/mnt/c`)
-- [ ] Atualizar `requisitos-funcionais-academiasandro`/`design-system`/`ui-kit`/`ux-flows` com as regras de negócio e componentes novos de 2026-08-03 (não feito nesta rodada, mesmo padrão de lacuna já registrado em sessões anteriores)
+- [ ] Avaliar fixar `"dev": "next dev --webpack"` no `package.json` — Turbopack teve cache corrompido nesta sessão (`.next/dev/cache/turbopack`), causa aparente ligada a processos `next dev` não encerrados corretamente neste ambiente (WSL, `/mnt/c`) — **recorreu de novo em 2026-08-12**, mesmo padrão, ver Playbook DevOps
+- [x] Atualizar `requisitos-funcionais-academiasandro`/`design-system`/`ui-kit`/`ux-flows` com as regras de negócio e componentes novos (2026-08-12 — cobre também a lacuna registrada aqui desde 2026-08-03)
+- [x] `Pacote.valor` fixo pra combo, campo de desconto removido da criação (2026-08-12)
+- [x] WhatsApp automático: acesso do aluno no cadastro, cobrança de vencendo/atrasado (cron), aniversário (cron), confirmação de aula experimental por link (2026-08-12) — envio real ainda não confirmado em produção
+- [x] Autocadastro: data de vencimento informada pelo aluno + trava de duplicidade por telefone (2026-08-12) — tentativa por convite/token implementada e revertida no caminho
+- [x] Termo de aceite com cláusula de responsabilidade por lesão não informada (2026-08-12) — só em `/matricule-se`, `/cadastro-aluno` ainda não tem
+- [x] Botão de mostrar/esconder senha (`CampoSenha.tsx`) em `/login` e `/resetar-senha` (2026-08-12)
+- [x] Descoberto: projeto migrou pra repositório próprio e privado no GitHub, não é mais subpasta do monorepo (2026-08-12) — muda a regra de `git push` reservado ao `aiox-devops`
+- [ ] Confirmar que as 2 linhas de crontab novas (`api/cron/cobranca`, `api/cron/aniversario`) foram de fato adicionadas na VPS (`crontab -l`) — passadas ao usuário em 2026-08-12, sem confirmação de volta
+- [ ] Confirmar envio real de WhatsApp em produção pras features de 2026-08-12 (acesso automático, cobrança, aniversário, confirmação de aula) — só testado via script contra o banco em dev, gateway não alcançável fora da VPS
+- [ ] Foto de perfil (aluno/admin) — não iniciado
+- [ ] Blocos de grupo de WhatsApp por modalidade (musculação, capoeira, Muay Thai/boxe) — viável via Evolution API (grupo usa JID em vez de telefone, mesmo endpoint), falta descobrir/cadastrar o JID de cada grupo; não iniciado
+- [ ] Vídeo de fundo na tela de login — não iniciado
+- [ ] "Criar bloco de disparo para autocadastro" — item ambíguo da lista original do usuário (2026-08-12), pode já estar coberto pelo aviso automático de autocadastro (item 22) ou ser algo distinto (campanha de WhatsApp em massa convidando alunos ainda não cadastrados); confirmar com o usuário antes de implementar
+- [ ] `Aluno.telefone` sem `@unique` no schema — trava de duplicidade do autocadastro (item 21) é só em nível de aplicação (check-then-create), tem janela pequena de corrida em teoria; não adicionado `@unique` porque pode haver duplicidade real já existente nos dados (família compartilhando telefone) sem auditoria prévia

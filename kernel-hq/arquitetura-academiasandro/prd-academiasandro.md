@@ -3,7 +3,7 @@ status: draft
 domain: academiasandro
 source: claude
 created: 2026-07-11
-updated: 2026-07-11
+updated: 2026-08-12
 owner: willians
 ---
 
@@ -14,6 +14,8 @@ owner: willians
 A Academia Prof. Sandro é uma academia de artes marciais (modalidades com faixa/graduação — Jiu-Jitsu, Muay Thai, Judô, Boxe). O sistema está sendo construído do zero para digitalizar o controle de alunos (matrícula, modalidade, graduação, status de pagamento) e o financeiro básico (receitas e despesas), hoje presumivelmente controlado de forma manual ou informal.
 
 > **Nota:** este PRD documenta o que foi efetivamente decidido e construído até 2026-07-11. Contexto de negócio mais amplo (volume atual de alunos, processo anterior exato, prazos) ainda não foi levantado formalmente com o usuário — marcado como pendente onde aplicável, em vez de presumido.
+>
+> **Nota (2026-08-12):** este documento é um retrato histórico do MVP original, mantido sem reescrita pra preservar o escopo real daquele momento — não reflete o estado atual do sistema. O sistema está em produção desde 2026-08-03 (`https://sandrofreiresf.online`), com autenticação, dezenas de módulos além dos dois originais, e integração real de WhatsApp. Estado atual: [[arquitetura-academiasandro]] (seção 6, "Estratégia de escala") e [[registro-de-decisoes-academiasandro]] (entradas cronológicas).
 
 ## 2. Problema
 

@@ -3,7 +3,7 @@ status: draft
 domain: academiasandro
 source: claude
 created: 2026-07-11
-updated: 2026-07-31
+updated: 2026-08-12
 owner: willians
 ---
 
@@ -104,6 +104,10 @@ Auto-cadastro via link público, com fila de aprovação manual antes de virar `
 | RF-025 | Lista pré-cadastros pendentes | dado acesso a `/pre-cadastros` (autenticado) | tabela com nome, telefone, cidade, data de recebimento |
 | RF-026 | Aprova pré-cadastro | dado clique em "Aprovar" | redireciona pra `/alunos?preCadastroId=<id>`, pré-preenchendo o formulário de novo aluno |
 | RF-027 | Rejeita pré-cadastro | dado clique em "Rejeitar" | marca `status="Rejeitado"`, sai da listagem de pendentes |
+
+#### Regras de negócio
+- **RN-050 (2026-08-12):** O formulário exige aceite de termos que cobrem, além de LGPD, responsabilidade do lead por lesão/condição de saúde não informada no campo "Lesões" — texto genérico, não validado por advogado. `/cadastro-aluno` (Módulo 14) **não** tem esse consentimento hoje, só `/matricule-se`
+- **RN-051 (2026-08-12):** Aprovar um pré-cadastro (RF-026, via `createAluno` recebendo `preCadastroId`) gera acesso ao portal mesmo sem `email` preenchido — usa e-mail placeholder só pra satisfazer o `@unique` de `Usuario.email`, já que só `telefone` é garantido nesse formulário (ver Módulo 15, RF-084)
 
 ---
 
@@ -310,6 +314,70 @@ Link público diferente do `/matricule-se` (fila de pré-cadastro pra quem ainda
 #### Regras de negócio
 - **RN-037:** `/cadastro-aluno` é intencionalmente separado de `/matricule-se` — este continua sendo só pré-cadastro (fila de aprovação manual) pra quem ainda não é aluno; aquele cria `Aluno` de verdade na hora, sem aprovação, pra quem já treina
 - **RN-038:** O link de `/cadastro-aluno` não é divulgado automaticamente pra ninguém — aparece só pro admin, num card copiável no topo de `/alunos`, pra ele decidir com quem compartilhar
+- **RN-039 (2026-08-12):** O aluno informa a própria data de vencimento da mensalidade no formulário (obrigatório) — deixou de ser calculada automaticamente como `dataMatricula + 30 dias`, já que esse cálculo não refletia a realidade de quem já é aluno ativo há tempo
+- **RN-040 (2026-08-12):** Mesmo `telefone` não pode completar o autocadastro duas vezes — checagem em aplicação (dentro da mesma transação de criação), não constraint de banco; `Aluno.telefone` continua sem `@unique` no schema (risco de duplicidade pré-existente nos dados, não auditado)
+
+---
+
+### Módulo 15 — WhatsApp automático via Evolution API (2026-08-03, muito expandido 2026-08-12)
+
+A maioria dos avisos do sistema hoje é automática, sem clique humano — via `src/lib/whatsapp-gateway.ts` (Evolution API, self-hosted na VPS, mesma rede Docker `orbita_shared` de outros produtos da Holding). `src/lib/whatsapp.ts` só monta texto; quem envia de verdade é o gateway.
+
+#### Requisitos Funcionais
+
+| ID | O que o sistema faz | Condição | Resultado esperado |
+|---|---|---|---|
+| RF-081 | Admin pareia o WhatsApp do CT | dado acesso a Configurações → WhatsApp (autenticado) e escaneamento do QR code exibido | instância da Evolution API conecta ao número real; status de conexão exibido na mesma tela, com opção de desconectar |
+| RF-082 | Avisa o aluno de bloqueio de agenda | dado admin cria um `BloqueioAgenda` (Configurações → Agenda) que afeta algum horário do aluno | manda WhatsApp automático pro `telefone` de cada aluno afetado, sem clique humano |
+| RF-083 | Avisa o admin de aula experimental agendada | dado lead marca uma `dataAulaExperimental` no formulário de `/matricule-se` | manda WhatsApp automático pro `Usuario.telefone` da conta `ADMIN_USERNAME`, com 2 links (confirmar/recusar, ver RF-087) |
+| RF-084 | Avisa o aluno do próprio acesso ao portal | dado `Usuario` criado com sucesso pelos fluxos de **cadastro** (autocadastro `/cadastro-aluno`, ou admin cadastrando/aprovando pré-cadastro em `createAluno`) | manda WhatsApp automático com usuário + link de definir senha, pro `telefone` do próprio `Aluno` |
+| RF-085 | Avisa o admin de novo autocadastro | dado conclusão de um autocadastro (`/cadastro-aluno`) | manda WhatsApp automático pro admin, mesmo padrão do RF-083 |
+| RF-086 | Cobra automaticamente quem está vencendo/atrasado | dado cron diário chamando `api/cron/cobranca` (autenticado por `CRON_SECRET`) | manda WhatsApp de cobrança pra alunos com `dataVencimento` 0-3 dias no futuro ou já vencida, no máximo 1x/dia por aluno |
+| RF-087 | Confirma ou recusa aula experimental por link | dado admin clica num dos 2 links (confirmar/recusar) recebidos no WhatsApp (RF-083) | grava `PreCadastro.aulaConfirmada`/`aulaConfirmadaEm` (só na primeira resposta) e manda WhatsApp automático pro lead avisando a decisão |
+| RF-088 | Parabeniza aniversariantes automaticamente | dado cron diário chamando `api/cron/aniversario` (autenticado por `CRON_SECRET`) | manda WhatsApp de parabéns pra alunos cujo mês/dia de `dataNascimento` bate com hoje, no máximo 1x/dia por aluno |
+
+#### Regras de negócio
+- **RN-041:** Criação manual de acesso pra aluno já existente (`criarAcessoAluno`, ação separada na ficha do aluno) **não** dispara WhatsApp automático — só o link/botão manual na tela. Decisão deliberada: cadastro novo avisa sempre, criação manual de acesso o admin decide se/quando avisa
+- **RN-042:** Falha de envio (`enviado: false`) nunca bloqueia a ação de negócio que originou o aviso (criar aluno, criar bloqueio, etc.) — o sistema segue funcionando mesmo com o gateway fora do ar; nos crons (RF-086/RF-088), falha também não marca "já avisado", o próximo cron tenta de novo
+- **RN-043:** Botões nativos do WhatsApp (`sendButtons`) **não são usados** pra RF-087 — decisão explícita por instabilidade desse recurso em gateways não-oficiais (Baileys) com número pessoal; usa 2 links de clique normal em vez disso
+- **RN-044:** Links de RF-087 não exigem login/sessão — seguem o mesmo padrão de segurança do `/resetar-senha`, confiando só no `uuid` do `PreCadastro` como identificador imprevisível. "Primeira resposta vence": clique duplicado não regrava nem reenvia
+
+---
+
+### Módulo 16 — Cadastro multi-modalidade e faixa por modalidade extra (2026-08-03)
+
+`/cadastro-aluno` passou a aceitar mais de uma modalidade no mesmo cadastro, cada uma com seu próprio horário e faixa/graduação.
+
+#### Requisitos Funcionais
+
+| ID | O que o sistema faz | Condição | Resultado esperado |
+|---|---|---|---|
+| RF-089 | Aceita modalidades extras no autocadastro | dado clique em "+ Adicionar outra modalidade" e preenchimento de horário + faixa pra cada uma | cria `Matricula` real (com cobrança) pra cada modalidade extra, mais um `AlunoFaixaModalidade` guardando a faixa específica |
+| RF-090 | Desfaz o cadastro inteiro se uma modalidade extra falhar | dado uma das modalidades extras não tem mais vaga no horário escolhido | toda a operação (criação do `Aluno` + todas as modalidades) é revertida — não fica `Aluno` criado pela metade |
+
+#### Regras de negócio
+- **RN-045:** A primeira modalidade escolhida é sempre a principal — vira `Aluno.modalidade`/`graduacaoFaixa` direto, sem gerar `Matricula` nem cobrança extra (mesma regra de sempre: modalidade principal já dá acesso a todos os horários dela)
+- **RN-046:** Faixa por modalidade extra (`AlunoFaixaModalidade`) só é capturada nesse formulário — as telas administrativas (`/alunos/novo`, `/alunos/[id]/editar`) e `/aluno/matricula` não pedem faixa ao adicionar modalidade extra, escopo combinado com o usuário
+
+---
+
+### Módulo 17 — Pacotes Combo em catálogo autosserviço e valor fixo (2026-08-03; valor fixo 2026-08-12)
+
+`COMBO_MODALIDADES` pode nascer sem nenhum aluno vinculado ainda, virando um "modelo" que o próprio aluno escolhe depois — e desde 2026-08-12 pode ter um preço fixo em vez de desconto percentual.
+
+#### Requisitos Funcionais
+
+| ID | O que o sistema faz | Condição | Resultado esperado |
+|---|---|---|---|
+| RF-091 | Cria combo sem aluno vinculado | dado admin cria um `Pacote` tipo `COMBO_MODALIDADES` sem selecionar aluno | cria só o "modelo" do combo (`descontoPadrao` e/ou `valor`, sem `PacoteMembro`) — listado como catálogo disponível |
+| RF-092 | Aluno escolhe um combo-catálogo no autocadastro/matrícula | dado aluno com 2+ modalidades seleciona um combo disponível ao se cadastrar | cria `PacoteMembro` vinculando o aluno àquele `Pacote`, usando `descontoPadrao` como `descontoPercentual` inicial |
+| RF-093 | Admin atribui manualmente um aluno a um combo-catálogo | dado clique em "Atribuir aluno" num combo sem integrante ainda | mesmo efeito do RF-092, iniciado pelo admin em vez do próprio aluno |
+| RF-094 | Define valor fixo do combo (2026-08-12) | dado admin preenche "Valor do combo (R$)" na criação (opcional) | grava `Pacote.valor`; quando presente, o total cobrado do aluno passa a ser esse valor fixo, ignorando `descontoPercentual` por completo |
+
+#### Regras de negócio
+- **RN-047:** `Pacote FAMILIA` nunca entra no catálogo autosserviço — continua sempre montado pelo admin com os membros já definidos, nunca oferecido pro aluno escolher sozinho
+- **RN-048 (2026-08-12):** O campo de desconto (%) saiu do formulário de criação de combo — só é definido/ajustado depois, por aluno já vinculado (ficha do aluno ou lista de integrantes do pacote), nunca no momento da criação
+- **RN-049 (2026-08-12):** `valor` e desconto percentual não são mutuamente exclusivos no schema, mas na prática `valor` sempre vence quando preenchido — não há combinação dos dois
 
 ---
 
@@ -320,8 +388,9 @@ Link público diferente do `/matricule-se` (fila de pré-cadastro pra quem ainda
 | RNF-001 | Persistência | Dados armazenados em PostgreSQL (Supabase), acessados via Prisma 7 com driver adapter `pg` |
 | RNF-002 | Consistência de dados | Valores monetários usam `Decimal(10,2)` em todo o schema — nunca `Float` |
 | RNF-003 | Segurança | Autenticação implementada via NextAuth v5 (login por username, sessão JWT) — `/`, `/alunos`, `/transacoes`, `/despesas`, `/pre-cadastros`, `/agenda`, `/matriculas`, `/configuracoes` (2026-07-30) e `/aluno` exigem sessão válida via `src/proxy.ts`. `/matricule-se`, `/cadastro-aluno` (2026-07-31), `/login`, `/esqueci-senha`, `/resetar-senha` são públicas. **Checagem de `role` implementada em 2026-07-28** — rotas administrativas exigem `role=ADMIN`, `/aluno` exige `role=ALUNO`, com redirecionamento cruzado (não erro) quando a `role` não bate. **Atenção:** a proteção real depende do array `matcher` em `src/proxy.ts` estar sincronizado com `ADMIN_PATHS`/`ALUNO_PATHS` em `src/auth.ts` — rota fora do `matcher` fica pública mesmo que listada em `ADMIN_PATHS` (bug real cometido e corrigido em 2026-07-30) |
-| RNF-004 | Ambiente | Aplicação roda em Next.js 16 (App Router + Turbopack), sem deploy em produção até o momento |
-| RNF-005 | Integração externa | Cobrança via WhatsApp usa link `wa.me` simples (sem API paga) — nenhuma integração de envio automatizado de mensagens |
+| RNF-004 | Ambiente | Aplicação roda em Next.js 16 (App Router + Turbopack). **Em produção desde 2026-08-03** (`https://sandrofreiresf.online`, VPS Hostinger + Docker + nginx do host, compartilhada com outros sistemas da Holding) |
+| RNF-005 | Integração externa | **Desde 2026-08-03 (muito expandido em 2026-08-12):** a maioria dos avisos automáticos usa envio real via Evolution API (self-hosted, ver Módulo 15) — não é mais só link `wa.me` manual. O link `wa.me` (`src/lib/whatsapp.ts`) continua existindo como fallback manual em algumas telas (ex: reenviar acesso na ficha do aluno) |
+| RNF-006 (2026-08-12) | Segurança | Rotas de cron que disparam efeito colateral sensível (`api/cron/cobranca`, `api/cron/aniversario`) exigem `CRON_SECRET` via query string — `api/cron/limpar-comprovantes` (sem efeito colateral sensível, idempotente) segue pública |
 
 ---
 
@@ -333,6 +402,7 @@ Link público diferente do `/matricule-se` (fila de pré-cadastro pra quem ainda
 | Aluno (`dataVencimento`) | qualquer data futura/passada | avança em +30 dias | criação do aluno, ou Receita vinculada registrada em `/transacoes` |
 | TransacaoFinanceira (`tipo`) | "Receita", "Despesa" | fixo na criação | definido no cadastro, sem edição posterior |
 | PreCadastro (`status`) | "Pendente", "Aprovado", "Rejeitado" | "Pendente" → "Aprovado" ou "Rejeitado" (única transição, sem volta) | aprovação (via criação do Aluno) ou rejeição manual |
+| PreCadastro (`aulaConfirmada`, 2026-08-12) | `null`, `true`, `false` | `null` → `true` ou `false` (única transição, sem volta) — independente de `status` | admin clica um dos 2 links de confirmar/recusar recebidos no WhatsApp |
 
 ---
 
@@ -357,3 +427,12 @@ Link público diferente do `/matricule-se` (fila de pré-cadastro pra quem ainda
 - [x] Titular de um pacote família vê e gerencia (upload de comprovante incluso) a mensalidade de todos os integrantes no próprio login — 2026-07-31
 - [x] Aluno ativo se autocadastra via `/cadastro-aluno` e já recebe acesso ao portal, sem passar por fila de aprovação — 2026-07-31
 - [ ] Fluxo completo do módulo financeiro (item 11 do backlog) testado manualmente em navegador real — pendente, usuário optou por testar por conta própria
+- [x] Sistema em produção, domínio público com HTTPS, WhatsApp real pareado e validado ao vivo (bloqueio de agenda → aluno, aula experimental → admin) — 2026-08-03
+- [x] Autocadastro aceita múltiplas modalidades num só cadastro, cada uma com horário e faixa próprios — 2026-08-03
+- [x] Combo pode ser criado como catálogo (sem aluno vinculado) e escolhido pelo próprio aluno depois — 2026-08-03
+- [x] Combo aceita valor fixo em R$, substituindo o cálculo por desconto percentual — 2026-08-12
+- [x] Aluno recebe usuário + link de definir senha automaticamente por WhatsApp ao ser cadastrado (autocadastro ou pelo admin) — 2026-08-12
+- [x] Alunos vencendo/atrasados recebem cobrança automática por WhatsApp diariamente, sem duplicar no mesmo dia — 2026-08-12
+- [x] Alunos recebem parabéns de aniversário automático por WhatsApp no dia certo — 2026-08-12
+- [x] Admin confirma ou recusa aula experimental por link no WhatsApp, e o lead é avisado automaticamente da decisão — 2026-08-12
+- [ ] Envio real de WhatsApp das 3 features acima (usuário/senha, cobrança, aniversário, confirmação de aula) confirmado em produção — implementado e testado via banco, mas não confirmado com mensagem realmente recebida (pendente do usuário testar na VPS)

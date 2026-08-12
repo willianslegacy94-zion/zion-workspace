@@ -3,7 +3,7 @@ status: draft
 domain: academiasandro
 source: claude
 created: 2026-07-11
-updated: 2026-07-11
+updated: 2026-08-12
 owner: willians
 ---
 
@@ -31,7 +31,8 @@ Status: **threshold aprovado informalmente** — construção já iniciada antes
 
 **Status:** aprovado informalmente (uso pessoal/single-tenant, sem processo formal de aprovação)
 **Data de início da construção:** 2026-07-10
-**Estado atual:** MVP em construção — schema definido, migração aplicada, 2 telas funcionais (Alunos, Transações), sem autenticação
+**Estado no momento deste registro (2026-07-11):** MVP em construção — schema definido, migração aplicada, 2 telas funcionais (Alunos, Transações), sem autenticação
+**Estado atual (nota 2026-08-12):** em produção desde 2026-08-03, dezenas de módulos, autenticação, WhatsApp real — ver [[registro-de-decisoes-academiasandro]] pro histórico completo. Linha acima preservada como registro histórico, não atualizada por cima
 
 ---
 

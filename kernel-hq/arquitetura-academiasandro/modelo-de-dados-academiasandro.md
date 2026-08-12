@@ -3,7 +3,7 @@ status: draft
 domain: academiasandro
 source: claude
 created: 2026-07-11
-updated: 2026-08-03
+updated: 2026-08-12
 owner: willians
 ---
 
@@ -28,7 +28,7 @@ owner: willians
 | ModalidadePreco (2026-07-29) | Preço cobrado do aluno ao se matricular numa modalidade extra | Configurável pelo admin em Configurações → Agenda (2026-07-30; antes em `/agenda`); usado pra gerar a `TransacaoFinanceira` no momento da matrícula |
 | ConfiguracaoAgenda (2026-07-30) | Linha singleton com o horário de almoço da academia | Único pra toda a academia (não varia por modalidade/dia) — bloqueia criação de `AgendaAula` dentro do intervalo |
 | BloqueioAgenda (2026-07-30) | Bloqueio pontual da agenda numa data específica (compromisso do Sandro) | Aviso pro aluno de que não vai ter aula naquele dia — não cancela `Matricula`/`PresencaDiaria` automaticamente (o sistema não tem conceito de "aula do dia X", só grade semanal recorrente) |
-| Pacote (2026-07-31; catálogo Combo 2026-08-03) | Agrupamento de alunos com desconto — tipo `FAMILIA` (vários alunos) ou `COMBO_MODALIDADES` (1 aluno com 2+ modalidades) | Autonomia total do admin pra criar quantos pacotes quiser, com % de desconto configurável por integrante. Desde 2026-08-03, `COMBO_MODALIDADES` pode nascer sem nenhum `PacoteMembro` ainda (`descontoPadrao`) — vira um "modelo" de catálogo que o próprio aluno escolhe no autocadastro/matrícula; `FAMILIA` continua sempre montado pelo admin com os membros já definidos |
+| Pacote (2026-07-31; catálogo Combo 2026-08-03; valor fixo 2026-08-12) | Agrupamento de alunos com desconto — tipo `FAMILIA` (vários alunos) ou `COMBO_MODALIDADES` (1 aluno com 2+ modalidades) | Autonomia total do admin pra criar quantos pacotes quiser, com % de desconto configurável por integrante **ou**, desde 2026-08-12 (só `COMBO_MODALIDADES`), um valor fixo em R$ que substitui o cálculo por desconto. Desde 2026-08-03, `COMBO_MODALIDADES` pode nascer sem nenhum `PacoteMembro` ainda (`descontoPadrao`) — vira um "modelo" de catálogo que o próprio aluno escolhe no autocadastro/matrícula; `FAMILIA` continua sempre montado pelo admin com os membros já definidos |
 | PacoteMembro (2026-07-31) | Vínculo de um `Aluno` a um `Pacote`, com seu próprio % de desconto e flag `titular` | Um aluno só pode estar em 1 pacote por vez (`alunoId` `@unique`); em pacote `FAMILIA`, o `titular` é quem tem login no portal e vê a mensalidade de todos os integrantes |
 | AlunoFaixaModalidade (2026-08-03) | Faixa/graduação do aluno numa modalidade **extra** (além da principal) | `Aluno.graduacaoFaixa` só guarda a faixa da modalidade principal; um aluno com `Matricula` em modalidade(s) extra(s) pode ter faixa diferente em cada uma — capturado hoje só no autocadastro (`/cadastro-aluno`) |
 
@@ -55,6 +55,8 @@ owner: willians
 | lesoes | String? | não | não | observação livre sobre lesões/restrições — campo de texto, sem estrutura |
 | agendaAulaReferenciaId | String (uuid)? | não | não | (2026-07-29) FK → `AgendaAula` — horário informado no cadastro, **só exibição/organização**, não restringe acesso (a modalidade já dá acesso a todos os horários dela) |
 | mensalidadeValor | Decimal(10,2)? | não | não | (2026-07-31) override do preço padrão da modalidade pra este aluno específico — `null` = usa `ModalidadePreco[modalidade]`. Existe pra cobrir caso de 2 alunos da mesma modalidade pagando valores diferentes (ex: por quantidade de aulas na semana), sem precisar de um pacote pra isso |
+| ultimoAvisoCobrancaEm | DateTime? | não | sim | (2026-08-12) data do último aviso automático de cobrança (vencendo/atrasado) mandado por WhatsApp via cron — só atualizado quando o envio teve sucesso; controla duplicidade (no máx. 1 aviso/dia), não dispara nada por si só (ver `src/lib/cobranca.ts`) |
+| ultimoParabensEm | DateTime? | não | sim | (2026-08-12) data do último parabéns de aniversário automático mandado por WhatsApp via cron — mesmo padrão do campo acima (`src/lib/aniversario.ts`) |
 
 > `modalidade` desde 2026-07-29: `Musculação/Personal`, `Capoeira`, `Boxe/Muay Thai`, `Kids`, `Aula para Idosos` (`src/lib/modalidades.ts`) — substituiu o placeholder genérico inicial (`Jiu-Jitsu`, `Muay Thai`, `Judô`, `Boxe`, `Outra`), sem relação real com o que a academia ensina.
 
@@ -110,11 +112,13 @@ owner: willians
 | modalidadeInteresse | String? | não | não | (2026-07-29) modalidade que a pessoa quer praticar, escolhida no formulário público — pré-preenche a modalidade no formulário de novo aluno quando o pré-cadastro é aprovado |
 | status | String | sim | não | "Pendente" (default) / "Aprovado" / "Rejeitado" |
 | criadoEm | DateTime | sim | sim | default `now()` |
-| dataAulaExperimental | DateTime? (`@db.Date`) | não | não | (2026-08-03) data escolhida pela pessoa pra conhecer o CT — se preenchida, dispara aviso automático via WhatsApp pro admin (ver `src/lib/whatsapp-gateway.ts`) assim que o formulário é enviado |
-| termosAceitos | Boolean | sim | não | (2026-08-03) default `false` — consentimento LGPD, checkbox obrigatório no formulário público |
+| dataAulaExperimental | DateTime? (`@db.Date`) | não | não | (2026-08-03) data escolhida pela pessoa pra conhecer o CT — se preenchida, dispara aviso automático via WhatsApp pro admin (ver `src/lib/whatsapp-gateway.ts`) assim que o formulário é enviado, com links de confirmar/recusar desde 2026-08-12 (ver campos abaixo) |
+| termosAceitos | Boolean | sim | não | (2026-08-03) default `false` — consentimento LGPD, checkbox obrigatório no formulário público. Desde 2026-08-12, o texto associado (`TermosAceite.tsx`, não é campo de banco) também cobre responsabilidade por lesão/condição de saúde não informada |
 | termosAceitosEm | DateTime? | não | sim | (2026-08-03) timestamp de quando o checkbox foi marcado — `null` só é possível em registros criados antes desta data |
+| aulaConfirmada | Boolean? | não | sim | (2026-08-12) `null` = admin ainda não respondeu ao aviso de aula experimental; `true`/`false` = confirmou ou recusou clicando num dos 2 links mandados no WhatsApp (`api/aula-experimental/[id]/confirmar`). Dispara aviso automático de volta pro lead com a decisão, uma única vez — clique duplicado (mesmo link ou o oposto) não regrava nem reenvia |
+| aulaConfirmadaEm | DateTime? | não | sim | (2026-08-12) timestamp da primeira resposta do admin — `null` enquanto `aulaConfirmada` for `null` |
 
-> Fluxo: pessoa preenche `/matricule-se` (público, sem login) → cria `PreCadastro` com `status="Pendente"` → aparece em `/pre-cadastros` (autenticado) → Sandro abre a ficha completa (`/pre-cadastros/[id]`, nova rota 2026-08-03) → clica "Aprovar" (linka pra `/alunos/novo?preCadastroId=...` desde 2026-07-29, que pré-preenche o form de novo aluno) ou "Rejeitar" (`status="Rejeitado"`, registro fica só como histórico). Aprovar de fato só acontece quando `createAluno` roda e recebe o `preCadastroId` — nesse momento o `PreCadastro` vira `status="Aprovado"`. Nunca vira `Aluno` automaticamente.
+> Fluxo: pessoa preenche `/matricule-se` (público, sem login) → cria `PreCadastro` com `status="Pendente"` → aparece em `/pre-cadastros` (autenticado) → Sandro abre a ficha completa (`/pre-cadastros/[id]`, nova rota 2026-08-03) → clica "Aprovar" (linka pra `/alunos/novo?preCadastroId=...` desde 2026-07-29, que pré-preenche o form de novo aluno) ou "Rejeitar" (`status="Rejeitado"`, registro fica só como histórico). Aprovar de fato só acontece quando `createAluno` roda e recebe o `preCadastroId` — nesse momento o `PreCadastro` vira `status="Aprovado"` **e** ganha acesso ao portal automaticamente (2026-08-12: mesmo sem `email` preenchido, já que só `telefone` é garantido nesse formulário — usa e-mail placeholder `${username}@sistema.local` só pra satisfazer o `@unique` de `Usuario.email`). Nunca vira `Aluno` automaticamente. `status` (aprovação) e `aulaConfirmada` (confirmação da aula experimental) são independentes — dá pra confirmar/recusar a aula sem aprovar o cadastro, e vice-versa; não há transição automática entre os dois.
 
 ### Usuario
 
@@ -214,17 +218,18 @@ owner: willians
 
 > Registra um compromisso pontual do Sandro. **Limitação estrutural deliberada:** como `AgendaAula`/`Matricula`/`PresencaDiaria` não têm nenhum conceito de "ocorrência numa data específica" (só grade semanal recorrente), um `BloqueioAgenda` não cancela matrícula nem impede check-in — não existe isso pra nenhuma aula, bloqueada ou não. O valor prático é avisar: `getBloqueiosFuturos()` alimenta a gestão em Configurações → Agenda, `getBloqueiosProximos(14)` alimenta um banner em `/aluno` pros próximos 14 dias.
 
-### Pacote (2026-07-31; catálogo Combo 2026-08-03)
+### Pacote (2026-07-31; catálogo Combo 2026-08-03; valor fixo 2026-08-12)
 
 | Atributo | Tipo | Obrigatório | Calculado | Descrição |
 |---|---|---|---|---|
 | id | String (uuid) | sim | sim | identificador único |
 | nome | String | sim | não | nome livre dado pelo admin (ex: "Família Silva", "Combo Boxe+Capoeira — João") |
 | tipo | TipoPacote (enum) | sim | não | `FAMILIA` (vários alunos diferentes, cada um com seu % de desconto na própria mensalidade) ou `COMBO_MODALIDADES` (um único aluno praticando 2+ modalidades, desconto sobre o valor total combinado — mensalidade + extras) |
-| descontoPadrao | Decimal(5,2)? | não | não | (2026-08-03) só usado por `COMBO_MODALIDADES` criado como catálogo, sem `PacoteMembro` ainda — vira o `descontoPercentual` do `PacoteMembro` criado quando um aluno escolhe esse pacote sozinho (autocadastro/matrícula) ou quando o admin atribui manualmente depois (`atribuirAlunoPacote`) |
+| descontoPadrao | Decimal(5,2)? | não | não | (2026-08-03) só usado por `COMBO_MODALIDADES` criado como catálogo, sem `PacoteMembro` ainda — vira o `descontoPercentual` do `PacoteMembro` criado quando um aluno escolhe esse pacote sozinho (autocadastro/matrícula) ou quando o admin atribui manualmente depois (`atribuirAlunoPacote`). Desde 2026-08-12, o formulário de criação de combo não pede mais desconto (%) — esse campo só é preenchido depois, editando o `PacoteMembro` já vinculado |
+| valor | Decimal(10,2)? | não | não | (2026-08-12) só `COMBO_MODALIDADES` — preço fixo opcional do combo. Quando preenchido, `valorEfetivoAluno` (`src/lib/precos.ts`) usa esse valor **direto** como total do aluno, ignorando `descontoPercentual`/`descontoPadrao` por completo (base + extras deixam de entrar na conta). `null` = comportamento antigo, cálculo por desconto percentual |
 | criadoEm | DateTime | sim | sim | default `now()` |
 
-> **Enum `TipoPacote`:** `FAMILIA` \| `COMBO_MODALIDADES`. Um `Pacote` é um conceito genérico — não existe restrição de quantidade mínima de integrantes no schema (a UI de criação orienta pra 2+ em `FAMILIA`, mas não bloqueia 1). **Desde 2026-08-03:** `COMBO_MODALIDADES` pode ser criado com **zero** `PacoteMembro` (só `nome` + `descontoPadrao`) — vira um "modelo" de catálogo, listado em `getPacotesComboDisponiveis()` (`Pacote` com `membros: { none: {} }`) e oferecido ao próprio aluno no autocadastro (`/cadastro-aluno`, ao adicionar 2ª+ modalidade) ou na matrícula extra. `FAMILIA` nunca entra nesse catálogo — continua sempre criado pelo admin com os membros já definidos, em bloco visual separado na aba Preços.
+> **Enum `TipoPacote`:** `FAMILIA` \| `COMBO_MODALIDADES`. Um `Pacote` é um conceito genérico — não existe restrição de quantidade mínima de integrantes no schema (a UI de criação orienta pra 2+ em `FAMILIA`, mas não bloqueia 1). **Desde 2026-08-03:** `COMBO_MODALIDADES` pode ser criado com **zero** `PacoteMembro` (só `nome` + `descontoPadrao`/`valor`) — vira um "modelo" de catálogo, listado em `getPacotesComboDisponiveis()` (`Pacote` com `membros: { none: {} }`) e oferecido ao próprio aluno no autocadastro (`/cadastro-aluno`, ao adicionar 2ª+ modalidade) ou na matrícula extra. `FAMILIA` nunca entra nesse catálogo — continua sempre criado pelo admin com os membros já definidos, em bloco visual separado na aba Preços. **`valor` e `descontoPadrao`/`descontoPercentual` não são mutuamente exclusivos no schema** (nada impede os dois preenchidos ao mesmo tempo), mas na prática `valorEfetivoAluno` sempre prioriza `valor` quando presente — o desconto percentual fica sem efeito nesse caso, não é somado nem combinado.
 
 ### PacoteMembro (2026-07-31)
 
