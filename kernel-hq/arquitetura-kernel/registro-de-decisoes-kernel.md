@@ -3,7 +3,7 @@ status: stable
 domain: kernel
 source: claude
 created: 2026-06-24
-updated: 2026-08-03
+updated: 2026-08-20
 owner: willians
 ---
 
@@ -336,3 +336,285 @@ Entradas em ordem cronológica crescente — as mais recentes no final.
 **Status:** aplicado e testado: token de login antigo (nunca renovado) — editar o tenant no painel admin (desligar um módulo, ligar outro) e chamar `/auth/me` com o **mesmo** token já reflete a mudança, sem relogin.
 **Artefatos atualizados:** arquitetura-orbita-whitelabel (seção Feature Flags — a frase antiga "só reflete depois de logout + login novo" ficou incorreta e foi corrigida)
 **Observação:** O JWT em si continua "carimbado" no momento do login (`role`, `tenant_id`, etc. não mudam) — só `features`/`usaComissao` passaram a ter uma segunda fonte de verdade, viva, consultada por request separado. Uma consequência ainda não tratada: se o tenant for desativado (`ativo=false`) enquanto alguém está logado, o próximo `/auth/me` falha silenciosamente (`catch` vazio em `refreshFeatures`) e a sessão continua com as últimas features conhecidas até o token expirar — não é um bug crítico (o backend ainda bloqueia todo o resto via `Tenant.findBySlug`/`findById` que já filtram `ativo=true`), mas vale revisitar se um caso real de desativação no meio de uma sessão aparecer.
+
+---
+
+## 2026-08-16 — Cargo "gestor": vê o operacional, não mexe em dado financeiro sensível por padrão
+
+**Motivo:** Pedido do Willians: um cargo intermediário entre `operador` e `admin` — alguém que administra o dia a dia mas não deve, por padrão, alterar salário/comissão de profissional nem outros dados financeiros sensíveis. Com a ressalva explícita de que o próprio admin possa liberar exceções caso a caso, em vez de a restrição ser rígida.
+
+**Impacto:**
+- Novo valor `gestor` no enum de role de `usuarios`. Coluna nova `usuarios.permissoes_extra` (JSONB, default `{}`) guarda as exceções liberadas por um admin pra um gestor específico.
+- `backend/config/permissoesGestor.js` (novo) — chaves fechadas: `comissaoSalario`, `taxasCartao`, `gastos`, `apagarVenda`, `importarDados`, cada uma com label pra UI.
+- `backend/middleware/auth.js`: `requireAdmin` passou a aceitar `admin` OU `gestor` (a maioria das rotas hoje "admin-only" vira "admin ou gestor" automaticamente). `requireApenasAdmin` (novo, estrito) protege as rotas de gestão de outros gestores — evita que um gestor promova/edite outro gestor (auto-escalonamento). `requireAdminOuPermissao(chave)` (novo, factory) protege as 5 ações restritas por padrão — libera se `role==='admin'` ou se `permissoes_extra[chave]===true`.
+- `backend/routes/usuarios.js` (novo, montado em `/usuarios`, todo `requireApenasAdmin`): CRUD de conta gestor + `PATCH /:id/permissoes` (liga/desliga cada chave) + `PATCH /:id/ativo` + `PATCH /:id/redefinir-senha`.
+- Rotas ajustadas pra usar `requireAdminOuPermissao`: `gastos.js` (POST/PUT/DELETE), `configuracoes.js` (`PUT /taxas`), `vendas.js` (`DELETE /:id`), `import.js` (`POST /`). `profissionais.js` ganhou `podeEditarComissaoSalario(req)` — cadastro/edição de profissional ignora silenciosamente campo de comissão/salário se o gestor não tiver a permissão (não erro, só não aplica o valor).
+- JWT de login ganhou `permissoes` (o conteúdo de `permissoes_extra`); `GET /auth/me` também devolve, mesmo padrão do refresh de `features` (ver entrada anterior).
+- Frontend: `AuthContext.jsx` ganhou `isAdmin` (agora `admin` OU `gestor`), `isAdminEstrito` (só `admin`), `isGestor`. Telas de Configurações, Gestão de Profissionais, Lançamentos e Registro de Gasto passaram a checar a permissão certa antes de mostrar/habilitar ação restrita.
+**Status:** aplicado e testado end-to-end com JWT real de gestor e de admin — ver/não-editar sem permissão, liberar permissão pelo admin e o gestor passar a editar no relogin seguinte, auto-escalonamento bloqueado (gestor não alcança `/usuarios`), campo de comissão/salário ignorado silenciosamente sem a permissão.
+**Artefatos atualizados:** modelo-de-dados-kernel (enum de role, `permissoes_extra`), este registro.
+**Observação:** liberar uma permissão exige relogin (ou o próximo refresh de `/auth/me`, mesmo mecanismo de `features`) pra o JWT em memória do gestor refletir a mudança — coerente com a decisão de 2026-08-03 acima.
+
+---
+
+## 2026-08-16 — Lembrete de agendamento configurável, e um bug real corrigido no caminho: a fila de notificação nunca teve consumidor
+
+**Motivo:** Willians reportou que "a confirmação 30min antes" não parecia estar batendo com o que ele esperava. Investigando, apareceu um problema mais sério que o prazo fixo.
+
+**Impacto:**
+- **Bug encontrado:** `gerarLembretesAgendamento` (backend/routes/notificacoes.js) só fazia `INSERT` numa fila (tabela `notificacoes`), esperando um consumidor de `GET /notificacoes/whatsapp/pendentes` que **não existe em lugar nenhum do código** — nem Kalel, nem Brainiac, nem frontend. Lembrete de agendamento nunca foi enviado de verdade, desde que essa função existe.
+- **Correção:** `gerarLembretesAgendamento` passou a enviar direto via `whatsappService.enviarWhatsapp`, mesmo caminho síncrono já usado pelos avisos proativos do Brainiac — `enviado_whatsapp` grava o resultado real do envio, não mais um valor otimista de fila.
+- **Campo configurável:** `regra_ausencia.minutos_lembrete` (SMALLINT, default 15, `CHECK >= 5`) — cada tenant define quanto tempo antes quer o lembrete, exposto em `Clientes.jsx` (`FormRegraAusencia`), junto do campo `horas_confirmacao_antecedencia` (ver próxima entrada) que também só existia no backend até então. O cron em `server.js` passou a ler `minutos_lembrete` por tenant a cada execução, em vez de um valor fixo (`15`) hardcoded.
+**Status:** aplicado e testado — QA real feito no tenant Lukinhas Barber (produção): forçado o cenário de fila expirada, envio real falhou por WhatsApp desconectado (HTTP 404) e o registro corretamente ficou marcado como não-enviado, confirmando que o novo caminho síncrono reflete o resultado real, não mais um estado otimista.
+**Artefatos atualizados:** modelo-de-dados-kernel (`regra_ausencia.minutos_lembrete`).
+**Observação:** o padrão "gravar antes de confirmar sucesso" apareceu de novo na lista de espera (entrada seguinte) e foi corrigido lá também, já nascendo certo dessa vez.
+
+---
+
+## 2026-08-16 — Lista de espera + liberação automática de agendamento pendente sem confirmação
+
+**Motivo:** Fase D do plano de landing/self-service: sem isso, um agendamento `pendente` que o cliente nunca confirma fica "preso" — ninguém mais consegue marcar aquele horário, mesmo que o cliente original claramente não vá aparecer.
+
+**Impacto:**
+- Nova tabela `lista_espera` (`tenant_id`, `unidade`, `profissional_id` nullable, `cliente_nome`, `cliente_contato`, `data`, `hora_inicio_desejada`, `hora_fim_desejada`, `status` — `aguardando`/`notificado`/`confirmado`/`expirado`/`cancelado`, `notificado_em`, `created_at`).
+- `regra_ausencia.horas_confirmacao_antecedencia` (SMALLINT, default 3) — janela antes do horário em que o sistema passa a exigir confirmação.
+- `liberarAgendamentosSemConfirmacao(tenantId)` (models.js, novo) — cancela (não `no_show`, precisa liberar a `EXCLUDE constraint` de sobreposição de verdade) agendamento `pendente` dentro da janela sem confirmação.
+- `backend/services/listaEsperaService.js` (novo): `notificarProximoDaFila` (avisa só o próximo `aguardando` da fila daquele slot, via `enviarWhatsapp` direto — não a fila `notificacoes` órfã da entrada anterior), `avancarFilaExpirada` (prazo de resposta 45min — `PRAZO_RESPOSTA_MINUTOS` —, expira e passa pro próximo se ninguém confirmar a tempo). Um cliente por vez, nunca dois avisados do mesmo horário simultaneamente.
+- `notificarProximoDaFila` disparado tanto no cron de liberação automática quanto em qualquer cancelamento manual/via Kalel (`PATCH /agendamentos/:id/status` → `cancelado`).
+- **Bug pego em QA antes de ir pra produção:** a primeira versão marcava `notificado` ANTES de confirmar que o `enviarWhatsapp` realmente funcionou — como essa função nunca lança exceção (retorna `{ok, erro}`), um envio que falhasse silenciosamente marcava a linha como "avisada" mesmo sem o cliente ter recebido nada. Corrigido pra só marcar `notificado` quando `resultado.ok === true`.
+- Novos endpoints internos (`authenticateInternal`): `POST /internal/lista-espera` (Kalel cadastra cliente na fila), `GET /internal/disponibilidade` (expõe `calcularDisponibilidade`, já existente em `agendamentos.js`, pro Kalel checar se um horário está livre antes de oferecer a fila).
+**Status:** aplicado e testado ponta a ponta em produção (tenant real): forçado cenário de janela de confirmação vencida, cron liberou o agendamento e avisou o primeiro da fila; simulação de envio falho confirmou que a linha não é marcada como notificada indevidamente.
+**Artefatos atualizados:** modelo-de-dados-kernel (tabela `lista_espera`, `regra_ausencia.horas_confirmacao_antecedencia`).
+**Observação:** ver `registro-de-decisoes-kalel` (RD-014) pra como o Kalel usa esses endpoints na prática.
+
+---
+
+## 2026-08-16 — Termos de Uso com aceite obrigatório no cadastro público
+
+**Motivo:** Pedido explícito do Willians — guardrail jurídico contra cópia/clonagem do sistema, complementar (não substituto) a qualquer medida técnica. Ele foi avisado de que o texto é um rascunho inicial e precisa de revisão por advogado antes de ser tratado como definitivo.
+
+**Impacto:**
+- Página pública `/termos` (`frontend/src/pages/Termos.jsx`, roteada fora da árvore de tenant em `main.jsx`) — 14 seções, incluindo cláusula explícita de propriedade intelectual proibindo engenharia reversa, cópia e criação de produto concorrente a partir da observação do sistema, com consequências descritas (rescisão, responsabilização civil, medidas criminais cabíveis).
+- `POST /public/teste-gratis`: `aceitou_termos` passou a ser obrigatório (`body('aceitou_termos').custom(v => v === true)`) — cadastro é rejeitado sem o aceite. Prova de aceite gravada em `usuarios.termos_aceitos_em`/`termos_versao`/`termos_aceitos_ip` (IP real, exige `app.set('trust proxy', true)` em `server.js` por causa da cadeia nginx de 2 saltos).
+- Rate limit novo em `POST /public/teste-gratis` (`express-rate-limit`, 5/hora/IP) — endpoint público sem autenticação, sem limite algum até então, só a checagem de contato duplicado.
+- `TesteGratis.jsx` ganhou checkbox obrigatório (desabilita o submit sem marcar), linkando pro `/termos` em nova aba.
+**Status:** aplicado e em produção.
+**Artefatos atualizados:** este registro.
+**Observação:** `TERMOS_VERSAO` precisa ficar sincronizada manualmente entre `frontend/src/pages/Termos.jsx` e `backend/routes/public.js` (`TERMOS_VERSAO_ATUAL`) — se o texto mudar sem atualizar os dois, o registro de aceite grava a versão errada. Sem revisão jurídica ainda — texto é rascunho.
+
+---
+
+## 2026-08-16 — Política de Privacidade publicada, e decisão consciente de não descrever nenhum canal de opt-out de WhatsApp
+
+**Motivo:** Segunda metade do guardrail jurídico pedido pelo Willians (Termos de Uso, entrada anterior) — cobertura LGPD explícita.
+
+**Impacto:**
+- Página pública `/privacidade` (`frontend/src/pages/Privacidade.jsx`, mesmo padrão de roteamento do `/termos`) — papéis de controlador/operador (Kernel é operador dos dados dos clientes finais de cada tenant, controlador dos dados do próprio tenant/admin), dados coletados, compartilhamento com terceiros (Evolution API, provedores de IA via OpenRouter, hospedagem), direitos do titular, retenção.
+- Linkada em `/termos`, `Login.jsx`, `Landing.jsx` e na tela pública de agendamento (`AgendamentoPublico.jsx`, componente `TelaBase`).
+**Status:** aplicado e em produção. Sem revisão jurídica ainda — mesmo aviso do Termos de Uso.
+**Artefatos atualizados:** este registro.
+**Observação:** o texto menciona "direito de revogar consentimento" em termos genéricos de LGPD, mas **não** descreve nenhum mecanismo concreto de opt-out de WhatsApp — decisão deliberada do Willians, ver entrada seguinte. Ponto a revisitar se compliance (LGPD/política do WhatsApp Business) exigir um canal explícito no futuro.
+
+---
+
+## 2026-08-16 — Decisão de produto: sem opt-out de WhatsApp por ora — Kalel/Brainiac não devem parecer bot
+
+**Motivo:** Foi proposto um design de opt-out (tabela `whatsapp_optout`, aviso "responda PARAR" na primeira mensagem do Kalel, checagem antes de todo envio automático — lembrete, aniversário, cliente sumido, promoção, lista de espera). Willians recusou explicitamente: a intenção do produto é que as mensagens automáticas pareçam parte do atendimento humano padrão da barbearia (confirmação de presença, aniversário, promoção), sem sinalizar que é automação — um aviso de opt-out quebraria essa percepção.
+
+**Decisão:** nenhum mecanismo de opt-out foi implementado. Não é recusa permanente — fica como ponto em aberto pra reavaliar se virar exigência de compliance (WhatsApp Business Policy e/ou fiscalização de LGPD) no futuro.
+**Status:** decisão registrada, nada implementado. Também salva na memória de longo prazo do assistente (Claude Code) pra não ser proposta de novo sem o Willians pedir.
+**Artefatos atualizados:** este registro; ver também `registro-de-decisoes-kalel` (RD-015).
+**Observação:** consequência prática — hoje não existe nenhuma forma de um contato pedir pra parar de receber mensagem automática do Kalel/Brainiac, além de falar diretamente com a barbearia.
+
+---
+
+## 2026-08-16 — Landing page redesenhada: sem preço público, módulos só com descrição
+
+**Motivo:** Pedido do Willians: tirar os pacotes/preços da landing pública, mostrar só os módulos reais (toggle de backend) com descrição do que cada um faz, sem valor — e incluir uma prévia visual do painel, usando "Minha Barbearia" como marca de exemplo.
+
+**Impacto:**
+- `frontend/src/pages/Landing.jsx`: seção de módulos usa `MODULOS_AVULSOS` (config/precificacaoKernel.js) filtrado pros 4 módulos reais toggleáveis (`combos`, `estoque`, `financeiro`, `cortex`) — sem preço, só descrição + bullets. Módulo Base mostrado à parte, como "sempre incluso".
+- `PreviaPainel` (novo componente): mockup construído com os tokens visuais reais do sistema (`card-premium`, cores via CSS var) — explicitamente **não** é screenshot real (não há como capturar tela do produto rodando a partir do ambiente de desenvolvimento). Dados fictícios, marca de exemplo "Minha Barbearia".
+- `TenantConfigContext.jsx` — `BRANDING_PADRAO.nome` renomeado de `'Meu Estabelecimento'` pra `'Minha Barbearia'` (nome de fábrica usado sempre que nenhum tenant real está carregado).
+**Status:** aplicado e em produção.
+**Artefatos atualizados:** —
+**Observação:** a landing continua linkando pro fluxo de teste grátis existente (que sim permite escolher módulo e cor) — a mudança foi só o que fica visível/precificado na página pública em si.
+
+---
+
+## 2026-08-16 — Raio-x de segurança de acesso (VPS + GitHub)
+
+**Motivo:** Willians levantou preocupação sobre "criptografar o backend pra evitar cópia" — avaliação técnica mostrou que, num SaaS multi-tenant onde o código nunca sai da própria VPS, o risco real é acesso indevido à infraestrutura/repositório, não ofuscação de código (que não impede quem já tem acesso root/aos repositórios). Auditoria de acesso feita em vez de ofuscação.
+
+**Impacto (achados, nenhuma correção de risco crítico necessária):**
+- Repositórios `kernel`, `kernel-brainiac`, `kernel-kalel` — todos privados no GitHub, um único colaborador (o próprio Willians, admin).
+- SSH da VPS: `PasswordAuthentication no`, `PermitRootLogin no` — só entra por chave. Único usuário unix real com sudo é `willians`.
+- Portas expostas externamente: só 22 (SSH), 80 e 443 (nginx) — banco de dados e todos os serviços internos (containers de backend, Evolution API) escutam só em `127.0.0.1`.
+- `.env` real de produção nunca foi commitado no histórico do git — os arquivos `.env.barbearia`/`.env.example`/`.env.simples` que estão versionados contêm valores de template idênticos entre si (confirmado por comparação), diferentes (mais curtos) dos segredos reais usados em produção.
+**Gaps identificados, NÃO corrigidos ainda (pendência):**
+1. `fail2ban` não está instalado na VPS — sem bloqueio automático de tentativa repetida contra SSH.
+2. `.env` de produção com permissão `775` (grupo e outros conseguem ler) — deveria ser `600`. Risco baixo hoje (só existe o usuário `willians` na VPS), mas fácil de apertar.
+3. Não foi possível confirmar via API se 2FA está ativo na conta GitHub do Willians — precisa checar manualmente em `github.com/settings/security`.
+4. Branch protection do GitHub indisponível no plano atual (free) — não crítico hoje, só 1 colaborador com acesso.
+**Status:** auditoria feita, nenhuma correção aplicada ainda — Willians vai decidir se quer que os itens 1-2 sejam corrigidos numa próxima sessão.
+**Artefatos atualizados:** este registro.
+**Observação:** confirma que o problema de "cópia do sistema" é majoritariamente jurídico (Termos de Uso, entradas acima) e de controle de acesso — não há solução técnica de "criptografar o backend" que faça sentido de custo/benefício num SaaS onde o código nunca sai da VPS do próprio Willians.
+
+---
+
+## 2026-08-18 — Colisão de username case-insensitive travava login de gestor pra sempre
+
+**Motivo:** Cliente real (tenant "Lukinhas Barber") reportou "credencial inválida" pro gestor recém-criado ("Lucas Ribeiro"), mesmo depois de o admin gerar senha nova várias vezes. Investigado direto em produção (SELECT read-only autorizado pelo Willians).
+
+**Impacto:**
+- **Causa raiz:** `POST /login` (`routes/auth.js`) resolve o usuário por `LOWER(u.username) = LOWER($2)`, sem `ORDER BY`. A constraint única do banco (`uq_usuarios_tenant_username`) é **case-sensitive** — então um gestor com username só diferindo na capitalização do admin (`Lucas` admin vs `lucas` gestor) passava no INSERT sem erro, mas ficava indistinguível pro login: `LIMIT 1` sem ordenação sempre devolvia a linha do admin, e a senha do gestor era comparada contra o hash errado — nunca autenticava, não importa a senha.
+- `routes/usuarios.js` (`POST /gestores`): loop de geração de username (que só tratava colisão exata via erro `23505`) passou a checar disponibilidade **case-insensitive** antes do INSERT (`usernameDisponivel()`, novo helper), suficiente pra nunca mais deixar essa colisão nascer.
+- `routes/auth.js`: login ganhou `ORDER BY u.id` como segunda camada de defesa (determinístico em vez de arbitrário, caso alguma colisão futura escape da checagem acima).
+- Correção imediata em produção pro cliente afetado: gestor duplicado renomeado (`lucasgestor` → `lucasribeiro`, ver entrada seguinte — a pessoa por trás da conta já era barbeiro no sistema).
+**Status:** aplicado e testado em produção — login do gestor funcionando depois da correção de username + nova senha.
+**Artefatos atualizados:** este registro.
+**Observação:** o mesmo incidente expôs que `PATCH /usuarios/gestores/:id` (editar nome/username do gestor) não existia — admin não tinha como corrigir um username problemático sem acesso direto ao banco. Endpoint novo criado no mesmo commit, com a mesma checagem case-insensitive.
+
+---
+
+## 2026-08-18 — Bug pré-existente: CHECK constraint desatualizado derrubava notificações de TODO tenant
+
+**Motivo:** Cliente reportou a aba "Notificações" em branco. Investigação achou um bug que não era específico daquele tenant — afetava qualquer cliente do produto.
+
+**Impacto:**
+- **Causa raiz:** commit `907504c` (Fase C, "ticket médio como novo tipo de relatório") adicionou `'ticket_medio'` em `TIPOS_NOTIF_VALIDOS` e na função que garante as 5 linhas padrão por unidade (`garantirConfiguracoesNotificacoes`), mas **não** atualizou o `CHECK` constraint da tabela `configuracoes_notificacoes` (`CREATE TABLE IF NOT EXISTS` é no-op em bancos onde a tabela já existia — o constraint ficou preso em 4 valores). O INSERT de seed (5 linhas de uma vez, `ON CONFLICT DO NOTHING`) violava o `CHECK` na linha `ticket_medio` e abortava a transação **inteira** — `GET /configuracoes/notificacoes` sempre voltava 500, mesmo pra tenant que já tinha as 4 linhas antigas salvas. Frontend não tinha `.catch` nessa chamada, então o erro nem aparecia — só a tela ficava vazia, sem nenhuma mensagem.
+- Migration nova (`ALTER_CONFIGURACOES_NOTIFICACOES_TICKET_MEDIO`, `models.js`) recria o `CHECK` com os 5 valores.
+- `AbaNotificacoes` (`Configuracoes.jsx`) ganhou `.catch` + estado de erro visível — não é mais possível esse tipo de falha silenciosa se acontecer de novo.
+**Status:** aplicado e confirmado em produção — migration rodou sem erro, aba voltou a listar as configurações.
+**Artefatos atualizados:** [[modelo-de-dados-kernel]] (`configuracoes_notificacoes.tipo`).
+**Observação:** achado enquanto investigava um relato completamente diferente (login de gestor) — o cliente mencionou "módulos não salvando" de passagem, o que levou a essa descoberta. Reforça o valor de sempre checar os logs do backend, não só a queixa literal do usuário.
+
+---
+
+## 2026-08-18 — Sidebar presa aberta em qualquer celular (Safari/iOS) — bug de timing no viewport
+
+**Motivo:** Cliente reportou "layout quebrado no iPhone" — investigação mostrou que era universal (qualquer mobile, confirmado testando no Safari), não específico de um aparelho.
+
+**Impacto:**
+- **Causa raiz:** `isSidebarOpen`/`isMobile` (`App.jsx`, 3 shells — Admin/Operador/Barbeiro) eram calculados **uma única vez**, no inicializador do `useState`, lendo `window.innerWidth` de forma síncrona. No Safari (iOS sobretudo), esse valor no instante exato do primeiro render pode ainda refletir o viewport "ideal" do WebKit (~980px) antes da tag `<meta viewport>` assentar de verdade — o app decidia (errado) que era desktop, deixava a sidebar aberta (`position: fixed`, 256px) permanentemente cobrindo a tela, e como o `useEffect` só **anexava** o listener de `resize` (nunca chamava a checagem uma vez já no mount), nada corrigia o estado depois se o celular ficasse parado em portrait.
+- Fix: a função de checagem (`check()`) passa a rodar uma vez logo após o mount, além de ficar escutando `resize` — nos 3 shells.
+**Status:** aplicado e confirmado em produção.
+**Artefatos atualizados:** este registro.
+**Observação:** bug crítico e universal — afetava 100% dos usuários mobile de 100% dos tenants, não só quem estava sendo testado no momento. Não foi pego antes por falta de teste em dispositivo real/Safari durante o desenvolvimento.
+
+---
+
+## 2026-08-18 — Ícone do PWA por tenant no iOS, e o outage causado pela própria correção
+
+**Motivo:** Cliente reportou que o ícone ao "Adicionar à Tela de Início" no iPhone não era a logo do tenant — aparecia um ícone genérico com a primeira letra do nome.
+
+**Impacto:**
+- **Causa raiz:** iOS Safari lê `<link rel="apple-touch-icon">` direto do HTML inicial, sem esperar JS rodar — a solução existente (`TenantConfigContext.jsx` troca a tag via DOM depois que o branding chega da API) resolvia o favicon da aba, mas não esse caso. O `href` inicial (mesmo build atende todos os tenants) apontava pro favicon genérico em **SVG**, formato que `apple-touch-icon` não suporta — iOS caía no fallback padrão da Apple (ícone com a primeira letra do título).
+- Solução (ver seção "Ícone do PWA por tenant" em [[arquitetura-kernel]]): `GET /t/:slug` passa a ser renderizado no **backend**, com `<title>`/`<meta apple-mobile-web-app-title>`/`<link rel="icon">`/`<link rel="apple-touch-icon">` já resolvidos pro tenant certo antes de qualquer JS rodar. `nginx.conf` roteia `/t/*` pro backend em vez de servir o `index.html` estático genérico.
+- **Outage causado pela primeira versão dessa correção:** o HTML buscado do frontend (`fetch('http://frontend:80/index.html')`) ficou em **cache indefinido na memória do processo** do backend. Um deploy incremental normal (só `frontend` reconstruído — hash de JS novo — sem reiniciar `backend` junto, fluxo padrão descrito no Playbook DevOps) deixou o cache apontando pro arquivo antigo, que o build novo já tinha removido. `GET /t/:slug` — login de **qualquer** tenant, admin ou barbeiro — servia HTML com `<script src>` pra um 404: o app nunca montava, tela em branco total. Diagnosticado comparando o hash de JS referenciado no HTML servido contra os arquivos realmente presentes no container `kernel_web` (`curl` direto nos dois). Resolvido em produção com restart manual do `kernel_api` (limpa o cache), e depois na causa raiz: cache removido por completo — busca o template de novo a cada request.
+**Status:** aplicado, outage resolvido em produção (restart + fix definitivo), confirmado testando `/t/:slug` em 3 deploys seguintes sem regressão.
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Ícone do PWA por tenant").
+**Observação:** lição de processo — qualquer estado em memória (cache, singleton) que dependa de outro serviço/deploy precisa ou (a) ter TTL curto, ou (b) ser invalidado explicitamente no boot, ou (c), como aqui, simplesmente não existir quando o custo de recomputar é baixo. "Rota de baixo tráfego, HTML pequeno" foi o critério usado pra decidir remover o cache em vez de consertar a invalidação.
+
+---
+
+## 2026-08-18 — Contraste do modo escuro ilegível em paletas customizadas
+
+**Motivo:** Cliente com paleta customizada (cor primária azul, não o dourado de fábrica) reportou texto secundário praticamente ilegível no modo escuro.
+
+**Impacto:**
+- **Causa raiz:** `applyTenantTheme` (`lib/theme.js`) deriva `--cor-primaria-muted` (usado em `text-gold-muted`, texto secundário em toda a UI) via `darken(p, 50)` no modo escuro — fórmula flat que foi calibrada visualmente pro dourado de fábrica (`#D4AF37` → resultado próximo do `#9C7B1E` fixo usado quando não há customização), mas em cores mais escuras/saturadas (o azul do tenant afetado) o mesmo `-50` por canal derrubava a luminância muito mais, quase até ilegibilidade contra o fundo quase preto.
+- Fórmula ajustada pra `darken(p, 20)` — menos agressiva, mantém "mais apagado que o primário" sem derrubar tanto o contraste. Modo claro e a paleta de fábrica (hardcoded, não passa por essa fórmula) não foram tocados.
+**Status:** aplicado em produção.
+**Artefatos atualizados:** —
+**Observação:** fórmulas de derivação de cor calibradas visualmente pra 1 paleta de referência (a de fábrica) não necessariamente generalizam pra qualquer cor que um tenant escolha — vale reavaliar as outras derivações (`lighten`/`darken` em `theme.js`) se um problema parecido aparecer em outro campo.
+
+---
+
+## 2026-08-18 — Gestor pode ser atribuído a um login de barbeiro já existente (`eh_gestor`)
+
+**Motivo:** Pedido do Willians depois de um caso real: o tenant "Lukinhas Barber" tinha um barbeiro ("Lucas Ribeiro") que também precisava administrar — a única forma existente era criar uma **segunda** conta (`role='gestor'`, sem `profissional_id`), duas credenciais pra uma pessoa só. Willians queria eliminar essa duplicação: atribuir acesso de gestor direto no login de barbeiro que a pessoa já usa.
+
+**Impacto:**
+- Coluna nova `usuarios.eh_gestor` (BOOLEAN, default false) — só relevante pra `role='barbeiro'`. Continua existindo o gestor "puro" (`role='gestor'`, sem `profissional_id`) pra quem administra sem cortar cabelo — os dois caminhos coexistem.
+- `middleware/auth.js`: `ehGestorEfetivo(user)` (novo helper) = `role==='gestor'` OU (`role==='barbeiro'` E `eh_gestor===true`). `requireAdmin` e `requireAdminOuPermissao` passam a usar esse helper em vez de checar `role==='gestor'` direto. `requireAdminOuBarbeiro` (novo, mais permissivo de propósito) criado à parte pra Consumo Interno (ver próxima entrada) — não reaproveita `ehGestorEfetivo` porque ali **qualquer** barbeiro (não só gestor) deve ter acesso.
+- `routes/usuarios.js`: `GET /gestores` passa a listar os dois tipos juntos (`COND_GESTOR = role='gestor' OR (role='barbeiro' AND eh_gestor=true)`); `GET /barbeiros-disponiveis` (novo) lista candidatos a promover; `PATCH /:id/eh-gestor` (novo) promove/despromove — sempre `requireApenasAdmin`, nunca o próprio gestor.
+- Frontend: `AuthContext.isGestor` mudou de significado — antes era `role==='gestor'` literal, agora é "tem acesso de gestor" (cobre os dois casos). 4 telas que checavam `user.role==='gestor'` direto (taxas de cartão, apagar venda, comissão/salário, gastos) foram migradas pra usar `isGestor` do contexto — **sem essa migração, um barbeiro-gestor passaria por essas restrições sem nenhum bloqueio**, brecha de permissão real que seria introduzida pela feature se não corrigida junto.
+- **Roteamento raiz precisou mudar também:** `AppRoot` mandava *qualquer* `role='barbeiro'` pro shell simplificado (`AppBarbeiro`, sem Configurações/Gestão de Time/Dashboard no switch). Corrigido pra só barbeiro **sem** `eh_gestor` ir pro shell simplificado; com `eh_gestor`, cai no shell admin completo (`AppAutenticado`) — que ganhou "Meu Painel" e "Consumo Interno" condicionados a `profissional_id`, pra não perder as telas pessoais que só existiam no shell simplificado.
+- Configurações → Gestores ganhou seção "Dar acesso de gestor a um barbeiro que já tem login" (dropdown dos disponíveis + botão Promover), badge "Barbeiro" na listagem, e "Remover acesso de gestor" no lugar de "Inativar" pra esse tipo (inativar desligaria o login de barbeiro inteiro, não só o acesso extra).
+**Status:** aplicado e testado em produção com conta real (Lucas Ribeiro promovido, conta duplicada antiga desativada — `ativo=false`, não apagada).
+**Artefatos atualizados:** [[modelo-de-dados-kernel]] (`usuarios.eh_gestor`, `permissoes_extra`).
+**Observação:** liberar `eh_gestor` exige relogin pra o JWT em memória refletir a mudança — mesmo trade-off já aceito pra `permissoes_extra`/`features` (ver entrada de 2026-08-16). Dois bugs de menu duplicado apareceram testando esse fluxo em produção e foram corrigidos no mesmo dia: "Meu Painel" duplicava Registro/Lançamentos que o shell admin já mostra separado (removido do menu do barbeiro-gestor), e a seção "Link de agendamento" em Gestão de Time mostrava o link genérico da unidade além do link individual (agora mostra só o individual pra quem tem `profissional_id`, mesma regra do `MeuPainel.jsx`).
+
+---
+
+## 2026-08-18 — Novas permissões de gestor: estoque, gatilhos, campanhas
+
+**Motivo:** Consequência direta da entrada anterior — com gestor podendo ser um barbeiro de confiança, Willians pediu que catálogo/estoque, gatilhos de mensagem ao cliente e campanhas promocionais também virassem restrições opt-in (antes, essas 3 áreas eram acesso total e irrestrito pra qualquer gestor, sem o admin poder limitar).
+
+**Impacto:**
+- 3 chaves novas em `backend/config/permissoesGestor.js`: `estoque`, `gatilhos`, `campanhas` (`taxasCartao` já existia desde 2026-08-16).
+- `routes/catalogo.js` (POST/PUT/DELETE/PATCH quantidade), `routes/estoque.js` (`POST /entrada`), `routes/campanhas.js` (`POST /` — disparar campanha), `routes/configuracoes.js` (`PUT /gatilhos-cliente/:id`) trocam `requireAdmin` por `requireAdminOuPermissao('estoque'|'campanhas'|'gatilhos')`. Rotas de leitura (GET) continuam abertas pra qualquer gestor, mesmo padrão já usado nas 5 permissões anteriores.
+- `Estoque.jsx`: sem a permissão `estoque`, gestor deixa de ver os botões de cadastrar/editar/desativar item e ajustar quantidade (só visualiza) — mesmo padrão de UI das outras permissões. Campanhas e Gatilhos ainda não ganharam esse espelhamento de UI (o botão continua visível, erro 403 aparece só ao tentar salvar) — pendência conhecida, não crítica porque o backend já bloqueia de verdade.
+**Status:** aplicado em produção.
+**Artefatos atualizados:** [[modelo-de-dados-kernel]] (`permissoes_extra`), tabela "Propriedade e acesso por role".
+**Observação:** ver [[backlog-tarefas-kernel]] pra fechar o espelhamento de UI de Campanhas/Gatilhos, se virar prioridade.
+
+---
+
+## 2026-08-18 — Consumo Interno replicado no login do barbeiro
+
+**Motivo:** Pedido do Willians: barbeiro precisa registrar consumo interno de estoque (limpeza, lavatório etc.) sem precisar de acesso de gestor — a tela já existia só pro admin (Estoque → Consumo Interno).
+
+**Impacto:**
+- `Estoque.jsx` exporta o componente `ConsumoInterno` (antes local) — reaproveitado, não duplicado, num wrapper novo (`ConsumoInternoBarbeiro.jsx`) que só troca o cabeçalho da página.
+- Backend: `requireAdminOuBarbeiro` (novo guard, `middleware/auth.js`) libera `GET /estoque/movimentacoes` e `POST /estoque/consumo-interno` pra **qualquer** barbeiro (não só gestor) — mas o GET força `tipo='consumo_interno'` quando quem pede é `role='barbeiro'` puro, pra não expor custo/valor de venda e de entrada de estoque (dado financeiro que não é dele). `POST /estoque/entrada` (reposição) continua fechado, só admin/gestor com a permissão `estoque` (entrada anterior).
+- Item novo no menu do barbeiro ("Consumo Interno"), condicionado a `features.estoque`.
+**Status:** aplicado em produção.
+**Artefatos atualizados:** —
+**Observação:** o registro de consumo interno pelo barbeiro gera lançamento automático de despesa no DRE, mesmo comportamento de quando o admin registra — replicado de propósito, sem criar um caminho "mais fraco" pro barbeiro.
+
+---
+
+## 2026-08-18 — Bug de mapeamento no Painel Admin: 2 dos 4 módulos sempre desmarcados ao reabrir tenant
+
+**Motivo:** Willians reportou que os módulos "Financeiro Avançado" e "Brainiac" não ficavam marcados ao reabrir um tenant pra editar, mesmo tendo selecionado e salvo antes.
+
+**Impacto:**
+- **Causa raiz:** `id` do módulo ≠ nome da feature real que ele liga, pra 2 dos 4 módulos avulsos — `financeiro` liga a flag `relatorios`, `cortex` liga `notificacoes` (`combos`/`estoque` batem por coincidência, `id` igual ao nome da flag). `frontend/src/config/planosKernel.js` não carregava esse de-para; o reverse-mapping em `AdminTenantForm.jsx` (reconstrói os checkboxes a partir de `tenant.features` ao carregar o formulário) comparava `MODULOS[].id` direto contra as chaves de feature ativas — `featuresLigadas.includes('financeiro')` nunca batia, porque a chave de verdade era `'relatorios'`. **Salvar sempre funcionou certo** (o backend, `MODULOS` em `routes/admin.js`, já tinha o de-para certo) — só a leitura ao reabrir mentia, dando a impressão de "não fica salvo".
+- Confirmado direto no banco antes de corrigir: tenant "Lukinhas Barber" já estava com `relatorios: true` e `notificacoes: true` — a tela é que mostrava errado.
+- `MODULOS` (`planosKernel.js`) ganhou campo `flag` explícito por módulo; `mapaDeLista()` (`AdminTenantForm.jsx`) passa a comparar por `flag` quando existe, caindo em `id` pros módulos onde já era igual (e pra lista `LEGADO`, que nunca teve esse problema).
+**Status:** aplicado e confirmado em produção.
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Modelo KERNEL OS — Módulos e Pacotes").
+**Observação:** mesma classe de bug do encontrado em 2026-08-02/03 (módulo Autoatendimento apontando pra flag errada) — id de UI divergindo do nome real da feature. Vale considerar, se aparecer uma terceira vez, gerar `MODULOS` a partir de uma única fonte compartilhada entre frontend/backend em vez de duas listas mantidas manualmente em sincronia.
+
+---
+
+## 2026-08-18 — Duração de serviço personalizável por profissional
+
+**Motivo:** Pedido do Willians: nem todo barbeiro faz o mesmo serviço no mesmo tempo (ex.: "Corte e Barba" pode ser 45min pra um e 60min pra outro) — até então `catalogo.duracao_minutos` era um valor único, igual pra qualquer profissional, usado em todo o Motor de Agendamento.
+
+**Impacto:**
+- Tabela nova `catalogo_duracao_profissional` (`tenant_id`, `catalogo_id`, `profissional_id`, `duracao_minutos`, UNIQUE por `catalogo_id`+`profissional_id`) — override opcional; sem linha, cai no padrão do catálogo (comportamento idêntico a antes pra quem não personalizar nada).
+- `calcularDisponibilidade` (`routes/agendamentos.js`, o motor que monta o grid de horários candidatos) deixou de ter um único horário de fim compartilhado por todos os profissionais candidatos — passa a receber `duracaoPorProfissional` opcional (`Map<profissional_id, minutos>`) e calcula o fim **dentro do filtro, por profissional**. Consequência direta: dois barbeiros podem ter janelas de disponibilidade diferentes pro mesmo serviço/horário (um "fecha" mais cedo que o outro pro grid, dependendo da duração de cada um).
+- Todos os 6 pontos que resolviam duração antes dessa mudança foram atualizados: criar/reagendar agendamento interno (`agendamentos.js`, x2), disponibilidade e criação do autoagendamento público (`agendamentos-publico.js`, x2), e o equivalente do Kalel (`internal.js`: `POST /agendar-direto` + `GET /disponibilidade`, esse último ganhou parâmetro `catalogo_id` novo pra poder resolver a personalização — antes recebia só um `duracao_minutos` cru). No caminho "qualquer barbeiro" (sem profissional pré-escolhido), o `hora_fim` final gravado no INSERT usa a duração de QUEM efetivamente foi escolhido pro slot, não mais o padrão do catálogo.
+- `GestaoProfissionais.jsx`: seção "Tempo de serviço personalizado" no editar barbeiro — lista os serviços do catálogo com campo de minutos (vazio = usa o padrão), endpoints `GET`/`PUT /profissionais/:id/duracoes`.
+**Status:** aplicado e em produção — migration confirmada rodando sem erro (`\d catalogo_duracao_profissional` na VPS).
+**Artefatos atualizados:** [[modelo-de-dados-kernel]] (nova tabela), [[arquitetura-kernel]] (seção "Sistema de Agendamento Público").
+**Observação:** bug de UX pego em QA no mesmo fluxo — o modal "Editar Barbeiro" não tinha `max-h`/`overflow-y-auto`, então com a lista de serviços expandida o conteúdo passava da viewport sem nenhum jeito de rolar até o botão Salvar. Corrigido no mesmo commit.
+
+---
+
+## 2026-08-20 — Configurações reorganizada: abas no topo, Campanhas vira página própria
+
+**Motivo:** Pedido do Willians depois de notar dois problemas na tela de Configurações: o título "Configurações" aparecia duplicado (botão da sidebar + cabeçalho da própria página), e os 3 cards cross-cutting (remetente WhatsApp, cadastro do admin, link de avaliação) ficavam soltos acima das abas, sem relação visual clara com nenhuma delas — apesar de serem, na prática, configuração por unidade.
+
+**Impacto:**
+- Cabeçalho `<h2>Configurações</h2>` (com ícone `Settings`) removido de `Configuracoes.jsx` — a barra de abas passa a ser o primeiro elemento da página, logo no topo do container.
+- Aba "Unidades" (agora a aba padrão ao abrir a tela — antes era "Taxas de Cartão") passa a reunir `CardRemetenteWhatsApp`, `CardPerfilAdmin` e `CardLinkAvaliacao` no topo, antes da lista de filiais — os três continuam condicionados a `features.notificacoes`, mesma regra de antes.
+- `SeletorUnidade` (usado por Taxas, Notificações, Gatilhos ao Cliente, Atendimento IA e agora Campanhas) extraído pra `frontend/src/components/SeletorUnidade.jsx` — antes vivia só dentro de `Configuracoes.jsx`, sem dar pra reaproveitar fora dali.
+- Aba "Campanhas" (`AbaPromocoes`, disparo manual segmentado) saiu de dentro de Configurações inteiramente — virou página própria (`frontend/src/pages/Campanhas.jsx`), com item de menu novo no grupo "Administração & Gestão" (`App.jsx`, `gruposAdmin`), ícone `Megaphone`, mesmo gate por `features.campanhas` de antes (só mudou de lugar, não de regra).
+**Status:** aplicado e em produção (commit `c067279`, deploy via `git pull` + `docker compose up -d --build` no serviço `frontend` da VPS).
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Sistema de Campanhas de Marketing").
+**Observação:** critério usado pra decidir onde cada coisa fica — "Unidades" porque os 3 cards são configuração pontual por filial (mesma natureza do resto da aba); "Campanhas" virou página porque é ferramenta de uso recorrente (disparo ativo, não um formulário de configurar uma vez e esquecer), não fazia sentido dividir espaço de aba com o resto de Configurações.
+

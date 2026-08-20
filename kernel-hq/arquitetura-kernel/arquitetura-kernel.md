@@ -3,7 +3,7 @@ status: stable
 domain: kernel
 source: claude
 created: 2026-06-24
-updated: 2026-08-03
+updated: 2026-08-20
 owner: willians
 ---
 
@@ -257,6 +257,26 @@ Enquanto o fetch não resolve, `main.jsx` já aplicou a **paleta de fábrica neu
 
 **Regra dos 3 lugares (`VITE_*` em build-time) deixou de existir para branding** — não há mais `ARG`/`ENV`/`build.args` de cor/nome/logo no `Dockerfile`/`docker-compose.yml`. Um único build de frontend atende todos os tenants. A única variável `VITE_*` que permanece build-time é `VITE_NICHO` (terminologia — ver [[requisitos-funcionais-kernel]] § Limitações conhecidas).
 
+### Ícone do PWA por tenant — HTML renderizado no backend (desde 2026-08-18)
+
+O fluxo de branding acima (fetch client-side + JS troca as tags do `<head>`) resolve o favicon da aba, mas **não resolve o ícone de "Adicionar à Tela de Início" no iOS**: o Safari lê `<link rel="apple-touch-icon">` direto do HTML inicial, antes do JS rodar — e como o `href` inicial (mesmo build atende todos os tenants) apontava pro favicon genérico em **SVG** (formato que `apple-touch-icon` não suporta), o iOS caía no fallback padrão da Apple: gerar um ícone com a primeira letra do nome da página.
+
+**Solução:** `GET /t/:slug` passou a ser renderizado no **backend** (`backend/server.js`), não mais servido como arquivo estático genérico pelo nginx:
+
+```
+nginx.conf: location ^~ /t/ { proxy_pass http://backend:3001; }
+  → server.js: GET /t/:slug busca o index.html do frontend
+    (fetch interno http://frontend:80/index.html) e troca:
+    <title>, <meta apple-mobile-web-app-title>, <link rel="icon">,
+    <link rel="apple-touch-icon"> — usando Tenant.findBySlug direto,
+    sem esperar nenhum JS rodar
+  → resposta sempre Cache-Control: no-cache, no-store, must-revalidate
+```
+
+Assets (`/assets/*.js`, `/favicon.svg` etc.) continuam batendo direto no nginx normalmente — só a navegação (`/t/:slug`) passa pelo backend. O manifest dinâmico (Web App Manifest via Blob URL, `TenantConfigContext.jsx`) continua existindo à parte pra Android/Chrome ("Instalar app"), que já lia o manifest certo em runtime sem esse problema — o gap era só iOS.
+
+> **Incidente real (2026-08-18):** a primeira versão guardava o `index.html` buscado do frontend em **cache indefinido na memória do processo** do backend. Um deploy incremental normal (só o serviço `frontend` reconstruído, sem reiniciar o `backend` junto — fluxo padrão descrito no Playbook DevOps) deixou esse cache apontando pro hash de JS antigo, que o build novo já tinha removido. Resultado: `GET /t/:slug` — login de **qualquer** tenant, admin ou barbeiro — servia um HTML com `<script src>` pra um arquivo 404, o app nunca montava, tela em branco. Só um restart manual do `kernel_api` resolvia até a causa ser identificada. Corrigido removendo o cache por completo — busca o template de novo a cada request (custo desprezível, rota de baixo tráfego). Ver [[registro-de-decisoes-kernel]].
+
 ---
 
 ## Sistema de Tema Escuro/Claro
@@ -342,6 +362,20 @@ mesmo tempo): checagem `OVERLAPS` na aplicação (mensagem amigável) **e**
 `EXCLUDE CONSTRAINT` no Postgres (`tenant_id + profissional_id + intervalo de
 tempo`, via `btree_gist`) como rede de segurança de última instância.
 
+**Duração de serviço por profissional (desde 2026-08-18):** `calcularDisponibilidade`
+(o motor que monta o grid de horários candidatos) deixou de assumir um único
+horário de fim compartilhado por todos os barbeiros candidatos a um slot —
+recebe um `duracaoPorProfissional` opcional (`Map<profissional_id, minutos>`,
+resolvido de `catalogo_duracao_profissional`, ver [[modelo-de-dados-kernel]])
+e calcula o fim **por profissional** dentro do próprio filtro de disponibilidade.
+Sem override cadastrado, cai no `duracaoMinutos` padrão do catálogo — mesmo
+comportamento de antes pra quem não personalizou nada. Os 4 pontos que
+resolvem duração antes de checar disponibilidade/criar o agendamento (interno,
+autoagendamento público, `POST /internal/agendar-direto` e
+`GET /internal/disponibilidade` do Kalel) foram todos atualizados juntos —
+inclusive o cálculo final de `hora_fim` no INSERT, que precisa refletir a
+duração de QUEM efetivamente foi escolhido pro slot, não o padrão do catálogo.
+
 A confirmação de presença (`?confirmar=:codigo`) **não** precisa do slug do
 tenant na URL — o `codigo_confirmacao` (aleatório, único globalmente) já
 resolve o agendamento sozinho.
@@ -383,6 +417,12 @@ consumido) sobre a tabela `clientes`, com preview de audiência antes de
 confirmar o envio. Cada disparo grava `campanhas_promocionais` (1 linha) +
 `campanhas_destinatarios` (1 linha por cliente) + enfileira em `notificacoes`
 — o mesmo cooldown de 14 dias do sistema de gatilhos se aplica aqui também.
+
+**UI (desde 2026-08-20):** página própria, `frontend/src/pages/Campanhas.jsx`
+— item de menu no grupo "Administração & Gestão" (`App.jsx`, `gruposAdmin`),
+gate por `features.campanhas`. Antes vivia como aba dentro de Configurações;
+saiu de lá por ser ferramenta de uso recorrente, não configuração pontual —
+ver [[registro-de-decisoes-kernel]].
 
 ---
 
@@ -478,6 +518,8 @@ Dois formatos de venda em paralelo, ambos configurados no Painel Admin:
 
 **Divergência conhecida entre o documento de precificação e o código:** o documento descreve "Autoatendimento & Google Reviews" como 1 módulo, mas no código são 2 flags independentes — `features.autoatendimentoPublico` (bloqueia o link público de agendamento) e `features.notificacoes` (dispara o gatilho de avaliação). Ligar só Autoatendimento não ativa a parte de Google Reviews; precisa dos dois. Não unificado de propósito — juntar as duas flags numa só exigiria inventar um comportamento que ninguém pediu.
 
+**`id` do módulo ≠ nome da feature, pra 2 dos 4 módulos** — `combos`/`estoque` batem (`id` do módulo é literalmente o nome da flag), mas `financeiro` liga a flag `relatorios` e `cortex` liga `notificacoes` (`MODULOS` em `backend/routes/admin.js`). **Bug corrigido em 2026-08-18:** `frontend/src/config/planosKernel.js` não carregava esse de-para — o reverse-mapping em `AdminTenantForm.jsx` (reconstrói os checkboxes a partir de `tenant.features` ao reabrir um tenant pra editar) comparava `MODULOS[].id` direto contra as chaves de feature, então "Financeiro Avançado" e "Brainiac" **sempre** apareciam desmarcados ao reabrir, mesmo já salvos como `true` no banco — parecia que a seleção "não ficava salva" (salvar sempre funcionou certo, só a leitura mentia). `MODULOS` ganhou um campo `flag` explícito por módulo; `mapaDeLista()` passa a comparar por `flag` quando existe.
+
 ---
 
 ## Pontos de integração
@@ -554,3 +596,4 @@ O sistema foi originalmente projetado para single-tenant por deploy (um cliente 
 | 2.4 | 2026-07-28 | Botão "Desconectar" do WhatsApp exposto direto no card de remetente (por unidade, resolvida dinamicamente via `useUnidades()` + pseudo-canal `admin`), sem precisar abrir o modal de QR Code — porta pro whitelabel o mesmo ajuste do sistema-thieco, só faltava expor `api.whatsapp` (`status`/`qrcode`/`conectar`/`desconectar`) no `api.js`, backend já pronto desde v2.2. Fix no PDV (`RegistroVenda.jsx`): seletor de Serviço/Produto passa a dividir o catálogo pela `categoria` do item, não por `controla_estoque` (que segue sendo a fonte da verdade só pra classificação de comissão/upsell/alertas de estoque) — mesmo fix aplicado no thieco no mesmo dia. Ver [[registro-de-decisoes-kernel]]. |
 | 3.0 | 2026-08-02 | **Rebrand pra "Kernel" + domínio `kercellwc.online` registrado** (deploy ainda pendente). Fix de gap real: `<title>` da aba do navegador era estático, incompatível com 1 build atendendo N tenants — `TenantConfigContext` agora seta `document.title` em runtime a partir do branding. `FRONTEND_URL` (usado em recuperação de senha/confirmação de agendamento) ganhou entrada em `.env.example`/`docker-compose.yml` — antes não existia, fallback caía sempre em `localhost:5173`. **Painel Admin de Onboarding** (`/admin`, nova seção nesta doc): substitui `INSERT` manual por CRUD de verdade — `routes/admin.js` (auth própria, `authenticateAdmin`), `Tenant.create/update/findAll`, criação transacional (tenant + unidade + usuário admin), reset de senha de usuário do tenant (gap real: conta admin não tinha nenhum caminho de recuperação). `AdminApp.jsx`/`AdminAuthContext.jsx`/`pages/admin/*` no frontend, árvore React separada de `App.jsx`. Ver [[registro-de-decisoes-kernel]]. |
 | 3.1 | 2026-08-02/03 | **Modelo KERNEL OS** (nova seção nesta doc) substitui a estrutura "Nível 1/2/3": `tenants.nivel` renomeada pra `plano` (`start`/`pro`/`full`), coluna nova `limite_profissionais` (trava real em `POST /profissionais/admin/cadastrar`, HTTP 403 ao atingir) e `usa_comissao` (esconde/renomeia a palavra "Comissão" na UI pra tenant sem comissão — dono solo ou time assalariado; não muda cálculo). `MODULOS`/`BASE_SEMPRE_LIGADO`/`LEGADO_VALIDAS`/`PLANO_MODULOS` em `routes/admin.js` substituem `FEATURES_VALIDAS`/`NIVEL_FEATURES`. Dois bugs de mapeamento encontrados e corrigidos testando com o Willians: (1) migration com `RENAME COLUMN` em duas etapas causava crash loop em todo restart (`column already exists`) — simplificada pra uma `ADD COLUMN` só; (2) módulo Autoatendimento apontava pra mesma flag da Agenda interna (`agenda`), deixando tenant sem esse módulo sem acessar a própria agenda — separado em `agenda` (Base, sempre ligada) e `autoatendimentoPublico` (módulo pago, só o link público). Dashboard/Relatório do operador viram Base (só `GET /relatorios/inteligencia` continua atrás do módulo Financeiro) — corrige um erro técnico que aparecia pra tenant sem esse módulo logo após login. Gatilho de Google Review a partir da Agenda (automático ao concluir + manual sob demanda). UX de módulo bloqueado: menu mostra tudo, item sem módulo fica visível mas travado (cadeado), em vez de sumir ou gerar erro. Features do tenant passam a atualizar sem exigir logout/login (`GET /auth/me` recalcula do banco, frontend revalida a cada 60s). Ver [[registro-de-decisoes-kernel]] (6 entradas, uma por item) para o detalhamento completo. |
+| 3.2 | 2026-08-18 | **Sessão de incidentes + features em produção real (tenant "Lukinhas Barber"), 6 deploys ao longo do dia.** Login: colisão de username case-insensitive entre admin e gestor de um mesmo tenant travava o login do gestor pra sempre (backend sempre resolvia a conta errada) — checagem de disponibilidade de username ficou case-insensitive na criação, login ganhou `ORDER BY` como segunda camada. Notificações: `CHECK` constraint desatualizado (`ticket_medio` faltando) derrubava `GET /configuracoes/notificacoes` com 500 pra **todo** tenant, silenciosamente. Mobile: sidebar ficava presa aberta em qualquer celular no Safari — `window.innerWidth` no `useState` inicial podia capturar o viewport "ideal" do WebKit antes da `<meta viewport>` assentar; correção roda a checagem de novo logo após o mount. PWA: ícone de "Adicionar à Tela de Início" no iOS (ver seção "Sistema de Branding por Tenant") — HTML de `/t/:slug` passa a ser renderizado no backend; um cache mal desenhado nessa mesma feature causou um outage real (login de qualquer tenant em branco), corrigido removendo o cache. **Gestor pode ser atribuído a um login de barbeiro já existente** (`usuarios.eh_gestor`) — evita precisar de 2 credenciais pra quem corta cabelo e administra; 3 novas chaves de `permissoes_extra` (`estoque`, `gatilhos`, `campanhas`). Consumo Interno replicado no login do barbeiro. **Duração de serviço personalizável por profissional** (nova tabela `catalogo_duracao_profissional`) — Motor de Agendamento e Kalel passam a calcular disponibilidade considerando quem efetivamente vai atender, não mais um tempo padrão único. Bug de mapeamento corrigido no Painel Admin: 2 dos 4 módulos avulsos (Financeiro/Brainiac) sempre apareciam desmarcados ao reabrir um tenant, mesmo já salvos — `id` do módulo divergia do nome da feature real. Ver [[registro-de-decisoes-kernel]] (10 entradas) e [[modelo-de-dados-kernel]] para o detalhamento completo. |
