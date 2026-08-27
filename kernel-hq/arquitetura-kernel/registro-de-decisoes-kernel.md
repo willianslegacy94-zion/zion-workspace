@@ -665,3 +665,18 @@ Entradas em ordem cronológica crescente — as mais recentes no final.
 **Artefatos atualizados:** [[arquitetura-kernel]] (seção "Shell de navegação por papel").
 **Observação:** o `bottomNavBarbeiro()` já colocava a Agenda no centro em destaque — cair nela ao logar fecha o ciclo (tela inicial = item central da barra = tela principal do produto, igual ao admin).
 
+---
+
+## 2026-08-27 — Resumo diário da agenda pro WhatsApp do barbeiro (só se tiver agendamento) + guard no disparo de Faturamento
+
+**Motivo:** Pedido do Willians: o disparo da agenda só pode sair "a partir do momento que tenha um agendamento no sistema — se não existir, não dispara nada pro WhatsApp dos barbeiros cadastrados". Duas frentes: (1) não existia nenhum disparo indo pro WhatsApp do barbeiro (`profissionais.telefone` só era usado no login) — o que existia era só o lembrete pro **cliente**; o Willians quer que o barbeiro receba a agenda dele, mas nunca uma mensagem vazia; (2) a notificação de **Faturamento** disparava "R$ 0,00 em 0 atendimento(s)" mesmo sem nenhum movimento no período.
+
+**Impacto:**
+- Função nova `gerarResumoAgendaBarbeiros(tenantId)` em `routes/notificacoes.js`, no cron de 15min do `server.js` como `paraCadaTenantAtivo('agenda', ...)`. Janela de horário `07:00–11:00` (checada na função; TZ do container = `America/Sao_Paulo`, mesmo pressuposto de `verificarNotificacoesConfiguradas`); depois das 11:00 não dispara atrasado (ex.: restart no meio do dia).
+- Consulta: agendamentos de `CURRENT_DATE` com `status IN ('pendente','confirmado')`, `JOIN profissionais` com `telefone` preenchido. **Se a consulta volta vazia, a função retorna sem disparar nada** — é essa a garantia pedida. Barbeiro sem telefone ou sem agendamento hoje não aparece e não recebe.
+- Agrupa por profissional, monta a lista de horários (`• HH:MM  Serviço  Cliente`) e manda via `enviarWhatsapp` (canal = `unidade` do profissional). Idempotente: checa `notificacoes` por `tipo='resumo_agenda_barbeiro'` + `meta->>'profissional_id'` + `meta->>'data'` antes de inserir — uma vez por profissional/dia mesmo com o cron rodando de 15 em 15min. Registra em `notificacoes` (`canal='whatsapp'`, `enviado_whatsapp` = resultado real do envio), então também entra na fila `GET /notificacoes/whatsapp/pendentes` se o envio falhar (mesmo padrão de `gerarLembretesAgendamento`).
+- `gerarNotifFaturamento` ganhou `if (atendimentos === 0) return null;` — para de enfileirar o disparo "R$ 0,00" quando não houve atendimento no período. Alinha com `gerarNotifTicketMedio`/`gerarRankingPorTipo`/`gerarNotifEstoqueParado`, que já retornavam `null` nesse caso.
+**Status:** aplicado e em produção (commit `0b0659d`, deploy via `git pull` + `docker compose up -d --build` no serviço `backend` da VPS; `kernel_api` healthy, sem erro nos logs. Primeiro disparo real só na janela das 07:00 local).
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Sistema de Notificações e Gatilhos Automáticos" — bloco "Quem recebe o quê" + "Disparo vazio suprimido").
+**Observação:** não é configurável por tenant (liga junto com `features.agenda`); se precisar de toggle ou de escolher o horário por tenant depois, o gancho natural é uma linha em `configuracoes_notificacoes` com um `tipo` novo, reaproveitando `hora_disparo`/`ativo`. O número de destino é o `profissionais.telefone` do cadastro — o mesmo que já servia pro login.
+

@@ -427,8 +427,9 @@ resolve o agendamento sozinho.
 setInterval (server.js)
    │
    ├─ a cada 5min  → gerarLembretesAgendamento + gerarGatilhoAvaliacaoPosVenda
-   └─ a cada 15min → verificarNotificacoesConfiguradas + gerarGatilhoAniversariante
-                      + gerarGatilhoClienteSumido
+   └─ a cada 15min → verificarNotificacoesConfiguradas + gerarResumoAgendaBarbeiros
+                      + gerarGatilhoAniversariante + gerarGatilhoClienteSumido
+                      + gerarGatilhoInadimplente
    │
    └─ para CADA tenant ativo (Tenant.findAllAtivos()), só se a feature
       correspondente estiver ligada — 1 processo atende todos os tenants,
@@ -439,6 +440,23 @@ Cooldown de marketing: no máximo 1 mensagem de marketing (aniversário /
 cliente sumido / promoção / avaliação pós-venda) por cliente a cada 14 dias,
 **mesmo entre tipos diferentes** — evita empilhar contato em cima de contato
 recente.
+
+**Quem recebe o quê:** os lembretes/gatilhos de marketing e confirmação vão
+pro **cliente** (`cliente_contato`); as notificações configuráveis
+(faturamento/ranking/estoque/ticket) vão pro **admin** (`usuarios.telefone`,
+role `admin`, com `notif_canal_whatsapp`). O único disparo que vai pro
+**barbeiro** é o **resumo diário da agenda** (`gerarResumoAgendaBarbeiros`,
+desde 2026-08-27): de manhã (janela 07:00–11:00, TZ do container =
+America/Sao_Paulo), cada profissional com `profissionais.telefone` cadastrado
+**e com pelo menos um agendamento no dia** recebe a lista dos horários dele.
+Sem agendamento hoje → não recebe nada (a consulta volta vazia, a função sai
+sem disparar). Idempotente por profissional/dia via `notificacoes`
+(`tipo = 'resumo_agenda_barbeiro'`), gated por `features.agenda`.
+
+**Disparo "vazio" suprimido:** `gerarNotifFaturamento` retorna `null` quando
+não houve nenhum atendimento no período (mesmo critério que
+`gerarNotifTicketMedio`/rankings/estoque parado já tinham) — não enfileira
+mais "R$ 0,00 em 0 atendimento(s)".
 
 ---
 
