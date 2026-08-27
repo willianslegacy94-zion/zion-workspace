@@ -680,3 +680,17 @@ Entradas em ordem cronológica crescente — as mais recentes no final.
 **Artefatos atualizados:** [[arquitetura-kernel]] (seção "Sistema de Notificações e Gatilhos Automáticos" — bloco "Quem recebe o quê" + "Disparo vazio suprimido").
 **Observação:** não é configurável por tenant (liga junto com `features.agenda`); se precisar de toggle ou de escolher o horário por tenant depois, o gancho natural é uma linha em `configuracoes_notificacoes` com um `tipo` novo, reaproveitando `hora_disparo`/`ativo`. O número de destino é o `profissionais.telefone` do cadastro — o mesmo que já servia pro login.
 
+---
+
+## 2026-08-27 — Barbeiro só compartilha a própria agenda, nunca o link geral da unidade
+
+**Motivo:** Pedido do Willians: "os barbeiros só devem ter na tela deles o link da agenda própria; a agenda geral da unidade sempre fica no login do administrador e de uso do agente — o login de barbeiro vê só o botão de compartilhar da própria agenda". Na tela **Agenda** (`pages/Agenda.jsx`) o botão de compartilhar o link **geral da unidade** (`CompartilharAgendamento` sem `profissionalId`) aparecia pra `isAdmin || isOperador || isBarbeiro`, então o barbeiro via **dois** botões de compartilhar (o da unidade + o dele). `MeuPainel.jsx` e `GestaoTime.jsx` já resolviam isso mostrando o link genérico só quando `!user.profissional_id`; a Agenda tinha ficado fora dessa regra.
+
+**Impacto:**
+- `pages/Agenda.jsx`: a condição do link geral da unidade passou de `(isAdmin || isOperador || isBarbeiro)` pra `(isAdmin || isOperador)`. O bloco do link individual (`profissionalId={user.profissional_id}`, label "Meu link de agendamento") continua igual — é o único botão de compartilhar que o barbeiro puro enxerga.
+- Nada muda pro admin/operador (seguem vendo o link da unidade) nem pro barbeiro com `eh_gestor` (cai no `AppAutenticado`, mesma tela do admin).
+- Resto da tela do barbeiro já era escopado a ele: sem seletor de unidade (`podeEscolherUnidade = isAdmin`), sem filtro por profissional (`podeFiltrarProfissional = isAdmin || isOperador`), e `carregarProfissionais` devolve só o próprio (`[{ id: user.profissional_id, nome: user.nome }]`).
+**Status:** aplicado e em produção (commit `b0660d4`, deploy via `git pull` + `docker compose up -d --build` no serviço `frontend` da VPS; `kernel_web` healthy, `https://kernellwc.online/` → 200).
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Shell de navegação por papel" — bullet sobre a Agenda do barbeiro).
+**Observação:** "de uso do agente" = o Kalel/Brainiac operam sobre a agenda da unidade via login admin (ou rotas internas), não via login de barbeiro — então tirar o link geral do barbeiro não afeta o agente. A regra `!user.profissional_id` (não é um colaborador) é o teste canônico pra "pode ver o link genérico da unidade" nas três telas que expõem `CompartilharAgendamento`.
+
