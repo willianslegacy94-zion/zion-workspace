@@ -3,7 +3,7 @@ status: stable
 domain: kernel
 source: claude
 created: 2026-06-24
-updated: 2026-08-20
+updated: 2026-08-27
 owner: willians
 ---
 
@@ -617,4 +617,51 @@ Entradas em ordem cronológica crescente — as mais recentes no final.
 **Status:** aplicado e em produção (commit `c067279`, deploy via `git pull` + `docker compose up -d --build` no serviço `frontend` da VPS).
 **Artefatos atualizados:** [[arquitetura-kernel]] (seção "Sistema de Campanhas de Marketing").
 **Observação:** critério usado pra decidir onde cada coisa fica — "Unidades" porque os 3 cards são configuração pontual por filial (mesma natureza do resto da aba); "Campanhas" virou página porque é ferramenta de uso recorrente (disparo ativo, não um formulário de configurar uma vez e esquecer), não fazia sentido dividir espaço de aba com o resto de Configurações.
+
+---
+
+## 2026-08-27 — Login do barbeiro passa a usar o mesmo shell do admin (Header + BottomNav) + fix da sidebar fechando sozinha ao rolar no mobile
+
+**Motivo:** Pedido do Willians. Dois problemas no login do barbeiro (`role='barbeiro'` puro, sem `eh_gestor`): (1) a tela não tinha a mesma navegação do admin — o barbeiro navegava por um seletor de abas apertado (`Registro / Lançamentos / Painel`) embutido no cabeçalho próprio da página `MeuPainel.jsx`, e não pela barra inferior fixa (`BottomNav`) que o admin tem no mobile; (2) `MeuPainel.jsx` tinha cabeçalho e wrapper `min-h-screen` próprios, empilhando **dois cabeçalhos** e fazendo a logo do tenant aparecer diferente da do admin (texto `✂ Barbearia <nome>` em vez do `Header` compartilhado com a logo grande). Tentar encaixar a logo nesse header lotado quebrava o layout. Separadamente, o Willians reportou que no mobile, ao tentar rolar a página com a sidebar aberta, ela **fechava sozinha**.
+
+**Impacto:**
+- `AppBarbeiro` (`App.jsx`) passou a renderizar `<BottomNav>` (antes só `AppAutenticado`/admin renderizava). Novo helper `bottomNavBarbeiro(features)` monta a barra espelhando o padrão do admin: 2 itens à esquerda (`Meu Painel` + `Lançamentos`, o primeiro só com `features.painelColaborador`), 1 em destaque no centro (`Agenda`, ou `Registro` como fallback quando o tenant não tem `features.agenda` — e nesse caso `Registro` sai da direita pra não duplicar), e à direita `Registro` + `Relatório`. `Metas` e `Consumo Interno` continuam acessíveis só pela sidebar/hambúrguer.
+- `BottomNav.jsx` virou configurável: props opcionais `esquerda` / `centro` / `direita`. Sem elas, o comportamento do admin/gestor é **idêntico** ao anterior (constantes internas + `Agenda` no centro condicionada a `features.agenda`). O botão central deixou de ter `id`/`label`/ícone `Agenda` hardcoded.
+- `MeuPainel.jsx` deixou de ser uma "shell paralela": removidos o `<header>` sticky próprio (logo textual, abas `Registro/Lançamentos/Painel`, toggle de tema, "Sair") e o wrapper `min-h-screen bg-onix-gradient`. Passou a ser só conteúdo, como as outras páginas — logo/tema/sair vêm do `Header` compartilhado; navegação vem da `BottomNav`/sidebar. Sobrou uma faixa fina no topo do conteúdo com a saudação ("Olá, `<nome>`" + data) e o botão de link pessoal de agendamento (`CompartilharAgendamento`).
+- `<main>` do `AppBarbeiro` ganhou o mesmo `padding-bottom` de safe-area do admin (`calc(6rem + env(safe-area-inset-bottom))` no mobile, `md:pb-0` no desktop) — sem isso o conteúdo ficaria atrás da barra fixa.
+- **Tela inicial ao logar = Agenda para todos os papéis** (antes só o admin/gestor caía na Agenda; operador caía em `Registro`, barbeiro em `Meu Painel`/`Registro`). `AppOperador` e `AppBarbeiro` passaram a inicializar `pagina` com `user.features.agenda ? 'agenda' : <padrão antigo>` — mesmo critério do `AppAutenticado`. Cai no padrão antigo só quando o tenant não tem o módulo Agenda no plano.
+- **`Sidebar.jsx`: "Configurações" + "Sair" saíram do rodapé fixo (`flex-1` empurrando pra base do `<aside>`) e passaram pro fim da `<nav>` rolável, logo abaixo do último item do menu.** Com poucos itens (login do barbeiro), o rodapé ancorado ficava longe demais do resto e podia sumir abaixo da dobra no mobile (`h-full` + barra de endereço do navegador). Agora, aberta a sidebar, todos os botões — incluindo "Sair" — aparecem juntos; menu longo (admin) rola normalmente e alcança o "Sair" no fim.
+- **Fix da sidebar (bug separado, mesmo commit):** o handler de `resize` (`AppAutenticado`, `AppBarbeiro`, `AppOperador` em `App.jsx` + `AdminRoot` em `AdminApp.jsx`) rodava `if (mobile) setSidebar(false)` em **todo** evento de resize. No mobile, a barra de endereço do navegador aparecendo/sumindo durante o scroll (e o teclado abrindo) dispara `resize` — então rolar a página fechava a sidebar. Agora um flag `eraMobile` no closure do `useEffect` faz o fechamento acontecer **só na transição desktop → mobile** (rotação de tela, redimensionar janela). O `check()` no mount que corrige o caso do Safari (ver v3.2, `innerWidth` inicial errado) continua funcionando: `eraMobile` começa `false`.
+
+**Status:** aplicado e em produção (commit `f038d6b`, deploy via `git pull` + `docker compose up -d --build` nos serviços `frontend`+`backend` da VPS; smoke tests OK — `/health` e `https://kernellwc.online/` respondendo).
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Shell de navegação por papel" nova + correção da cobertura do toggle de tema).
+**Observação:** o `Header.jsx` já era compartilhado e a lógica de logo (`tenant.logoUrl ? <img> : divisor dourado`) é a mesma pra todos os papéis — o barbeiro só não a via porque o header próprio do `MeuPainel` a encobria. Nenhuma regra de negócio ou de dados mudou; é mudança de shell de UI.
+
+---
+
+## 2026-08-27 — Folga mínima obrigatória de 10min entre agendamentos do mesmo profissional
+
+**Motivo:** Pedido do Willians ("garanta isso"). Até então a única regra entre dois agendamentos do mesmo profissional era não haver sobreposição de horário — dois atendimentos back-to-back (um termina 10:00, o próximo começa 10:00) eram permitidos, sem nenhum tempo de preparo/limpeza entre clientes.
+
+**Impacto:**
+- Constante nova `INTERVALO_MINIMO_ENTRE_AGENDAMENTOS_MIN = 10` em `backend/routes/agendamentos.js` — **hardcoded de propósito**, não é configurável por tenant. É piso de produto; se um dia virar configurável, 10min é o mínimo travado.
+- `calcularDisponibilidade` (o motor do grid de horários candidatos): cada agendamento já marcado passa a "ocupar" também os 10min antes e depois — slots que encostam no anterior não são mais oferecidos. Como o autoagendamento público (`agendamentos-publico.js`) e o Kalel (`internal.js`: `POST /agendar-direto`, `GET /disponibilidade`) reusam essa mesma função, os três canais herdam a folga de uma vez.
+- `existeConflito` (checagem pré-INSERT com mensagem amigável, criação e reagendamento na agenda interna): a janela do agendamento existente é expandida em ±10min no `OVERLAPS` do SQL.
+- Fora do escopo: o almoço (`jornada_unidade.intervalo_inicio`/`intervalo_fim`) — já é uma janela fechada tratada à parte, não precisa de folga em volta. E a `EXCLUDE CONSTRAINT` do Postgres, que continua só anti-sobreposição (não conhece a folga) — segue sendo só o backstop de corrida.
+**Status:** aplicado e em produção (commit `9f08f40`, deploy via `git pull` + `docker compose up -d --build` no serviço `backend` da VPS; `kernel_api` healthy, `/health` OK).
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Sistema de Agendamento Público").
+**Observação:** `OVERLAPS` é semi-aberto (`[início, fim)`), então exatos 10min de intervalo são permitidos e só < 10min é bloqueado — bate com "10min, não menos que isso". Regra também salva na memória de longo prazo do Claude Code, mesmo padrão das regras hardcoded do Kalel.
+
+---
+
+## 2026-08-27 — Agenda vira a tela inicial ao logar para todos os papéis + "Sair" reposicionado na sidebar
+
+**Motivo:** Pedido do Willians, dois ajustes de UX na sequência da unificação do shell do barbeiro (entrada acima). (1) "A primeira tela que tem que cair, independente do login, tem que ser a da Agenda" — só o admin/gestor caía nela; operador caía em `Registro`, barbeiro em `Meu Painel`/`Registro`. (2) No login do barbeiro (poucos itens de menu) o botão "Sair" da sidebar, ancorado no rodapé fixo, ficava longe demais do resto e sumia abaixo da dobra no mobile.
+
+**Impacto:**
+- `AppOperador` e `AppBarbeiro` (`App.jsx`) passaram a inicializar `pagina` com `user.features.agenda ? 'agenda' : <padrão antigo>` — mesmo critério que o `AppAutenticado` já usava. Cai no padrão antigo (`Registro` / `Meu Painel`) só quando o tenant não tem o módulo Agenda no plano.
+- `Sidebar.jsx`: "Configurações" (admin) + "Sair" saíram do rodapé `shrink-0` (que o `<nav flex-1>` empurrava pra base do `<aside>`) e foram pro fim da `<nav>` rolável, logo abaixo do último item do menu, com um `border-t` separando. Com a sidebar aberta agora todos os botões aparecem juntos; menu longo (admin) rola normalmente até o "Sair" no fim.
+**Status:** aplicado e em produção (commits `dbc3ba0` e `421e092`, deploy via `git pull` + `docker compose up -d --build` no serviço `frontend` da VPS; `kernel_web` healthy, `https://kernellwc.online/` → 200).
+**Artefatos atualizados:** [[arquitetura-kernel]] (seção "Shell de navegação por papel").
+**Observação:** o `bottomNavBarbeiro()` já colocava a Agenda no centro em destaque — cair nela ao logar fecha o ciclo (tela inicial = item central da barra = tela principal do produto, igual ao admin).
 

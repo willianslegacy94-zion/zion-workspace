@@ -3,7 +3,7 @@ status: stable
 domain: kernel
 source: claude
 created: 2026-06-24
-updated: 2026-08-20
+updated: 2026-08-27
 owner: willians
 ---
 
@@ -279,6 +279,27 @@ Assets (`/assets/*.js`, `/favicon.svg` etc.) continuam batendo direto no nginx n
 
 ---
 
+## Shell de navegação por papel
+
+Uma única árvore React (`App.jsx`) monta um shell diferente conforme o papel resolvido no login (`AppRoot`):
+
+| Papel | Componente | Sidebar (grupos) | BottomNav (mobile) |
+|---|---|---|---|
+| admin / gestor | `AppAutenticado` | `gruposAdmin(features, profissional_id)` | `Dashboard · Lançamentos · Agenda (centro) · Clientes · Config.` |
+| operador | `AppOperador` | `gruposOperador(features)` | — (sem barra inferior) |
+| barbeiro (`role='barbeiro'` puro) | `AppBarbeiro` | `gruposBarbeiro(features)` | `bottomNavBarbeiro(features)` — espelha o admin (desde 2026-08-27) |
+| barbeiro com `eh_gestor=true` | `AppAutenticado` | igual admin | igual admin |
+
+Componentes compartilhados por todos os shells: `Header.jsx` (logo do tenant + toggle de tema + sino de notificações só pra admin), `Sidebar.jsx` (menu lateral, overlay no mobile), `HamburgerBtn.jsx`, `BottomNav.jsx`.
+
+- **Tela inicial ao logar = Agenda para todos os papéis** (desde 2026-08-27) — os três shells inicializam `pagina` com `user.features.agenda ? 'agenda' : <padrão do papel>` (`dashboard` pro admin, `registro` pro operador, `meupainel`/`registro` pro barbeiro). Só cai no padrão do papel quando o tenant não tem o módulo Agenda no plano.
+- **`BottomNav.jsx`** — barra inferior fixa, `md:hidden` (só mobile; no desktop a navegação é a sidebar). Aceita `esquerda` / `centro` / `direita` como props; sem elas usa o layout padrão do admin. O item central fica elevado em destaque. **Item fora do plano do tenant não aparece** — sem cadeado, sem versão apagada (decisão de 2026-08-24). O barbeiro passa sua própria config via `bottomNavBarbeiro()`: `Meu Painel` + `Lançamentos` à esquerda, `Agenda` no centro (ou `Registro` se o tenant não tem `features.agenda`), `Registro` + `Relatório` à direita; `Metas` e `Consumo Interno` só na sidebar.
+- **`Sidebar.jsx` — "Configurações" + "Sair"** ficam no fim da `<nav>` rolável, logo abaixo do último item do menu (separados por `border-t`), não num rodapé ancorado na base do `<aside>`. O rodapé fixo antigo, empurrado pelo `<nav flex-1>`, ficava longe demais do resto com poucos itens (login do barbeiro) e sumia abaixo da dobra no mobile (`h-full` + barra de endereço). Agora, aberta a sidebar, todos os botões aparecem juntos; menu longo (admin) rola até o "Sair" (mudou em 2026-08-27).
+- **Fechar a sidebar no `resize`** — o handler só força `setSidebar(false)` na **transição desktop → mobile**, não em todo evento. No mobile a barra de endereço do navegador (e o teclado) dispara `resize` durante o scroll; sem o guard `eraMobile`, a sidebar fechava sozinha ao rolar a página (fix de 2026-08-27).
+- **`MeuPainel.jsx`** é só conteúdo (não é mais uma shell paralela com header/abas próprios — mudou em 2026-08-27).
+
+---
+
 ## Sistema de Tema Escuro/Claro
 
 ```
@@ -299,8 +320,7 @@ A fórmula lighten/darken **não reproduz** a paleta de fábrica (`lighten('#D4A
 
 **Cobertura do toggle (sol/lua):**
 - `Login.jsx` — antes de logar (todos, inclusive barbeiro)
-- `Header.jsx` — admin e operador
-- `MeuPainel.jsx` — barbeiro diretamente no header próprio (ao lado do Sair)
+- `Header.jsx` — admin, operador **e barbeiro** (desde 2026-08-27 o barbeiro usa o mesmo shell; ver "Shell de navegação por papel"). O `MeuPainel.jsx` não tem mais header próprio.
 
 ---
 
@@ -361,6 +381,19 @@ Duas garantias contra corrida (dois clientes reservando o mesmo horário ao
 mesmo tempo): checagem `OVERLAPS` na aplicação (mensagem amigável) **e**
 `EXCLUDE CONSTRAINT` no Postgres (`tenant_id + profissional_id + intervalo de
 tempo`, via `btree_gist`) como rede de segurança de última instância.
+
+**Folga mínima de 10min entre agendamentos (desde 2026-08-27):** a regra
+entre dois agendamentos do mesmo profissional deixou de ser só "não sobrepor"
+— cada agendamento existente passa a "ocupar" também os
+`INTERVALO_MINIMO_ENTRE_AGENDAMENTOS_MIN = 10` minutos antes e depois
+(constante hardcoded em `routes/agendamentos.js`, não configurável por
+tenant). Aplicada em `calcularDisponibilidade` (não oferece o slot que
+encosta no anterior — cobre agenda interna, link público e Kalel, que reusam
+essa função) e em `existeConflito` (janela expandida ±10min no `OVERLAPS`
+pré-INSERT, criação e reagendamento). O almoço (`jornada_unidade.intervalo_*`)
+fica de fora — já é janela fechada à parte. A `EXCLUDE CONSTRAINT` segue só
+anti-sobreposição (não conhece a folga), continua sendo só o backstop de
+corrida.
 
 **Duração de serviço por profissional (desde 2026-08-18):** `calcularDisponibilidade`
 (o motor que monta o grid de horários candidatos) deixou de assumir um único
