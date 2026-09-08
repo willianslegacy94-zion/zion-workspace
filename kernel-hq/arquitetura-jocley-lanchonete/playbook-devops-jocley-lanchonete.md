@@ -3,7 +3,7 @@ status: stable
 domain: jocley-lanchonete
 source: claude
 created: 2026-08-10
-updated: 2026-08-10
+updated: 2026-09-06
 owner: willians
 ---
 
@@ -26,20 +26,21 @@ Esse projeto específico (`lanchonete-sistema`) não tem `.aiox-core/` — não 
 
 **Reconfirmado em 2026-08-07 (sessão de entrada rápida de estoque + ficha técnica de espetos):** a tentativa de invocar o subagente `aiox-devops` via Agent tool falhou (`Agent type 'aiox-devops' not found`) — o `.claude/agents/aiox-devops.md` existe no `Kernel Workspace` (nível pai), mas não é descoberto quando a sessão roda com cwd dentro de `lanchonete-sistema` (subpasta). Solução usada: spawnar um agente `general-purpose` com instrução explícita para ler `.claude/commands/AIOX/agents/devops.md` (persona Gage) + a task de pre-push quality gate, e então rodar `tsc`/`lint` + `git push origin main` (nunca `-f`) — funcionou nas duas vezes (commits `7abd46c` e `1b56d7f`), sempre só depois de confirmação explícita do usuário ("sim") pra cada push. Padrão reaproveitável pra qualquer projeto do workspace sem `.aiox-core/` que precise do fluxo de push com quality gate mesmo sem o subagente nativo disponível.
 
-| | Detalhe |
-|---|---|
-| Caminho | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema` |
-| Nome de exibição | "Jocley Grill" (renomeado de "Jocley Lanchonete" em 2026-07-30 — constante `NOME_LANCHONETE`, `src/lib/constants.ts`, usada em toda a UI) |
-| Stack | Next.js 15 + Prisma 6 + PostgreSQL (Docker local) + NextAuth v5 (credentials, campos `usuario`/`senha`, não `username`/`password`) |
-| Containers | `jocley-lanchonete-db` (Postgres — porta do host configurável via `POSTGRES_HOST_PORT`, default **5436** local — escolhida em 2026-08-10 pra não colidir com nenhum outro sistema do workspace; **5435** na VPS, valor específico daquele ambiente), `jocley-lanchonete-app` (`3001:3000`, só usado se subir via `docker compose up` completo — dev local normal roda o Next fora do container, ver abaixo) |
-| Banco | `jocley_lanchonete`, local via `docker-compose.yml` na raiz do projeto |
-| VPS (produção) | `/opt/lanchonete-sistema` (SSH, IP `2.24.93.178`) — **atenção:** os outros sistemas dessa VPS (Villa Mill, Sistema Thieco) vivem em `/var/www/...`, a lanchonete foi implantada em `/opt/...`; não é o mesmo padrão de caminho, confira sempre com `pwd` antes de rodar comando às cegas achando que está no padrão dos outros |
+|                  | Detalhe                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Caminho          | `/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema`                                                                                                                                                                                                                                                                                                                                             |
+| Nome de exibição | "Jocley Grill" (renomeado de "Jocley Lanchonete" em 2026-07-30 — constante `NOME_LANCHONETE`, `src/lib/constants.ts`, usada em toda a UI)                                                                                                                                                                                                                                                                   |
+| Stack            | Next.js 15 + Prisma 6 + PostgreSQL (Docker local) + NextAuth v5 (credentials, campos `usuario`/`senha`, não `username`/`password`)                                                                                                                                                                                                                                                                          |
+| Containers       | `jocley-lanchonete-db` (Postgres — porta do host configurável via `POSTGRES_HOST_PORT`, default **5436** local — escolhida em 2026-08-10 pra não colidir com nenhum outro sistema do workspace; **5435** na VPS, valor específico daquele ambiente), `jocley-lanchonete-app` (`3001:3000`, só usado se subir via `docker compose up` completo — dev local normal roda o Next fora do container, ver abaixo) |
+| Banco            | `jocley_lanchonete`, local via `docker-compose.yml` na raiz do projeto                                                                                                                                                                                                                                                                                                                                      |
+| VPS (produção)   | `/opt/lanchonete-sistema` (SSH, IP `2.24.93.178`) — **atenção:** os outros sistemas dessa VPS (Villa Mill, Sistema Thieco) vivem em `/var/www/...`, a lanchonete foi implantada em `/opt/...`; não é o mesmo padrão de caminho, confira sempre com `pwd` antes de rodar comando às cegas achando que está no padrão dos outros                                                                              |
 
 ### Rodar local
 
 ```bash
 cd "/mnt/c/Users/Willians DataMeet/Desktop/Ops/lanchonete-sistema"
-npm run dev   # scripts/dev.js: sobe o Postgres via Docker (se não estiver rodando), roda `prisma migrate deploy` + `prisma generate`, depois `next dev`
+npm run dev   # scripts/dev.js: sobe o Postgres via Docker (se não estiver rodando), roda `prisma migrate deploy` + `prisma generate`, depois `next dev -p 3002`
+# porta fixa 3002 desde 2026-09-02 (ver gotcha de porta abaixo); sobrescrever com PORT=xxxx npm run dev
 ```
 
 Login de teste (`prisma/seed.ts`): `admin`/`admin123` (ADMIN), `supervisor`/`supervisor123` (SUPERVISOR), `caixa`/`caixa123` (CAIXA), `atendente`/`atendente123` (ATENDENTE), `cozinha`/`cozinha123` (COZINHA), **`devmaster`/`dev2026`** (ADMIN, conta oculta — não aparece em `/usuarios` nem em `GET /api/users`; único login que enxerga Configurações → Logs de Erro).
@@ -101,15 +102,19 @@ ss -ltnp | grep <porta>             # confirma quem seguraria a porta antes mesm
 ```
 No caso da lanchonete, `5434` colidia com o `lane-confeitaria-db` — resolvido tornando a porta do host configurável (`POSTGRES_HOST_PORT`, ver tabela acima) em vez de fixa no `docker-compose.yml`. Default local trocado pra **5436** em 2026-08-10 (`docker-compose.yml`, `scripts/dev.js` e `.env`/`.env.example` atualizados juntos), a VPS mantém `POSTGRES_HOST_PORT=5435` só no próprio `.env`. **Nunca fixar porta de host direto num `docker-compose.yml` que é compartilhado entre dev local e VPS** — o que "não colide" hoje pode colidir amanhã quando outro projeto entrar na mesma VPS.
 
+**Gotcha confirmado em 2026-08-13: o novo default `5436` também colide, nesta máquina, com o container `evolution_postgres`** (não fazia parte da varredura de portas de 2026-08-10 — surgiu/foi notado depois). Sintoma: `npm run dev` falha logo na migration com `Error: P1000: Authentication failed against database server` — não é credencial errada, é o Postgres errado atendendo na porta (o `evolution_postgres` responde em `5436` com outro usuário/banco). Confirmar sempre com `docker ps | grep 5436` antes de assumir que é o `jocley-lanchonete-db`; se colidir, apontar `POSTGRES_HOST_PORT` do `.env` local pra uma porta livre (conferir com `docker ps -a` primeiro, mesmo comando da VPS acima) — **não** mudar o default do `docker-compose.yml`/`scripts/dev.js` de novo só por causa desta máquina, já rodou nessa cadeia antes (5434→5436) e o problema é específico do conjunto de containers já de pé aqui, não do projeto.
+
 **Gotcha do terminal: heredoc multi-linha colado na sessão SSH pode corromper o terminador.** Colar um bloco `comando <<'EOF' ... EOF` de uma vez (via paste do terminal) fez o `EOF` de fechamento vir com lixo grudado (`EOF~`), o heredoc não fechou onde devia, e os comandos seguintes viraram *conteúdo do arquivo* em vez de serem executados — nada do que devia rodar, rodou, silenciosamente. Não deu erro óbvio, só descobri comparando o resultado esperado com o real (`ls /opt` não mostrando a pasta clonada). **Preferir sempre comandos de uma linha só nessa VPS** (`echo "linha" >> arquivo`, um por vez) ou, pra conteúdo maior (ex.: um script), gerar localmente e transmitir como `base64 -d` de uma string única — nunca heredoc multi-linha colado interativamente.
 
-### Gotcha: disputa de porta com outros projetos locais do workspace (`academia-sandro`, `lane-confeitaria`) — e por que **não** fixar a porta
+### Gotcha: disputa de porta com outros projetos locais do workspace (`villamill`, `academia-sandro`, `lane-confeitaria`) — porta fixada em 3002 desde 2026-09-02
 
-Vários projetos do `Kernel Workspace` sobem `next dev` sem porta fixa, todos preferindo `3000` por padrão. Quem sobe primeiro pega `3000`; os outros caem em cascata pra `3001`, `3002`... **A porta que a lanchonete acaba usando muda dependendo da ordem em que os projetos foram iniciados** — não é fixo em `3001` como o `.env` (`NEXTAUTH_URL`/`AUTH_URL`) sugere. Confirme sempre com `ss -tlnp | grep -E ':(3000|3001|3002)'` + `readlink /proc/<pid>/cwd` antes de assumir a porta.
+Vários projetos do `Kernel Workspace` sobem `next dev` sem porta fixa, todos preferindo `3000`. Até 2026-09-02 a lanchonete também não fixava — quem subisse primeiro pegava `3000`, os outros caíam em cascata, **e a porta da lanchonete mudava conforme a ordem de inicialização**. Desde 2026-09-02 o `scripts/dev.js` fixa `-p 3002` (ver histórico abaixo). Ainda assim, se algo parecer errado, confirme com `ss -tlnp | grep -E ':(3000|3001|3002)'` + `readlink /proc/<pid>/cwd`.
 
-**Já tentei "corrigir" isso fixando a porta com `next dev -p 3001` no `scripts/dev.js` — piorou.** Sem `-p`, o Next cai graciosamente pra próxima porta livre se a preferida estiver ocupada; **com** `-p` explícito, ele **falha** (`EADDRINUSE`) em vez de cair pra outra porta, porque o fallback automático só existe no modo "porta preferida, sem exigência". Revertido — `scripts/dev.js` está de volta sem `-p`, deliberadamente.
+**Histórico dessa decisão (mudou de direção):**
+- **2026-08-10:** tentei fixar com `next dev -p 3001` e reverti — sem `-p`, o Next cai graciosamente pra próxima porta livre; **com** `-p` explícito ele **falha** (`EADDRINUSE`) em vez de cair pra outra, porque o fallback automático só existe no modo "porta preferida, sem exigência".
+- **2026-09-02:** o cliente pediu explicitamente pra fixar ("fixa ela no sistema pra sempre abrir nela") depois de abrir a 3000 e cair no `villamill-app`. `scripts/dev.js` voltou a ter `-p`, agora **`next dev -p ${PORT || 3002}`** — 3002 por não colidir com villamill (3000) nem com o mapeamento `127.0.0.1:3001` do container de produção do próprio Jocley. **Tradeoff aceito e conhecido:** se a 3002 também estiver ocupada, `npm run dev` falha com `EADDRINUSE` em vez de rolar pra 3003 — nesse caso, `PORT=3005 npm run dev`. O `.env` local (`NEXTAUTH_URL`/`AUTH_URL`) foi alinhado pra `:3002` na mesma mudança.
 
-Se o login redirecionar pra porta errada (cai em outro sistema, ou dá erro de sessão), o problema é esse — descobrir a porta real e acessar direto nela, ou matar o processo do outro projeto que "roubou" a `3000`/`3001` primeiro (nunca o `academia-sandro`/`lane-confeitaria` sem confirmar com o dono antes, só os processos da própria lanchonete).
+Se o login redirecionar pra porta errada (cai em outro sistema, ou dá erro de sessão), o problema é esse — descobrir a porta real e acessar direto nela, ou matar o processo do outro projeto que "roubou" a porta primeiro (nunca o `villamill`/`academia-sandro`/`lane-confeitaria` sem confirmar com o dono antes, só os processos da própria lanchonete).
 
 ### Gotcha: Docker Desktop não está sempre aberto neste WSL
 
@@ -164,6 +169,77 @@ docker exec jocley-lanchonete-db psql -U postgres -d jocley_lanchonete -c \
   "SELECT rota, status, mensagem, \"createdAt\" FROM \"ErrorLog\" ORDER BY \"createdAt\" DESC LIMIT 20;"
 ```
 **Atenção ao usuário do Postgres — `postgres` só funciona local.** O `.env` de produção (VPS) define `POSTGRES_USER=jocley_prod`, não o default `postgres` do `docker-compose.yml` — rodar o comando acima na VPS sem trocar o `-U` dá `FATAL: role "postgres" does not exist`. Confirme sempre antes: `grep POSTGRES_USER /opt/lanchonete-sistema/.env`.
+
+### Impressão (Cozinha + Caixa) — fila + Agente (ESC/POS, desde 2026-09-02; refatorado pra fila/agente em 2026-09-03; **segmentado Cozinha/Caixa + USB local em 2026-09-05**)
+
+Dois caminhos de impressão totalmente distintos no sistema:
+
+- **Cupom de pagamento do Caixa** (fechamento/finalização) — `window.print()` no navegador do dispositivo do Caixa, impressora cabeada, diálogo do SO. Inalterado desde 2026-09-02, exceto o fix de 2026-09-05: `.print-area` de `position:fixed` pra `position:absolute` em `globals.css` — `fixed` repetia o cupom inteiro em toda página impressa (spec de mídia paginada), causando duplicação/triplicação em comandas longas. (CSS escurecido em 2026-09-02 pra sair legível — ver `cupom-impressao.tsx`, classe `.cupom-termico`; página `/cupom-teste` compara antigo×novo.)
+
+- **Ficha de produção/bebida + ficha de conta** — **fila + agente**. O servidor (`src/lib/impressao.ts`, `node-thermal-printer` só pra montar os bytes via `getBuffer()`, **sem abrir socket nem tocar em USB**) renderiza a ficha em ESC/POS e grava em `FilaImpressao`. Um **Agente de Impressão** (`agente-impressao/`, Node puro, sem deps) rodando **no PC do caixa** faz polling em `GET /api/impressao/fila` (header `Authorization: Bearer <IMPRESSAO_AGENT_TOKEN>`), imprime e reporta em `PATCH /api/impressao/fila/[id]`.
+  - **Duas impressoras (`Impressora.papel`) desde 2026-09-05:** `PRODUCAO_COZINHA` (sempre rede/Wi-Fi) e `CAIXA` (bebidas/drinks + ficha de conta do "Fechar Comanda" — tipicamente **USB local**, ligada por cabo no próprio PC do caixa, sem IP). `Impressora.tipo`/`FilaImpressao.tipo` (`REDE`/`USB_LOCAL`) decide como o agente imprime: `REDE` → socket TCP `ip:porta` (9100); `USB_LOCAL` → grava um arquivo temp e roda `copy /b <tmp> \\localhost\<compartilhamento>` (`imprimirLocal()` em `agente.js`) — o compartilhamento do Windows precisa estar habilitado na impressora (ver runbook, PASSO 5B).
+  - **Por que fila/agente e não socket/USB direto:** o container roda na VPS (`2.24.93.178`); a impressora Wi-Fi da Cozinha tem IP privado da LAN do restaurante e a do Caixa é USB local — a VPS **não roteia/alcança** nenhuma das duas. O agente inverte a direção: agente→VPS é saída HTTPS (passa por NAT), agente→impressora é local/LAN. Escolha do cliente entre 3 opções pra Cozinha (VPN/subnet-router, agente, port-forward) — ver Registro de Decisões 2026-09-03; pra Caixa USB local, só o agente resolve (não dá pra fazer VPN/port-forward chegar num barramento USB).
+  - **Lançar item não enfileira mais nada sozinho (mudou ainda em 2026-09-05, no mesmo dia):** `POST /api/orders/[id]/items` só marca o item como pendente (`enviadoImpressaoEm=null`) — enfileirar automático a cada item saía picado (1 ficha por item) e não dava retorno visível de que tinha ido. Quem enfileira de fato é sempre uma ação explícita: **"Confirmar Pedido"** (`POST /api/orders/[id]/confirmar-pedido`, botão na tela da comanda) junta tudo que está pendente numa **ficha só por destino** (`Product.enviaParaCozinha=true` → papel `PRODUCAO_COZINHA`; `false` → papel `CAIXA`), espera até ~12s a confirmação do Agente e mostra o resultado por destino na tela. "Fechar Comanda" e "Finalizar Comanda" chamam esse mesmo endpoint silenciosamente antes de prosseguir, como salvaguarda. Reimpressão manual pelo botão do KDS (`POST /api/kds/reimprimir`, `{itemId}` = ficha avulsa, `{orderId}` = consolidada) continua exclusiva de itens de Cozinha — não existe reenvio manual de bebidas ainda. "Fechar Comanda" também enfileira a ficha de conta, sempre no papel `CAIXA`, à parte do "Confirmar Pedido".
+  - `Impressora` (um registro por `papel`) guarda o alvo (IP/porta ou compartilhamento, conforme `tipo` — fonte da verdade, editável em Configurações → Impressoras) e `agenteVistoEm` (heartbeat — atualizado a cada poll, pros dois papéis; a aba mostra "Agente: online/offline" por impressora).
+  - `/api/impressao/*` é **isento do gate de sessão do middleware** (`matcher` exclui `api/impressao`) — autentica só pelo token. As demais rotas de impressão (`/api/configuracoes/impressoras*`) usam `guardPermissao("configuracoes.impressoras")` (desde 2026-09-06 — antes `guardGestor()`).
+  - **Jobs velhos:** `FilaImpressao` PENDENTE com mais de 30 min (`VALIDADE_JOB_MS`) é descartado no próximo poll (vira `ERRO` + `ErrorLog`) — ficha fria não sai. Falha do agente: 3 tentativas (`MAX_TENTATIVAS`), depois `ERRO` + `ErrorLog` com o alvo (`IP:porta` ou compartilhamento) e o código do erro.
+
+**Pontos operacionais:**
+
+- **`node-thermal-printer` está em `serverExternalPackages` no `next.config.ts`** — usa `net`/require dinâmico, não pode ser empacotado. Se um `next build` reclamar dele, é isso que faltou.
+- **Env obrigatória na VPS:** `IMPRESSAO_AGENT_TOKEN` no `/opt/lanchonete-sistema/.env` (`openssl rand -hex 32`). Sem ela, `/api/impressao/*` responde **503**. O mesmo valor vai no `.env` do agente como `AGENT_TOKEN`.
+- **Ver a fila:** `docker exec jocley-lanchonete-db psql -U jocley_prod -d jocley_lanchonete -c 'SELECT origem, status, tentativas, "ultimoErro", "criadoEm" FROM "FilaImpressao" ORDER BY "criadoEm" DESC LIMIT 20;'`
+  - **Gotcha (2026-09-05): o usuário do Postgres em produção NÃO é `postgres`** — é customizado via `POSTGRES_USER` no `.env` da VPS (`docker-compose.yml` usa `${POSTGRES_USER:-postgres}`, mas a VPS tem um valor próprio setado). `psql -U postgres ...` falha com `role "postgres" does not exist`. Forma que funciona sem precisar saber o valor: `docker compose exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "..."'` — usa as env vars já definidas dentro do próprio container `db` (setadas pelo `docker-compose.yml`), sem precisar descobrir nem digitar usuário/senha na sessão SSH.
+- **Testar sem impressora:** `POST /api/configuracoes/impressoras/testar` enfileira um cupom de teste e espera até 12s o agente confirmar — 200 se saiu, 502 se o agente reportou erro, 504 se ninguém pegou o job (agente offline).
+- **Diagnóstico rápido da falha:** `ErrorLog` (Configurações → Logs de Erro, conta `devmaster`) com `rota LIKE '%impressao%'` ou `rota LIKE '%fila cozinha%'`.
+
+---
+
+#### Runbook — instalar o Agente no PC do caixa (Windows)
+
+> Versão canônica e detalhada, com tabela de erros: **`agente-impressao/README.md` no repositório** (vai junto com os 4 arquivos do agente pro cliente). Resumo operacional abaixo.
+
+**Ordem obrigatória: primeiro o servidor, depois o agente.** O agente não funciona antes de o código da fila estar em produção e o `IMPRESSAO_AGENT_TOKEN` estar no `.env` da VPS.
+
+**0. Servidor (VPS), antes de tudo:**
+```bash
+cd /opt/lanchonete-sistema
+openssl rand -hex 32                          # anote — é o token do agente
+nano .env                                     # adicione: IMPRESSAO_AGENT_TOKEN=<valor>
+git pull
+docker compose build app                      # OBRIGATÓRIO — dep nova (node-thermal-printer)
+docker compose up -d --force-recreate app
+docker compose logs app --tail=30 | grep -E "migrat|Ready"
+```
+Migrations aplicam no boot: `add_cliente_nome_despesa`, `add_impressora`, `add_fila_impressao`, `add_caixa_printer_conta_solicitada` (2026-09-05).
+
+**Kit pra levar** (montar numa máquina COM internet):
+- instalador **Node.js LTS 64-bit `.msi`** (nodejs.org)
+- pasta **`agente-impressao/`** (4 arquivos: `agente.js`, `package.json`, `.env.example`, `README.md`)
+- o **token** do passo 0
+- *(opcional)* `nssm.exe` (nssm.cc) se for rodar como serviço em vez de Agendador de Tarefas
+
+**Pré-requisitos do PC do caixa:** Windows; consegue abrir `https://jocleygrill.online` (porta 443 — não precisa de internet "livre"); está no **mesmo Wi-Fi** da impressora. Máquina lenta / HD comum **serve** (o agente é minúsculo — ver backlog do Índice).
+
+**No PC do caixa:**
+1. Instalar o Node pelo `.msi` (opções padrão; **não** marcar "install necessary tools/Chocolatey" — exigiria internet). Conferir: `node --version` ≥ 18.
+2. Copiar `agente-impressao/` pra `C:\jocley-agente`.
+3. Descobrir o **IP da impressora** (folha de autoteste dela) e **fazer reserva de DHCP no roteador** pra esse IP não mudar. Sem isso, para de funcionar em dias.
+4. Copiar `.env.example` → `.env` (na mesma pasta) e preencher:
+   ```
+   SERVIDOR_URL=https://jocleygrill.online
+   AGENT_TOKEN=<mesmo token do passo 0>
+   ```
+   Conferir que não virou `.env.txt` (Windows esconde extensão): `dir` no Prompt.
+5. Sistema → **Configurações → Impressoras → Impressora de Cozinha** → preencher IP + porta (9100), deixar **ativa**, **Salvar**.
+5B. **Impressora do Caixa (desde 2026-09-05):** se for USB local (sem IP) — compartilhar no Windows (Painel de Controle → Dispositivos e Impressoras → Propriedades → Compartilhamento → nome simples sem espaço, ex. `IMPRESSORACAIXA`) e cadastrar em **Configurações → Impressoras → Impressora do Caixa** com Conexão = "USB local", usando esse nome. Se tiver IP de rede, cadastrar como "Rede" igual à Cozinha, sem precisar compartilhar nada. Detalhe completo no `README.md` do agente, seção "PASSO 5B".
+6. Teste manual: `cd C:\jocley-agente` + `node agente.js` (deixar aberto) → clicar **"Testar impressão"** em cada impressora cadastrada no sistema → cupom sai + log mostra `job ...: impresso`. `Ctrl+C` depois.
+7. Deixar rodando sempre — **Opção A: Agendador de Tarefas** (Criar Tarefa completa → "Ao inicializar" → programa `C:\Program Files\nodejs\node.exe`, argumento `agente.js`, iniciar em `C:\jocley-agente` → "Reiniciar se falhar" a cada 1 min). **Opção B: serviço com `nssm`** (comandos no README).
+8. Confirmar: Configurações → Impressoras mostra **"Agente de impressão: online (visto há Xs)"**.
+
+**Gotcha confirmado em 2026-09-06: nem todo PC do caixa usa a Opção B (nssm).** O PC do caixa em produção foi configurado com a **Opção A (Agendador de Tarefas)** — não existe `nssm.exe` na pasta do agente ali. Rodar `nssm stop/start ...` nesse PC dá `"nssm" não é reconhecido como comando`, porque o `nssm.exe` simplesmente não está instalado (nem faria sentido, já que o agente não roda como serviço nssm nesse PC). Antes de mandar reiniciar via nssm, **confirme qual opção foi usada**: `dir C:\jocley-agente\nssm.exe` — se der "arquivo não encontrado", é Agendador. Reiniciar pelo Agendador: `taskschd.msc` → localizar a tarefa (nome sugerido no runbook: "Jocley Agente Impressao", mas pode ter outro nome) → botão direito ou painel da direita → **Finalizar** (se estiver rodando) → **Executar**.
+
+**Erros comuns:** `HTTP 401` no log = token não bate. `ETIMEDOUT`/`EHOSTUNREACH` = PC não alcança a impressora (IP, energia, Wi-Fi). `fila: sem conexão com o servidor` = PC não abre `jocleygrill.online`. "online mas não confirmou o teste" = agente rodando mas impressora com problema (papel/energia). Parou depois de dias = IP mudou → reserva de DHCP + atualizar em Configurações. Tabela completa no `agente-impressao/README.md`.
 
 ### Configurações → Taxas (dois grupos, desde 2026-07-30)
 

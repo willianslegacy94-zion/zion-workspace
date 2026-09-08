@@ -99,5 +99,5 @@ owner: willians
 ## Regras de uso
 
 - Item de menu (Sidebar/Navbar) nunca aparece para um role que não pode acessar aquela rota — a lista de itens já nasce filtrada, não é escondida via CSS
-- `guardGestor()` no servidor é obrigatório em qualquer novo endpoint de escrita de Cardápio/Estoque/Ficha Técnica/Usuários — nunca confiar apenas na ocultação de botão no componente
+- Um guard no servidor é obrigatório em qualquer novo endpoint de escrita — nunca confiar apenas na ocultação de botão no componente. Desde 2026-09-06 o padrão é `guardPermissao("<chave>")` / `guardPermissaoQualquer([...])` (`src/lib/api-guard.ts`), casando com a mesma chave de permissão que filtra a aba/botão; `guardCaixa()` só para a separação atendente×caixa (`guardGestor()`/`guardAdmin()` não existem mais)
 - `CupomImpressao` e o `@page` de 80mm nunca devem virar regra global do `globals.css` — precisa continuar escopado ao componente, para não colidir com a impressão A4 do DRE

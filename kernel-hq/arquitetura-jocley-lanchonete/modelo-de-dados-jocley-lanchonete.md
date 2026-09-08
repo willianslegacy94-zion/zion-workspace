@@ -3,7 +3,7 @@ status: stable
 domain: jocley-lanchonete
 source: claude
 created: 2026-07-29
-updated: 2026-08-07
+updated: 2026-09-06
 owner: willians
 ---
 
@@ -34,8 +34,10 @@ owner: willians
 | TaxaPagamento | Percentual de taxa por forma de pagamento (e opcionalmente por bandeira) | Base do cálculo de Receita Líquida — snapshot em `Order.taxaTotal` no fechamento |
 | TaxaDelivery | Percentual de comissão por canal de delivery/marketplace | Alimenta a Calculadora de Metas (Inteligência Financeira) — desconta da receita bruta projetada conforme o canal escolhido |
 | ConfiguracaoNotificacao | Configuração de um tipo de notificação (ativo, periodicidade, horário) | Define o que e quando notificar — disparo real via WhatsApp (Evolution API) implementado em 2026-08-04, consumido por um agendador em processo (`src/instrumentation.ts`) |
-| ConfiguracaoGeral | Par chave-valor genérico | Reservado para configurações soltas — hoje guarda a chave `whatsapp_telefone_notificacao` (telefone que recebe as notificações, desde 2026-08-04) |
+| ConfiguracaoGeral | Par chave-valor genérico | Configurações soltas — `whatsapp_telefone_notificacao` (telefone que recebe as notificações, desde 2026-08-04) e `categorias_cardapio` (lista de categorias do cardápio em JSON `[{nome, vaiParaCozinha}]`, editável em Configurações → Categorias do Cardápio, desde 2026-09-06) |
 | ErrorLog | Registro técnico de uma exceção capturada no servidor | Memória persistida do que quebrou — rota, mensagem técnica, stack, usuário e data, visível só à conta `devmaster` |
+| Impressora | Endereço de uma impressora de rede (ESC/POS) do estabelecimento | Guarda IP/porta da impressora de rede da Cozinha + `agenteVistoEm` (heartbeat do Agente de Impressão). A impressora do Caixa **não** entra aqui — continua no `window.print()`. Adicionada em 2026-09-02 |
+| FilaImpressao | Fila de trabalhos de impressão da Cozinha | Desde 2026-09-03 a VPS não fala direto com a impressora — grava aqui a ficha já renderizada em ESC/POS (base64) e o **Agente de Impressão** (PC do caixa) consome a fila, imprime na LAN e confirma. Ver Registro de Decisões 2026-09-03 |
 
 ---
 
@@ -56,15 +58,15 @@ owner: willians
 
 > **Conta especial `devmaster`:** mesma entidade `User`, role ADMIN, sem coluna nem flag própria distinguindo-a — a exclusividade é aplicada em código (`guardDevmaster()`, `src/lib/api-guard.ts`, checa `email === "devmaster"`) e na query de listagem (`GET /api/users` filtra `email != "devmaster"`). Seedada em `prisma/seed.ts` para sobreviver a qualquer reseed.
 >
-> **Permissões granulares (`permissoesOverride`):** a árvore canônica de chaves (abas + subtópicos) vive em código (`src/lib/permissions.ts`, `PERMISSION_TREE`), não no banco — o campo só guarda o mapa resolvido para aquele usuário. `resolvePermissoes()` calcula o efetivo: `role=ADMIN` → tudo `true` sempre; senão `permissoesOverride ?? defaultPermissoes(role)`. É uma camada **adicional** ao RBAC por role no middleware, nunca uma ampliação (ver RN-049).
+> **Permissões granulares (`permissoesOverride`):** a árvore canônica de chaves (abas + subtópicos) vive em código (`src/lib/permissions.ts`, `PERMISSION_TREE`), não no banco — o campo só guarda o mapa resolvido para aquele usuário. `resolvePermissoes()` calcula o efetivo: `role=ADMIN` → tudo `true` sempre; senão `permissoesOverride ?? defaultPermissoes(role)`. É uma camada **adicional** ao RBAC por role no middleware, nunca uma ampliação (ver RN-049). Subtópicos de Configurações: `configuracoes.notificacoes`, `configuracoes.taxas`, `configuracoes.impressoras`, e (desde 2026-09-06) `configuracoes.mesas` e `configuracoes.categorias`. Desde 2026-09-06 essas chaves também governam a **autorização de API** das rotas de gestão (`guardPermissao()`/`guardPermissaoQualquer()` em `api-guard.ts`), não só a visibilidade da aba — ver RN-070.
 
 ### Table (Mesa)
 
 | Atributo | Tipo | Obrigatório | Calculado | Descrição |
 |---|---|---|---|---|
 | id | String (cuid) | sim | sim | identificador único |
-| numero | Int | sim | não | número da mesa (1–12) — UNIQUE |
-| status | TableStatus | sim | não | LIVRE / OCUPADA / CONTA — default LIVRE |
+| numero | Int | sim | não | número da mesa — UNIQUE. O seed cria 1–12; desde 2026-09-06 dá pra criar/remover mesas em Configurações → Mesas (`POST /api/tables` usa o próximo número livre) |
+| status | TableStatus | sim | não | LIVRE / OCUPADA / CONTA — default LIVRE. Remoção da mesa (Configurações → Mesas) só é permitida quando `LIVRE` e sem comanda `PENDENTE` |
 
 ### Order (Comanda)
 
@@ -73,6 +75,7 @@ owner: willians
 | id | String (cuid) | sim | sim | identificador único |
 | tipo | OrderTipo | sim | não | MESA / BALCAO — default MESA |
 | numero | Int? | não | não | sequencial diário — só preenchido em comandas BALCAO |
+| clienteNome | String? | não | não | nome do cliente da comanda — informado na abertura (`abrir-comanda-dialog`) ou editável depois na tela da comanda e na aba Lançamentos. Coluna existe desde a migration `20260811151346_add_cliente_nome_e_contador_global`; passou a ser exibida na listagem de Lançamentos, impressa no cupom e editável na reimpressão em 2026-09-02 |
 | mesaId | String? | não | não | FK → Table — null em comandas BALCAO |
 | paymentStatus | PaymentStatus | sim | não | PENDENTE / FECHADO / CANCELADO — default PENDENTE |
 | total | Decimal(10,2) | sim | sim | soma dos subtotais dos itens |
@@ -82,6 +85,9 @@ owner: willians
 | taxaTotal | Decimal(10,2) | sim | sim | soma da taxa aplicada por forma/bandeira no fechamento — snapshot, não recalculado depois |
 | caixaId | String? | não | não | FK → User — quem abriu/operou a comanda |
 | caixaNome | String? | não | não | snapshot do nome do operador |
+| contaSolicitada | Boolean | sim | não | default `false` — vira `true` quando alguém (tipicamente ATENDENTE) aperta "Fechar Comanda" (RF-117): trava novos itens pra quem não é caixa e dispara a ficha de conta no Caixa. Não é o fechamento em si — `paymentStatus` continua `PENDENTE` até o Caixa finalizar (RF-017). Coluna nova desde a migration `20260905180000_add_caixa_printer_conta_solicitada` |
+| contaSolicitadaEm | DateTime? | não | não | timestamp de quando `contaSolicitada` virou `true` |
+| contaSolicitadaPor | String? | não | não | snapshot do nome de quem solicitou a conta (`session.user.name` no momento) |
 | createdAt | DateTime | sim | sim | gerado na criação |
 | closedAt | DateTime? | não | não | preenchido no fechamento |
 
@@ -108,6 +114,7 @@ owner: willians
 | status | String | sim | não | KDS — PENDENTE / PRONTO — default PENDENTE |
 | createdAt | DateTime | sim | sim | gerado na criação |
 | prontoEm | DateTime? | não | não | preenchido quando a cozinha marca como pronto |
+| enviadoImpressaoEm | DateTime? | não | não | `null` = ainda não entrou em nenhuma ficha de impressão. Preenchido assim que o item é incluído num job de `FilaImpressao` — pelo "Confirmar Pedido" (ação explícita, ficha consolidada por destino) ou por uma reimpressão manual do KDS — **não** espera a confirmação física do agente. Coluna nova desde a migration `20260905190000_add_enviado_impressao_em` |
 
 ### Product (Produto)
 
@@ -115,7 +122,7 @@ owner: willians
 |---|---|---|---|---|
 | id | String (cuid) | sim | sim | identificador único |
 | nome | String | sim | não | nome no cardápio |
-| categoria | String | sim | não | agrupamento — categorias canônicas desde 2026-08-07 (`CATEGORIAS_CARDAPIO`, `src/lib/constants.ts`): "Espetinhos Assados", "Espetinhos Crus", "Burgers na Brasa", "Jantinhas e Porções", "Bebidas", "Insumos", "Outros". Renomeadas de "Espetos"/"Lanches"/"Porções" (nomes antigos, inconsistentes com o cardápio real do cliente) — seed migra produtos já existentes das categorias antigas via `updateMany`, não só cadastra as novas |
+| categoria | String | sim | não | agrupamento — string livre, sem FK. Até 2026-09-05 as opções vinham de uma constante fixa (`CATEGORIAS_CARDAPIO`, `src/lib/constants.ts`: "Espetinhos Assados", "Espetinhos Crus", "Burgers na Brasa", "Jantinhas e Porções", "Bebidas", "Insumos", "Outros"). **Desde 2026-09-06 a lista é configurável** em Configurações → Categorias do Cardápio (`ConfiguracaoGeral["categorias_cardapio"]`, `src/lib/categorias.ts`); a constante virou só o padrão inicial/fallback. Cada categoria carrega `vaiParaCozinha` — ao cadastrar um produto numa categoria com `vaiParaCozinha=false` (ex.: Bebidas), o campo `enviaParaCozinha` já nasce `false` (ver RN-046). Remover uma categoria da lista **não** renomeia os produtos que a usavam — eles mantêm a string antiga e continuam aparecendo como opção "solta" no formulário |
 | preco | Decimal(10,2) | sim | não | preço de venda |
 | costPrice | Decimal(10,2) | sim | sim* | CMV — calculado a partir da ficha técnica, exceto quando `costPriceManual=true` |
 | costPriceManual | Boolean | sim | não | true = custo fixado manualmente (ex.: bebida revendida sem ficha técnica) — default false |
@@ -172,6 +179,7 @@ owner: willians
 | valor | Decimal(10,2) | sim | não | valor pago |
 | valorPrevisto | Decimal(10,2)? | não | não | valor orçado, se diferente do pago |
 | categoria | String | sim | não | Mercadoria, Funcionários, Aluguel, Utilidades, Manutenção, Marketing, Impostos, Outros |
+| clienteNome | String? | não | não | nome do cliente associado à despesa — opcional, sem validação. Adicionado em 2026-09-02 (migration `20260902120000_add_cliente_nome_despesa`); exibido como coluna na listagem de Lançamentos/Despesas e filtrável pela busca por cliente naquela tela |
 | data | DateTime | sim | não | data da despesa |
 | registradoPor | String? | não | não | nome de quem registrou |
 | recorrente | Boolean | sim | não | default false |
@@ -268,8 +276,8 @@ owner: willians
 
 | Atributo | Tipo | Obrigatório | Calculado | Descrição |
 |---|---|---|---|---|
-| chave | String | sim | não | chave primária — hoje só `whatsapp_telefone_notificacao` é usada |
-| valor | String | sim | não | valor associado |
+| chave | String | sim | não | chave primária — `whatsapp_telefone_notificacao` e `categorias_cardapio` (desde 2026-09-06) |
+| valor | String | sim | não | valor associado — para `categorias_cardapio` é um JSON serializado `[{nome: string, vaiParaCozinha: boolean}]` (parse/serialize em `src/lib/categorias.ts`, com fallback para `CATEGORIAS_CARDAPIO_PADRAO` se a chave não existir ou estiver corrompida) |
 
 ### ErrorLog
 
@@ -284,6 +292,45 @@ owner: willians
 | createdAt | DateTime | sim | sim | gerado na criação |
 
 Nunca criado manualmente — só `handleApiError` (`src/lib/api-error.ts`) grava, dentro de um `try/catch` próprio (falha ao logar nunca derruba a resposta ao cliente).
+
+> **Impressão de rede na cozinha (desde 2026-09-02):** a falha de uma tentativa de impressão automática da ficha de produção (`imprimirFichaComLog`, `src/lib/impressao.ts`) grava um `ErrorLog` com `status=502` e `mensagem` contendo identificação da comanda + item + detalhe técnico (`IP:porta (CÓDIGO_DO_SOCKET) — mensagem`), sem derrubar o lançamento do pedido. É a única origem de `ErrorLog` fora de `handleApiError`.
+
+### Impressora
+
+| Atributo | Tipo | Obrigatório | Calculado | Descrição |
+|---|---|---|---|---|
+| id | String (cuid) | sim | sim | identificador único |
+| nome | String | sim | não | rótulo da impressora (ex.: "Impressora da Cozinha", "Impressora do Caixa") |
+| tipo | TipoConexaoImpressora | sim | não | REDE / USB_LOCAL — default REDE. Adicionado em 2026-09-05 |
+| ip | String? | não | não | IP da impressora na rede local (validado como IPv4 na API) — só quando `tipo=REDE`. Ficou opcional em 2026-09-05 (antes era obrigatório, só existia impressora de rede) |
+| porta | Int? | não | não | porta RAW/JetDirect — só quando `tipo=REDE`; sem default fixo desde 2026-09-05 (a API aplica 9100 se omitido) |
+| compartilhamento | String? | não | não | nome do compartilhamento de impressora do Windows — só quando `tipo=USB_LOCAL` (impressora ligada por cabo USB no PC do caixa, sem IP próprio). Novo em 2026-09-05 |
+| ativa | Boolean | sim | não | default true — quando false, nada é enfileirado |
+| papel | PapelImpressora | sim | não | PRODUCAO_COZINHA / CAIXA — UNIQUE (um registro por papel). `CAIXA` (bebidas/drinks + ficha de conta) adicionado em 2026-09-05 |
+| agenteVistoEm | DateTime? | não | sim | heartbeat — atualizado a cada `GET /api/impressao/fila` do agente, pros dois papéis; a aba mostra "online" se < 30s. Adicionado em 2026-09-03 |
+| createdAt / updatedAt | DateTime | sim | sim | timestamps padrão |
+
+Configurada em Configurações → Impressoras (quem tem `configuracoes.impressoras` — `guardPermissao()` desde 2026-09-06, antes `guardGestor()`) via `PATCH /api/configuracoes/impressoras` (upsert pelo `papel`, recebido no body). Duas impressoras usam esta entidade desde 2026-09-05: Cozinha (sempre `REDE`) e Caixa (`REDE` ou `USB_LOCAL`, tipicamente USB local — impressora cabeada direto no PC do caixa). O cupom de **pagamento** do Caixa (fechamento, `window.print()`) continua fora desta entidade, sem cadastro — ver RN-066 em requisitos-funcionais. O resultado do último "Testar impressão" **não** é persistido (fica só em estado da tela).
+
+### FilaImpressao
+
+| Atributo | Tipo | Obrigatório | Calculado | Descrição |
+|---|---|---|---|---|
+| id | String (cuid) | sim | sim | identificador único |
+| origem | String | sim | não | `AUTO` / `REIMPRESSAO_ITEM` / `REIMPRESSAO_COMANDA` / `CONTA` / `TESTE` — `CONTA` (ficha de conta do "Fechar Comanda", RF-117) é novo em 2026-09-05 |
+| descricao | String | sim | não | legível — "Comanda #42 — 2x Espeto de Frango" (pra UI/ErrorLog) |
+| tipo | TipoConexaoImpressora | sim | não | REDE / USB_LOCAL — default REDE, snapshot de `Impressora.tipo` no momento do enfileiramento. Novo em 2026-09-05 |
+| ip / porta | String? / Int? | não | não | snapshot do alvo (`Impressora`) no momento do enfileiramento — preenchido só quando `tipo=REDE`. Ficaram opcionais em 2026-09-05 |
+| compartilhamento | String? | não | não | snapshot de `Impressora.compartilhamento` — preenchido só quando `tipo=USB_LOCAL`. Novo em 2026-09-05 |
+| payloadBase64 | String | sim | sim | bytes ESC/POS já renderizados (`node-thermal-printer` `getBuffer()`), em base64 |
+| status | StatusFilaImpressao | sim | não | PENDENTE / IMPRESSO / ERRO — default PENDENTE |
+| tentativas | Int | sim | sim | incrementado a cada falha reportada pelo agente; ≥ 3 → ERRO |
+| ultimoErro | String? | não | sim | mensagem amigável do último erro reportado |
+| orderItemId | String? | não | não | rastreabilidade (sem FK formal) |
+| criadoEm / atualizadoEm | DateTime | sim | sim | timestamps |
+| impressoEm | DateTime? | não | sim | preenchido quando o agente confirma |
+
+`@@index([status, criadoEm])`. Job PENDENTE com mais de 30 min (`VALIDADE_JOB_MS`) é descartado (→ ERRO + `ErrorLog`) no próximo poll do agente — ficha fria não sai. Só o servidor grava; só o agente (via token) atualiza `status`. Desde 2026-09-05, o Agente decide como imprimir pelo campo `tipo` do job: `REDE` → socket TCP `ip:porta`; `USB_LOCAL` → grava um arquivo temporário e executa `copy /b` para `\\localhost\<compartilhamento>` (jeito clássico de mandar bytes RAW pro spooler do Windows sem dependência npm extra).
 
 ---
 
@@ -310,22 +357,23 @@ Nunca criado manualmente — só `handleApiError` (`src/lib/api-error.ts`) grava
 ### Mesa (TableStatus)
 ```
 LIVRE → OCUPADA → CONTA → LIVRE
+                → LIVRE (cancelamento, com ou sem CONTA)
 ```
 | Estado | Significado | O que dispara |
 |---|---|---|
 | LIVRE | disponível para abertura | fechamento/cancelamento de comanda anterior |
 | OCUPADA | comanda aberta, itens sendo lançados | abertura de nova comanda |
-| CONTA | (reservado — hoje o fluxo real vai direto de OCUPADA para LIVRE no fechamento) | — |
+| CONTA | conta solicitada (RF-117) — itens travados pro ATENDENTE, aguardando o Caixa finalizar | `POST /api/orders/[id]/solicitar-conta` (`Order.contaSolicitada=true`) *(passou a ser usado de fato em 2026-09-05 — antes era um valor reservado no enum, nunca setado por nenhum fluxo)* |
 
 ### Comanda (PaymentStatus)
 ```
-PENDENTE → FECHADO
+PENDENTE (contaSolicitada: false → true) → FECHADO
 PENDENTE → CANCELADO
 ```
 | Estado | Significado | O que dispara |
 |---|---|---|
-| PENDENTE | comanda aberta, itens sendo lançados | criação (abertura de mesa ou balcão) |
-| FECHADO | pagamento confirmado, cupom emitido, estoque deduzido | fechamento com split payment |
+| PENDENTE | comanda aberta, itens sendo lançados. `contaSolicitada` (bool, dentro de PENDENTE — não é um valor de `PaymentStatus`) fica `true` depois do "Fechar Comanda" (RF-117), travando itens pro ATENDENTE | criação (abertura de mesa ou balcão) |
+| FECHADO | pagamento confirmado (Finalizar, RF-017, restrito a CAIXA/SUPERVISOR/ADMIN), cupom emitido, estoque deduzido | finalização com split payment |
 | CANCELADO | comanda encerrada sem venda | cancelamento |
 
 ### Item da comanda (status — KDS)
@@ -339,11 +387,14 @@ PENDENTE → PRONTO
 
 | Entidade | Quem cria | Quem edita | Quem exclui |
 |---|---|---|---|
-| Product / Ingredient / RecipeItem | ADMIN, SUPERVISOR | ADMIN, SUPERVISOR (reforçado via `guardGestor()`) | ADMIN, SUPERVISOR (bloqueado se em uso) |
+| Product / Ingredient / RecipeItem | quem tem a permissão (`produtos` / `estoque` / `produtos`\|`cmv`) | idem (reforçado via `guardPermissao()`/`guardPermissaoQualquer()` na API desde 2026-09-06 — antes era `guardGestor()` por papel) | idem (bloqueado se em uso) |
 | Order / OrderItem | qualquer role com acesso a `/mesas` ou `/balcao` (CAIXA, ATENDENTE, SUPERVISOR, ADMIN) | mesmo grupo, enquanto PENDENTE | nunca (soft via cancelamento) |
 | Despesa | ADMIN, SUPERVISOR | ADMIN, SUPERVISOR | ADMIN, SUPERVISOR |
 | Funcionario / Feedback / PlanoAcao / Sugestao | ADMIN, SUPERVISOR | ADMIN, SUPERVISOR | — |
 | TaxaPagamento / TaxaDelivery / ConfiguracaoNotificacao | ADMIN | ADMIN | ADMIN (taxa por bandeira) |
+| Impressora | quem tem `configuracoes.impressoras` (`guardPermissao()`) | idem | — (sem rota de exclusão; upsert por `papel`) |
+| Table (Mesa) | quem tem `configuracoes.mesas` (`guardPermissao()`, desde 2026-09-06) | — (só status, via fluxo de comanda) | quem tem `configuracoes.mesas` — bloqueado se não-`LIVRE`/com comanda aberta; comandas fechadas são desvinculadas (`mesaId=null`) |
+| ConfiguracaoGeral — `categorias_cardapio` | quem tem `configuracoes.categorias` (`PUT /api/configuracoes/categorias`, desde 2026-09-06) | idem (substitui a lista inteira) | — (lista sempre existe; esvaziar é rejeitado) |
 | User | ADMIN (qualquer papel), SUPERVISOR (CAIXA/ATENDENTE/COZINHA) | mesma regra; `permissoesOverride` segue a mesma restrição de papel gerenciável (ADMIN edita qualquer não-ADMIN, SUPERVISOR só CAIXA/ATENDENTE/COZINHA) e nunca é editável numa conta ADMIN | apenas desativação (`ativo=false`); conta `devmaster` nunca editável, nem por ADMIN |
 | ErrorLog | sistema (via `handleApiError`, nunca por ação humana direta) | nunca editado | sem rota de exclusão implementada — cresce indefinidamente até este documento |
 
@@ -379,6 +430,9 @@ PENDENTE → PRONTO
 | TipoNotificacao | FATURAMENTO, PRODUTOS_MAIS_VENDIDOS, ESTOQUE_PARADO, ESTOQUE_BAIXO |
 | Periodicidade | DIARIO, SEMANAL, QUINZENAL, PERSONALIZADO |
 | CanalDelivery | IFOOD, NOVENTA_E_NOVE, MOTOBOY, OUTROS_DELIVERY |
+| PapelImpressora | PRODUCAO_COZINHA, CAIXA *(CAIXA novo em 2026-09-05 — bebidas/drinks + ficha de conta)* |
+| TipoConexaoImpressora | REDE, USB_LOCAL *(novo em 2026-09-05)* |
+| StatusFilaImpressao | PENDENTE, IMPRESSO, ERRO |
 
 ---
 
