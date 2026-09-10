@@ -3,7 +3,7 @@ status: stable
 domain: kernel
 source: claude
 created: 2026-06-24
-updated: 2026-08-27
+updated: 2026-09-10
 owner: willians
 ---
 
@@ -694,3 +694,275 @@ Entradas em ordem cronológica crescente — as mais recentes no final.
 **Artefatos atualizados:** [[arquitetura-kernel]] (seção "Shell de navegação por papel" — bullet sobre a Agenda do barbeiro).
 **Observação:** "de uso do agente" = o Kalel/Brainiac operam sobre a agenda da unidade via login admin (ou rotas internas), não via login de barbeiro — então tirar o link geral do barbeiro não afeta o agente. A regra `!user.profissional_id` (não é um colaborador) é o teste canônico pra "pode ver o link genérico da unidade" nas três telas que expõem `CompartilharAgendamento`.
 
+---
+
+## 2026-08-31 — Migração do WhatsApp do Kernel pra Cloud API oficial (Meta), modelo Tech Provider + Embedded Signup por barbearia
+
+**Motivo:** O gateway atual (Evolution API self-hosted, integração Baileys — WhatsApp Web não-oficial, instância `{tenantSlug}-{canal}` pareada por QR em Configurações) é o mesmo mecanismo que motivou o desligamento dos disparos automáticos no `academia-sandro` em 2026-08-30 (ver [[registro-de-decisoes-academiasandro]]): envio automático/em massa por número não-oficial = risco de banimento do número pela Meta. No Kernel o risco é multiplicado — cada barbearia tem lembrete de agendamento, confirmação de presença, aniversário, cliente sumido, avaliação pós-venda, lista de espera, resumo de agenda do barbeiro e campanhas promocionais, mais o atendimento conversacional do Kalel/Quasar, tudo por Baileys. Um ban não derruba um cliente só: queima a confiança no produto. Decisão de migrar pra WhatsApp Cloud API oficial, com template aprovado.
+
+**Decisões:**
+1. **Modelo Tech Provider + Embedded Signup.** A DataMeet/Kernel se registra uma vez como Tech Provider na Meta (App Business + verificação de negócio + Advanced Access nas permissões `whatsapp_business_management` e `whatsapp_business_messaging` via App Review). Cada barbearia conecta **a própria WABA e o próprio número** por um fluxo guiado (popup do Embedded Signup) dentro do painel do Kernel — não há chip comprado/administrado pelo Willians, nem 1 WABA da Kernel compartilhada por todos.
+   - Descartado: **número único compartilhado** — reputação e limite de envio somados/divididos entre tenants (uma barbearia manda spam, cai a entregabilidade de todas) e branding errado (o cliente da barbearia veria "Kernel").
+   - Descartado: **Willians comprar/manter 1 chip pré-pago por barbearia** — inviável operacionalmente (recarga a cada ~90 dias, re-verificação, N SIMs numa gaveta).
+2. **Cada tenant traz o número que já usa.** Se o número estiver hoje no app WhatsApp Business, a barbearia decide no onboarding: migrar pra API (perde o app naquele número) ou usar um número novo. Não é o Willians que fornece número.
+3. **Cada tenant paga as próprias mensagens da Meta** (cartão na Billing da WABA dele). Nesta primeira fase a Kernel não entra como pagador/repassador (linha de crédito de Partner fica pra depois, se fizer sentido).
+4. **Biblioteca de templates provisionada por código** logo após o Embedded Signup — os textos já existem em `routes/notificacoes.js` e nas campanhas; viram templates nomeados com variáveis, criados via `POST /{waba-id}/message_templates` em cada WABA nova. Categorias: **Utility** (lembrete, confirmação de presença, aniversário, avaliação pós-venda, lista de espera, resumo do barbeiro), **Marketing** (campanhas promocionais). Nenhum Authentication.
+5. **Sem opt-out muda?** Não por esta decisão — a decisão de produto de 2026-08-16 (sem "responda PARAR", mensagem parece atendimento humano) segue de pé. Ressalva: a política do WhatsApp Business exige opt-in registrável; Cloud API + template aprovado dá o enquadramento, mas "o cliente da barbearia consentiu receber" precisa existir em algum ponto do cadastro/agendamento. Ponto aberto pra revisitar junto com [[registro-de-decisoes-kalel]] RD-015.
+
+**Impacto (a implementar — nada em código ainda):**
+- **`backend/services/whatsappService.js`**: troca o POST da Evolution (`/message/sendText/{instancia}`) por `POST https://graph.facebook.com/v{XX}.0/{phone_number_id}/messages` com `Authorization: Bearer {token}` e corpo `type: "template"` (fora da janela de 24h só template passa; texto livre só pra responder cliente que escreveu nas últimas 24h — relevante pro Kalel/Quasar). Contrato de retorno `{ok, erro}` e gravação em `notificacoes.enviado_whatsapp` preservados.
+- **Modelo de dados**: onde hoje o remetente é `unidades.whatsapp_remetente` + nome de instância derivado, passa a precisar de `phone_number_id`, `waba_id` e token (por unidade, ou por tenant) — provável coluna/tabela nova (ex.: `unidades.whatsapp_cloud` JSONB, mesma convenção de `taxas`/`atendimento_ia`).
+- **Configurações (frontend)**: o card de QR Code / "Desconectar" (`api.whatsapp`) é substituído pelo botão do Embedded Signup + status de conexão lido de `GET /{phone_number_id}`.
+- **Quasar e Cortex** (microservices fora do repo): o webhook de entrada muda do formato da Evolution pro formato da Meta (`entry[].changes[].value.messages[]`), e o roteamento tenant/unidade passa a ser por `phone_number_id` (registrar o de-para novo em `/internal/resolve-instancia`) em vez do nome da instância. Eco/`fromMe` tratado pelo campo equivalente do payload da Meta.
+- **Webhook único**: a Cloud API manda os eventos de **todas** as WABAs conectadas pro mesmo callback do App — o dispatcher tem que rotear por `phone_number_id`, e a subscription (`POST /{waba-id}/subscribed_apps`) tem que ser feita no fim de cada onboarding.
+- **Limites**: cada número novo começa em 250 conversas iniciadas/24h e escala sozinho por qualidade. Suficiente pra barbearia.
+
+**Runbook de onboarding por barbearia (Embedded Signup):**
+
+*Pré-requisito único, uma vez, do lado da Kernel:* App Business na Meta com produto WhatsApp + "Facebook Login for Business" configurado (um `config_id` com os escopos de WhatsApp), verificação de negócio da DataMeet aprovada, Advanced Access em `whatsapp_business_management` + `whatsapp_business_messaging` (App Review com screencast do fluxo), e o botão do Embedded Signup embutido no painel (Admin ou Configurações do tenant).
+
+*Por barbearia (fluxo guiado, ~5 min, a barbearia faz junto):*
+1. No Kernel, a barbearia clica em **"Conectar WhatsApp"** → abre o popup da Meta.
+2. Loga com a conta **pessoal do Facebook** do dono (a que tem/vai ter o Business).
+3. Seleciona ou cria o **Portfólio de Negócios** (Business Portfolio) da barbearia.
+4. Cria ou seleciona a **WhatsApp Business Account (WABA)**.
+5. Adiciona o **número**: digita, recebe o código por SMS/ligação, confirma. Se o número estiver ativo no **app WhatsApp Business**, precisa sair do app primeiro (não fica nos dois ao mesmo tempo) — decisão da barbearia: migrar esse número ou usar um novo.
+6. Define o **nome de exibição** do perfil (passa por revisão da Meta, minutos a 1 dia).
+7. Concede as permissões pro app da Kernel. O popup fecha.
+8. Backend da Kernel recebe o `code`, troca por token e finaliza: registra o número na Cloud API (`POST /{phone_number_id}/register` com PIN de verificação em duas etapas), assina os webhooks da WABA, cria a biblioteca de templates padrão e grava `phone_number_id`/`waba_id`/token no tenant.
+9. Barbearia adiciona um **cartão** na Billing da WABA dela (Meta Business Settings → conta do WhatsApp → Faturamento). Sem cartão, sai do ar depois do saldo inicial de teste.
+10. Kernel mostra **"Conectado"** quando `GET /{phone_number_id}` responde verificado e pelo menos os templates Utility estão `APPROVED`.
+
+**Custo (Brasil, modelo por mensagem, vigente desde jul/2025 — confirmar na tabela viva da Meta):**
+- Utility ≈ US$ 0,008/msg (~R$ 0,04); **grátis** dentro de janela de 24h aberta pelo cliente.
+- Marketing ≈ US$ 0,0625/msg (~R$ 0,34) — campanhas promocionais.
+- Serviço (cliente inicia, barbearia responde em 24h) = grátis.
+- Cloud API hospedada pela Meta = sem taxa de plataforma.
+- Estimativa por barbearia média (200–400 clientes): lembrete/confirmação/aniversário/avaliação em Utility ~R$ 15–40/mês; campanha depende do volume que a barbearia disparar (100 destinatários ≈ R$ 34). **Pago por cada tenant, não pela Kernel.**
+- BSP (360dialog ~€49/mês repassando o preço Meta; Twilio +US$ 0,005/msg) só se a Kernel quiser um painel de template pronto — pro volume por tenant, a mensalidade do BSP não se paga.
+
+**Status:** decisão registrada. Setup na Meta (Tech Provider / Embedded Signup) **iniciado pelo Willians em 2026-08-31**. Nada implementado no código do Kernel, Kalel, Quasar ou Cortex ainda — Evolution/Baileys segue como gateway em produção até a migração. Também salvo na memória de longo prazo do assistente (Claude Code).
+
+**Artefatos atualizados:** este registro. Pendente quando implementar: [[arquitetura-kernel]] (seções "Sistema de Atendimento via WhatsApp + IA (Cortex/Quasar)", "Pontos de integração", "Sistema de Notificações e Gatilhos Automáticos", "Histórico de versão"), [[modelo-de-dados-kernel]] (credenciais Cloud por tenant/unidade), [[arquitetura-cortex]] e [[arquitetura-quasar]] (formato do webhook).
+
+**Observação:** mesma direção do [[registro-de-decisoes-academiasandro]] (2026-08-30/31), com um ponto de partida diferente — lá os disparos automáticos foram **desligados** até a migração porque é 1 número só e o risco era imediato; aqui no Kernel o gateway segue ligado (cada tenant tem número próprio, o dano de um ban é contido a 1 cliente) enquanto a migração é preparada. A dependência crítica é o Embedded Signup: sem ele, cada onboarding vira verificação manual de número (funciona, com fricção por cliente) — aceitável só enquanto o App Review não sai.
+
+---
+
+## 2026-09-01 — Campanhas viram registro reutilizável + cota mensal por tenant, e passam a enviar WhatsApp de verdade
+
+**Motivo:** Willians pediu pra portar do `sistema-thieco` o modelo novo de campanhas, com um ajuste pro whitelabel: no thieco o limite era fixo (3 campanhas/mês pra todo mundo); no Kernel campanha é módulo cobrado à parte, então a quantidade tem que ser **contratada por cliente** e habilitada por ele no painel interno. Três problemas no estado que estava: (1) `POST /campanhas` criava **e disparava** junto — não dava pra salvar uma campanha e disparar depois, nem redisparar; (2) o "disparo" só inseria em `notificacoes` sem nunca chamar `whatsappService.enviarWhatsapp()` — a mesma fila morta que lembretes/resumo de agenda já tinham abandonado; nada era enviado de fato; (3) `GET /:id/resultados` fazia `JOIN vendas` casando a mesma venda com várias linhas de `campanhas_destinatarios`, então redisparo com janelas de 30 dias sobrepostas inflava o faturamento.
+
+**Impacto:**
+- **Schema:** `campanhas_promocionais` ganha `ativo` (NOT NULL DEFAULT true), `arquivada_em`, `ultimo_disparo_em`, `total_disparos` (migração idempotente no boot). Nova coluna `tenants.limite_campanhas_mes` (INTEGER, nullable) — cota de campanhas **criadas** por mês-calendário, por unidade. `NULL`/`0` = módulo não contratado, criação bloqueada (semântica oposta a `limite_profissionais`, onde `NULL` = ilimitado). Configurada em `AdminTenantForm` (campo "Campanhas por mês"), validada em `routes/admin.js` POST/PUT `/tenants`, gravada por `Tenant.create`/`update`.
+- **Rotas (`routes/campanhas.js`):** `POST /` só **cria** (`ativo=true`, `total_destinatarios=0`), barrado pela cota. Novos: `PATCH /:id` (`ativo`/`titulo`/`mensagem`, recusa se arquivada — SET dinâmico no padrão de `routes/gastos.js`), `DELETE /:id` (soft delete → `arquivada_em` + `ativo=false`, não toca `campanhas_destinatarios`), `POST /:id/disparar` (reavalia audiência do filtro salvo, envia via `enviarWhatsapp` síncrono por destinatário no mesmo padrão de `gerarLembretesAgendamento` — grava `notificacoes.enviado_whatsapp` com o resultado real —, atualiza `ultimo_disparo_em`/`total_disparos`/`total_destinatarios`; 422 se inativa/arquivada/audiência vazia; a `assinaturaVigente` continua barrando), `GET /limite-mensal?unidade=X`. `GET /` exclui arquivadas por padrão (`?incluir_arquivadas=true`). `GET /:id/resultados` ganha um CTE `vendas_matched` com `DISTINCT ON (v.id)` antes de agrupar por cliente — dedup real por venda.
+- **Cooldown de 14 dias:** já pronto (`DIAS_COOLDOWN_MARKETING`, `TIPOS_MARKETING_CLIENTE` inclui `promocao`), só continua sendo respeitado no novo disparo — testado: 2º disparo dentro de 14 dias zera a audiência (422).
+- **Frontend (`Campanhas.jsx` reescrita):** formulário só cria (sem `confirm()`); lista de cards por campanha (badge Ativa/Inativa, resumo do filtro, dados do último disparo, botões Disparar/Ativar-Inativar/Resultados/Excluir, contador "X/N criadas este mês"; quando `limite=0` some o contador e trava o botão de criar). `api.campanhas` ganha `atualizar`/`excluir`/`disparar`/`limiteMensal`.
+- O feature flag `features.campanhas` continua gate do router (`featureGate`) e do menu — a cota é uma trava **adicional**, só sobre a criação.
+
+**Status:** aplicado e em produção (commit `4e56564`; migrations "concluídas com sucesso" no boot do `kernel_api` da VPS, colunas confirmadas no banco com os 8.580 registros históricos intactos). O `docker compose up -d --build` remoto foi bloqueado pelo classificador de auto mode da sessão — o Willians rodou o rebuild na VPS com `!`. Ciclo completo testado local ponta a ponta (criar → cota → inativar → disparar bloqueado → disparar com audiência real → contadores/destinatários/notificações → cooldown → arquivar). Envio real de WhatsApp só validado com `{ok:false}` local (sem Evolution API na stack de teste) — o caminho de gravação e contagem funciona; o envio efetivo depende do WhatsApp pareado em produção.
+
+**Artefatos atualizados:** [[modelo-de-dados-kernel]] (tabelas `tenants`, `campanhas_promocionais`, `campanhas_destinatarios`, acesso, retenção), [[arquitetura-kernel]] (seção "Sistema de Campanhas de Marketing", "Modelo KERNEL OS", "Histórico de versão" 3.3), [[requisitos-funcionais-kernel]] (Módulo 14, RF-088 a RF-094).
+
+**Observação:** cota `NULL` = bloqueio (e não um teto padrão tipo 3) foi decisão explícita do Willians — módulo pago não pode "vazar" habilitado sem cobrança. Campanhas já criadas continuam gerenciáveis (listar/disparar/arquivar) mesmo se a cota depois for zerada; só a criação nova é barrada. Se um dia precisar de cota por tenant (não por unidade) ou de "pacote de N campanhas avulsas", o gancho é a mesma coluna + a query de contagem em `contarCampanhasDoMes()`.
+
+---
+
+## 2026-09-01 — Origem de clientes com precedência de canal + pico de horário (portados do sistema-thieco)
+
+**Motivo:** Willians portou do `sistema-thieco` duas melhorias de relatório. (1) O `GET /relatorios/origem-clientes` só olhava `origem_cliente` (preenchido → canal; vazio → "não informado") — jogava fora a informação que já existe em `tipo_cliente` + no vínculo com a Agenda. Ele quer separar "cliente que reservou pela nossa Agenda" de "cliente que veio de app de terceiros (Booksy)" de "primeira vez / esporádico", que hoje somem todos no balde "não informado". (2) Não existia nenhuma visão de **pico de horário** — que horas do dia concentram atendimento.
+
+**Impacto:**
+- **`GET /relatorios/origem-clientes`** passa a derivar o canal por precedência linha a linha, numa subquery com `CASE`: (1) `origem_cliente` → `whatsapp`/`indicacao`/`organico`; (2) `tipo_cliente='agendado'` **e** `EXISTS agendamentos.venda_id = v.id` → `agendado`; (3) `tipo_cliente='agendado'` **sem** vínculo → `app_externo`; (4) `primeira_vez`/`esporadico` → o próprio valor; (5) resto → `não informado`. Passos 2–4 só quando `importado=false` (histórico importado cai sempre em "não informado"). Os `COUNT(DISTINCT ...)` e o formato de resposta não mudaram — `RankingOrigemClientes.jsx` só ganhou labels/cores pros canais novos.
+- **Modal "Concluir agendamento"** (`Agenda.jsx`, `ModalConcluirAgendamento`): `valoresIniciaisVenda` agora passa `origens: []` — o seletor de origem abre **vazio** em vez de pré-marcado com "agendado". A venda cai sozinha em "Agendado" no relatório pelo vínculo `venda_id`; o operador não precisa tocar no seletor. Confirmado que `origens: []` não quebra o `tipo_cliente` enviado (a submissão em `FormularioVenda` cai em `?? 'agendado'`).
+- **`GET /relatorios/pico-horario`** (novo, gate `features.relatorios`): atendimentos por hora = `EXTRACT(HOUR FROM agendamentos.hora_inicio)` (exclui `cancelado`/`no_show`) **UNION ALL** `EXTRACT(HOUR FROM vendas.created_at AT TIME ZONE 'America/Sao_Paulo')` só de venda de balcão sem agendamento vinculado (`importado=false`, `venda_origem_id IS NULL`, `NOT EXISTS agendamentos.venda_id = v.id`) — sem dupla contagem. Primeiro uso de `AT TIME ZONE` explícito em `relatorios.js` (o container roda `TZ=America/Sao_Paulo`, mas a sessão do Postgres não herda o `TZ` do Node — melhor ser explícito). Novo `PicoHorarioCard.jsx` (fetch próprio via prop `filtros`, no padrão do `RankingOrigemClientes`), plugado em `IntelFinanceira.jsx`.
+- Schema não mudou — `vendas.origem_cliente`/`tipo_cliente` e `agendamentos.venda_id` já existiam e já eram gravados certo. A doc do modelo de dados estava desatualizada (`tipo_cliente` como `agendado`/`walk-in`, `origem_cliente` como `instagram`/`google`) — corrigida pra bater com o código (`agendado`/`esporadico`/`primeira_vez` e `whatsapp`/`indicacao`/`organico`).
+
+**Status:** aplicado e em produção (commit `f00dfff`, mesmo deploy da entrada anterior). Queries novas rodadas direto no banco de produção contra os dados reais (tenant `principal`): `origem-clientes` classificou 485 atendimentos como `app_externo` (seed histórico sem vínculo interno) e o resto; `pico-horario` retornou a distribuição por hora com `hora_pico`.
+
+**Artefatos atualizados:** [[modelo-de-dados-kernel]] (tabela `vendas` — `tipo_cliente`/`origem_cliente` + nota "Canal de aquisição derivado"), [[arquitetura-kernel]] ("Histórico de versão" 3.3), [[requisitos-funcionais-kernel]] (RF-035, RF-047, RF-049 novo).
+
+**Observação:** a distinção `agendado` vs `app_externo` é **derivada em leitura**, não gravada — não há campo novo dizendo "veio do Booksy". O sinal é a ausência de `agendamentos.venda_id` apontando pra venda. Se um dia a barbearia parar de usar app externo, o balde `app_externo` naturalmente esvazia sem migração de dado. O rótulo do seletor manual de origem (`ORIGENS_UNIFICADAS` em `vendaShared.jsx`) segue "Agendado (aplicativo externo)" — coerente: no PDV de balcão, quem marca "Agendado" à mão é justamente o caso sem vínculo interno.
+
+
+## 2026-09-08 — Combos vira Módulo Base, fim da cobrança por barbeiro, teto de agente por base de clientes
+
+**Motivo:** Revisão comercial do Willians. Três ajustes no modelo KERNEL OS: (1) Combos deixou de ser add-on pago (R$ 49,90) — vira parte do Módulo Base, disponível pra todo tenant; o "Clube de Assinaturas" (recorrente) fica como "lançamento em breve" até fechar integração com adquirente pra cobrança automática. (2) Não existe mais limite/cobrança por barbeiro ("cadeira adicional +R$ 15/mês", `PLANO_LIMITE_PROFISSIONAIS` start=2/pro=5) — barbeiro é ilimitado em todos os planos; a única diferenciação de preço por porte é **unidade extra** (+50% do valor do plano por unidade além da 1ª), que já existia e segue gated por `tenants.permite_multi_unidade`. (3) O teto mensal de conversas incluídas do agente (era fixo em 800) passa a **escalar com a base de clientes** do tenant.
+
+**Impacto:**
+- **`backend/config/features.js`:** `combos` entra em `CORE_FEATURES` — resolvido `true` no login pra todo tenant. Backend `featureGate('combos')` e frontend `user.features.combos` sempre passam. `Combos.jsx`: aba "Clube de Assinaturas" mostra card "Lançamento em breve" no lugar de `<ClubeAssinaturas />` (tela e rotas `/planos-assinatura`/`/assinaturas` seguem no código, dormentes).
+- **`backend/routes/admin.js`:** `combos` sai de `MODULOS` (é o que faz `mensalidades.js` parar de somar), entra em `BASE_SEMPRE_LIGADO`; sai de `PLANO_MODULOS` (pro/full), `MODULOS_TEXTO_IDS`, e dos validators/payload do `PUT /precificacao`. `PLANO_LIMITE_PROFISSIONAIS` zerado (`{start:null,pro:null,full:null}` — mantido só pra não quebrar imports). Validators e payload de `preco_cadeira_extra`/`capacidade_base` removidos do `PUT /precificacao`.
+- **`backend/routes/profissionais.js`:** removido o bloqueio HTTP 403 por `limite_profissionais` no cadastro de profissional. A coluna `tenants.limite_profissionais` continua no schema, sem uso.
+- **`backend/services/mensalidades.js`:** removido o bloco `cadeiraExtra` (`preco_cadeira_extra × (barbeiros − capacidade_base)` por unidade). O cálculo passa a ser `valorPlano + valorUnidadesExtras` (unidade extra = 50%, `PRECO_UNIDADE_EXTRA_PCT`, inalterado).
+- **`backend/config/agenteConsumo.js`:** `TETOS` fixo (800 conversas / 500 utility) vira `tetoConversas(numClientes)` = `max(300, nº_clientes × 2)` e `tetoUtility(numClientes)` = `max(250, nº_clientes × 1,5)`. Fixo no código, não editável por tenant. **Sem enforcement** — estourar continua só marcando excedente pra faturar à parte. `GET /configuracoes/consumo-agente` conta os clientes do tenant e devolve o campo `clientes` + o teto calculado; o card "Consumo do mês" mostra a base. `GET /admin/custos-agente` (painel interno) ganha por cliente: `clientes`, `teto_conversas`, `excedente_conversas(_brl)` + colunas "Clientes" e "Teto conv." na tabela.
+- **Backfills idempotentes no boot (`models.js` `runMigrations`):** `backfillPrecificacaoCombosNoBase()` (`#-` remove `modulos.combos` e `textos.modulos.combos` do blob `precificacao_kernel`), `backfillPrecificacaoSemCadeira()` (remove `preco_cadeira_extra`/`capacidade_base`), `backfillTextosSemCadeira()` (reescreve, com LIKE guard, o complemento do Base, a `capacidade` dos 3 pacotes e os `modulos`/`diferencial` do Pro/Full que ainda citavam "até N barbeiros" / "Combos & Assinaturas"). `seedPrecificacaoKernel`/`TEXTOS_PADRAO` sem combos e sem cadeira.
+- **Frontend precificação:** `planosKernel.js` (`MODULOS` sem combos, `PLANO_MODULOS` pro/full sem combos, `PLANO_LIMITE` null, removidos `CAPACIDADE_BASE`/`PRECO_CADEIRA_EXTRA`, label do `MODULO_BASE` cita Combos), `precificacaoKernel.js` (`MODULOS_AVULSOS` sem combos, textos dos pacotes reescritos, bullet de combos movido pro Base), `AdminPrecificacao.jsx` (sem campos Capacidade/Cadeira), `AdminTenantForm.jsx` (sem o campo "Limite de profissionais" e sem o cálculo de cadeira no resumo), `Landing.jsx` (`IDS_MODULOS_ESCOLHIVEIS` sem combos/atendimento).
+
+**Status:** aplicado e em produção. Commits `71d5b80` (combos core + assinaturas "em breve"), `7c50b02` (limpeza da precificação de combos), `0da299f` (fim da cobrança por barbeiro), `5023aef` + `cb5571f` (backfills dos textos), `cdf4ac9` (teto por base de clientes). Rebuild na VPS pelo Willians com `!`. Mensalidades já geradas no mês corrente não mudam (`ON CONFLICT (tenant_id, competencia) DO NOTHING`) — a próxima competência sai sem combos e sem cadeira.
+
+**Artefatos atualizados:** este registro, [[modelo-de-dados-kernel]] (tabela `catalogo` — regra de estoque; `tenants.limite_profissionais` sem uso). Pendente em [[kernel-hq-arquitetura/06-precificação-Kernel]] e [[kernel-hq-arquitetura/05-niveis-de-assinatura-escopo-de-funcionalidades]] (o documento oficial de preço ainda descreve Combos como módulo pago e a cadeira adicional).
+
+**Observação:** o teto do agente escala com **clientes cadastrados**, não com barbeiros — sinal melhor de uso legítimo e independente da mudança de barbeiro ilimitado. Pra recalibrar os fatores, mexer só em `TETO_CONVERSAS`/`TETO_UTILITY` em `agenteConsumo.js`.
+
+---
+
+## 2026-09-08 — Ficha técnica: baixa automática de insumos por serviço (`catalogo_insumos`)
+
+**Motivo:** O documento de precificação promete "baixa automática de insumos por serviço" no Módulo de Estoque, mas o código só debitava estoque de **produto vendido** (`tipo_item='produto'` + `catalogo_id`). Não havia nada ligando um serviço aos insumos que ele consome. Willians pediu pra implementar de verdade.
+
+**Impacto:**
+- **Schema:** nova tabela `catalogo_insumos` (`tenant_id`, `servico_id` FK→`catalogo`, `insumo_id` FK→`catalogo`, `quantidade NUMERIC(10,3)`, UNIQUE `(servico_id, insumo_id)`, CHECK `servico_id <> insumo_id`). Migração idempotente no boot.
+- **`backend/models.js`:** modelo `CatalogoInsumo` (`listar`, `substituir` — troca a ficha inteira numa transação, valida que serviço e insumos são do tenant). `EstoqueMovimentacao.create` (versão sem client dedicado, pro POST /vendas).
+- **`backend/routes/estoque.js`:** `GET /estoque/ficha/:servicoId` e `PUT /estoque/ficha/:servicoId` (`{ itens: [{ insumo_id, quantidade }] }`). Mesmo gate do resto (`featureGate('estoque')` + `requireAdminOuPermissao('estoque')` no PUT).
+- **`backend/routes/vendas.js`:** no `POST /vendas`, se `features.estoque` e `catalogo_id`: (a) `tipo_item='produto'` → debita `catalogo.quantidade` (como já fazia) **e agora grava** `estoque_movimentacoes` (tipo `venda`); (b) `tipo_item='servico'` → busca a ficha do serviço e, pra cada insumo com `controla_estoque`, debita `qtd_da_ficha × qtd_clientes` (arredondado ao inteiro, `catalogo.quantidade` é INTEGER) e grava `estoque_movimentacoes` (tipo `venda`, motivo "Insumo de: <serviço>"). Envolvido em try/catch — erro de estoque só vira log, **nunca derruba a venda**.
+- **Frontend:** componente `FichaTecnica` na tela Estoque & Preços — cada linha de serviço tem um ícone de frasco que abre o editor (escolhe produto com `controla_estoque` + quantidade, add/remove, salva). `api.estoque.ficha`/`salvarFicha`.
+
+**Status:** aplicado e em produção. Commit `1a5268b`.
+
+**Artefatos atualizados:** este registro, [[modelo-de-dados-kernel]] (nova tabela `catalogo_insumos`, `estoque_movimentacoes` — tipo `venda` agora também de produto/insumo, `catalogo` — regra de estoque ampliada), [[requisitos-funcionais-kernel]] (Módulo Estoque).
+
+**Observação:** `catalogo.quantidade` é INTEGER, então a baixa arredonda — a orientação é cadastrar o insumo já na unidade consumida (ml, g, un), não em "frascos". Excluir a venda **não estorna** o estoque (mesmo comportamento que já existia pro produto). Se um dia precisar de estorno, o gancho é `estoque_movimentacoes.venda_id` (hoje `ON DELETE SET NULL`).
+
+---
+
+## 2026-09-08 — Camada de provedor WhatsApp + Módulo Atendimento (caixa de transbordo)
+
+**Motivo:** Preparação pra migração do tráfego ao cliente pro **Meta Cloud API** (ver decisão de 2026-08-31). Dois passos: (1) extrair o envio de WhatsApp pra trás de uma interface de "provedor", com Evolution como único ativo — pré-requisito do adapter Cloud API; (2) quando o número migra pro Cloud API ele **sai do app do WhatsApp no celular** — o dono precisa de uma tela pra responder à mão as conversas que o Kalel passou pra humano.
+
+**Impacto:**
+- **`backend/services/whatsapp/`** (novo): `provedorEvolution.js` (lógica atual movida sem alteração), `resolverProvedor.js` (lê `canais_whatsapp` — sem linha = `evolution`), `index.js` (API pública, mesmas 7 assinaturas; ramo `cloud` ainda inerte). `backend/services/whatsappService.js` vira re-export — nenhum chamador mudou. Comentários corrigidos (Kalel/Brainiac/Kernel); URLs dos agentes leem `KALEL_URL || QUASAR_URL` e `BRAINIAC_URL || CORTEX_URL`.
+- **Schema:** `canais_whatsapp` (`tenant_id`, `canal` = slug de unidade ou `'admin'`, `provedor` `evolution`|`cloud`, `waba_id`, `phone_number_id`, `numero_exibicao`, `verificado_meta`, UNIQUE `(tenant_id, canal)`). Sem backfill — ausência de linha = Evolution. Token do Cloud API **não** fica aqui: é um System User token global do app (`env META_*`), custo de mensagem consolidado na Kernel.
+- **Módulo Atendimento (feature `atendimentoWhatsapp`):** tabelas `conversas_wpp` (uma por tenant/canal/contato — `status` `bot`|`humano`|`resolvido`, `assumido_por`, `nao_lidas`, `janela_expira_em`) e `mensagens_wpp` (`direcao` in/out, `autor` cliente/kalel/humano, `wpp_msg_id` pra dedupe). `backend/services/atendimentoService.js`. `backend/routes/atendimento.js` — `/atendimento/conversas*` (papel admin+gestor+operador). Em `routes/internal.js`: `POST /internal/wpp/mensagem` (Kalel espelha TODA mensagem), `GET /internal/wpp/estado` (Kalel checa antes de responder — `status='humano'` → fica calado); `/internal/transbordo` agora também marca `conversas_wpp.status='humano'`. Frontend `pages/Atendimento.jsx` + `hooks/useAtendimento.js` (polling 8s lista / 5s thread) + item de menu em `gruposAdmin` e `gruposOperador`. `AdminCustosAgente` ganha colunas "Transbordos" e "Resp. humanas" por cliente.
+- **Repo Kalel (`Ops/Kernel-Kalel`, deploy manual):** `webhook_evolution` espelha a mensagem do cliente, checa `com_humano` antes de responder (fica calado se alguém assumiu na tela), e espelha a resposta do Kalel e a resposta manual do staff pelo celular. Helpers `_espelhar_mensagem_kernel`/`_conversa_com_humano_no_kernel` — nunca derrubam o atendimento. Complementa a pausa local `atendimento_pausado` que já existia.
+
+**Status:** camada de provedor e módulo Atendimento aplicados e em produção (commits kernel `ac04bc9`, `72c6997`, `ba0cbb4`; Kalel `4629021`). Comportamento em runtime **idêntico ao de antes** enquanto `canais_whatsapp` não tem nenhuma linha `cloud` — tudo segue no Evolution. O adapter `provedorCloud.js` (envio por template + webhook `/webhook/meta`) ainda não foi escrito — depende das credenciais `META_*` do app (Trilho 1, em andamento com o Willians).
+
+**Artefatos atualizados:** este registro, [[modelo-de-dados-kernel]] (novas tabelas `canais_whatsapp`, `conversas_wpp`, `mensagens_wpp`). Pendente em [[arquitetura-kernel]] (seção "Sistema de Atendimento via WhatsApp + IA", "Pontos de integração") quando o `provedorCloud` sair.
+
+**Observação:** o menu "Atendimento" do tenant e o toggle "Atendimento via WhatsApp" do painel interno usam **o mesmo flag `atendimentoWhatsapp`** de propósito — não é módulo separado. Backlog completo do projeto Meta/reprecificação em `BACKLOG-agente-whatsapp-reprecificacao.md` na raiz do repo `kernel`.
+
+## 2026-09-08 — WhatsApp Oficial (Meta Cloud API) — v1 no ar, conexão manual, bloqueado só na verificação da empresa
+
+**Motivo:** Concluir o Trilho 2 do projeto Meta (ver 2026-08-31): deixar pronto pro cliente conectar o próprio número no Cloud API e o Kalel atender por ele, sem risco de ban do Evolution/Baileys. Decidido: conexão **manual** pelo painel interno no v1 (Embedded Signup = fase 2); templates entram já (conjunto mestre replicado por WABA).
+
+**Impacto (código — commits `1baa072`, `7949e0d`, `35439a6`):**
+- **`backend/services/whatsapp/provedorCloud.js`** — envio via Graph API `POST /{phone_number_id}/messages` com o System User token GLOBAL do app. Texto livre dentro da janela de 24h; `template` fora dela. `metaCloud.js` — helpers Graph (validar número, `subscribed_apps`, `register`, criar/listar/sincronizar templates). `config/templatesWhatsapp.js` — 7 templates mestre (lembrete, confirmação, pós-venda, aniversário, sumido, assinatura pendente, campanha). `index.js` roteia **todas** as funções (`enviarWhatsapp`, `obterStatus`, `iniciarConexao`, …) por `canais_whatsapp.provedor` — Evolution segue o default sem linha.
+- **`backend/routes/webhook-meta.js`** — `GET/POST /webhook/meta`, **1 endpoint pra todas as WABAs de todos os tenants** (resolve pelo `metadata.phone_number_id`). Montado antes do `authenticate` global. `GET` responde o challenge (`hub.verify_token` == `META_WEBHOOK_VERIFY_TOKEN`). `POST` valida assinatura HMAC `X-Hub-Signature-256` (env `META_APP_SECRET`) — `express.json` ganhou `verify` pra guardar `req.rawBody`. Fluxo de uma mensagem: espelha no inbox (`conversas_wpp`/`mensagens_wpp`, idempotente por `wpp_msg_id`) → checa `com_humano` (se assumida na tela Atendimento, Kalel cala) → chama Kalel `POST /api/v1/kalel/chat` (`session_id = cloud:{pnid}:{contato}`) → envia a resposta pelo Cloud API → espelha. `statuses` (entrega) só logam no v1.
+- **`backend/routes/admin-whatsapp.js`** (super_admin, `/admin/whatsapp`) — `GET /tenants/:id` (canais + unidades), `POST /tenants/:id/conectar` (valida o número na Graph, assina o webhook do app na WABA, `register` opcional com PIN, grava `canais_whatsapp` provedor='cloud'), `POST /tenants/:id/desconectar` (remove a linha → volta pro Evolution), `GET/POST /tenants/:id/templates`.
+- **`docker-compose.yml`** — o serviço `backend` usa `environment:` explícito (não `env_file`), então as vars novas não chegavam ao container; adicionadas `META_APP_ID`, `META_APP_SECRET`, `META_SYSTEM_USER_TOKEN`, `META_WEBHOOK_VERIFY_TOKEN`, `META_GRAPH_VERSION` (default `v21.0`) + `KALEL_URL`/`BRAINIAC_URL` opcionais.
+- **Frontend:** seção "WhatsApp Oficial" no `AdminTenantForm` (modo edição) — conectar/desconectar/sincronizar templates por canal. `api.admin.whatsapp*`. Bug corrigido no mesmo commit: a seção era um `<form>` aninhado dentro do `<form>` do cadastro (HTML inválido — o clique submetia o form de fora e saía da tela); virou `<div>` + botão `type="button"`.
+
+**Config na Meta (Willians):** app **"Kalel Barbearia"** (App ID `1479198237381422`) criado em `developers.facebook.com`, caso de uso "Conectar-se com os clientes pelo WhatsApp", vinculado ao portfólio "Kernel Workspace". WABA + número de teste da Meta provisionados. System user `kernel-whatsapp-api` (business.facebook.com) com Controle total do app + da WABA, token permanente com `whatsapp_business_messaging` + `whatsapp_business_management`. Webhook configurado: `https://kernellwc.online/api/webhook/meta`, verify token `kernel-meta-wh-2026`, campo `messages` assinado. **Segredos vivem só no `.env` da VPS, nunca versionados.**
+
+**Status:** **v1 no ar e testado ponta a ponta**, exceto a entrega final. Teste (2026-09-08): mensagem do +55 11 95407-9335 pro número de teste da Meta (+1 555-203-4411) → webhook recebeu → espelhou no inbox → Kalel gerou a resposta ("Boa noite! Aqui é o cod, da Gabriel Cortes…") → Graph API **aceitou** o `POST /messages` (retornou `wamid.`) → **status webhook voltou `FAILED` com `code 130497: "Business account is restricted from messaging users in this country."`**. Ou seja: **conta comercial não verificada não entrega mensagem pra números do Brasil**. Não é bug — é trava da Meta pra conta de teste/não verificada.
+
+**Bloqueio único pra fechar o v1:** **verificação da empresa** (developers.facebook.com → caso de uso WhatsApp → "Etapa 3. Verificação da empresa", ou business.facebook.com → Central de Segurança). Precisa de CNPJ, razão social, endereço e comprovante — **é o Willians quem faz, com os dados da empresa dele**. Leva dias a ~2 semanas. Depois de verificada, o outbound pra +55 passa a funcionar sem mexer no código.
+
+**Fase 2:** Provedor de Tecnologia + App Review de `whatsapp_business_messaging`/`management` (acesso avançado) → conectar a WABA **real** de cada barbearia (não a de teste) + Embedded Signup no onboarding. E migrar os disparos automáticos (lembrete/aniversário) do Evolution pro Cloud API por template — o adapter de template já está pronto, falta ligar em `services/notificacoes.js`.
+
+**Artefatos atualizados:** este registro, [[arquitetura-kernel]] (seção "Sistema de Atendimento via WhatsApp + IA", tabela "Pontos de integração"), [[modelo-de-dados-kernel]] (`canais_whatsapp` já documentada). Backlog do projeto em `BACKLOG-agente-whatsapp-reprecificacao.md` na raiz do repo `kernel`.
+
+---
+
+## 2026-09-09 — Metas Diárias: distribuição segmentada pelo Brainiac + curva horária
+
+**Motivo:** A aba de Metas Diárias exigia colar um `.md` mensal escrito à mão (Willians decidia de cabeça o peso de cada dia). Ideia dele: o Brainiac agir como gestor financeiro — olhar o movimento histórico por dia da semana / hora e montar a meta segmentada.
+
+**Impacto (commits `9797625`, `ee50d37`):**
+- **`backend/services/metasSegmentadas.js`** (novo): `calcularPesosDiaSemana` pesa cada dia da semana pelo **faturamento médio por ocorrência** em duas janelas — recente (90 dias até o fim do mês anterior) e YoY (mesmo mês do ano anterior), blend `0.6*recente + 0.4*yoy`; YoY só entra com `COUNT(DISTINCT data) >= 40` na janela do ano passado, senão cai pra 100% recente. Dia da semana sem histórico usável → média geral + aviso. `distribuirMeta` reparte a meta do mês pelos dias abertos (dia fechado, sem linha em `jornada_unidade`, = 0), arredonda pra dezena e joga o resíduo no maior dia. `sugerirMetaMes` = média dos 3 meses fechados + 5%. `curvaHoraria`: % do faturamento do dia por hora, por dia da semana, recente vs YoY — **filtra `importado = false`** (o eixo é a hora da venda; seed histórico tem `created_at` do import). `montarRationale` = texto templado, **sem chamada de IA**.
+- **`POST /metas-diarias/sugerir`** (admin, `featureGate('metasDiarias')`) — devolve `dias` + `curva_horaria` + `resumo_base`; não grava, o front salva pelo `/metas-diarias/bulk` já existente.
+- **`GET /internal/meta-sugerida`** + **`POST /internal/meta-confirmada`** — mesma guarda do `/internal/relatorio-sob-demanda` (assinatura vigente + telefone == admin). O Brainiac (`Ops/Kernel-brainiac`, commit `b355b40`) detecta "monta a meta de \<mês\>" (gate barato: só chama IA se a mensagem tem "meta"), chama `/meta-sugerida`, guarda os parâmetros em memória (TTL 30min) e no "confirmar" chama `/meta-confirmada` (regenera server-side, não reenvia o array de dias).
+- **Front:** `GestaoMetasDiarias.jsx` reescrito — sai o textarea de markdown e o parser, entra input "Meta do mês" (pré-preenchido), botão "Recalcular prévia", gráfico **Curva Horária** (`components/CurvaHorariaMetas.jsx`, Recharts, 3 séries), grade editável Dia · Semana · Meta com badge "Total ✓".
+- **Fix de branding junto:** `TenantConfigContext` só marcava `usaPaletaPersonalizada` olhando `corPrimaria`/`corFundo`/`corSuperficie` (campos "modo claro"). Um tenant que customiza só o **modo escuro** (`temaPadrao='escuro'` de fábrica) ficava com paleta de fábrica. Agora o cálculo inclui `corPrimariaEscuro`/`corFundoEscuro`/`corSuperficieEscuro`.
+
+**Status:** aplicado e em produção. Sem mudança de schema — `metas_diarias` já servia. Fora de escopo: meta por turno/hora (exige modelo novo).
+
+**Artefatos atualizados:** este registro. [[modelo-de-dados-kernel]] sem mudança (nenhuma tabela nova).
+
+---
+
+## 2026-09-10 — Taxa de cartão: sem cadastro = 0, nunca fallback PagBank hardcoded
+
+**Motivo:** O fork de 2026-06-24 já decidiu tirar as taxas PagBank fixas — mas o código voltou a assumir `1,19% / 3,49%` hardcoded em três pontos. Willians pediu pra fechar: **a única fonte é `unidades.taxas`; forma de pagamento sem taxa cadastrada = 0 pra qualquer tenant**, sem desconto de maquininha nenhum.
+
+**Impacto (commit `a8cca9c`):**
+- **`backend/services/taxas.js`** (novo): `getTaxas(tenantId, unidade)` (cache TTL 5min) + `calcularValorLiquido(tenantId, unidade, valor, forma, bandeira)` — lê `unidades.taxas` (JSONB), chave por `forma` ou `forma_bandeira`; ausência = `0`. Movido de `routes/vendas.js` (que já fazia certo) e passado a compartilhar com `combos.js`.
+- **`routes/combos.js`:** tinha `const TAXAS_PAGBANK = {debito:0.0119, credito:0.0349, ...}` hardcoded pra compra de combo E 1º ciclo de assinatura do clube — passou a usar `services/taxas.js` (por tenant+unidade+bandeira).
+- **`routes/relatorios.js`:** `TAXA_SQL_CASE` recomputava a taxa no SQL do DRE / fluxo de caixa com rate fixo. Virou `GREATEST(valor - COALESCE(valor_liquido, valor), 0)` — usa a taxa REAL já gravada na venda no momento dela; sem taxa, `valor_liquido == valor` → 0.
+- **`models.js seedConfiguracoes`:** parou de seedar `taxa_debito`/`taxa_credito` padrão na tabela `configuracoes` (esses rows não eram lidos por ninguém — a fonte é `unidades.taxas`). Virou no-op.
+- **Front:** removido o preview "Taxa PagBank (X%)" hardcoded de `FormularioVenda`/`FormularioCombo` (o líquido real é backend); `TAXAS_PAGBANK` saiu de `vendaShared.jsx`; labels "PagBank" → "cartão/maquininha" no Dashboard e na Inteligência Financeira.
+
+**Status:** aplicado e em produção. Tenants com taxa configurada (ex.: Lukinhas Barber) não mudam — DRE passa a mostrar a taxa REAL deles em vez da PagBank. Tenant sem config passa a não ter desconto.
+
+**Artefatos atualizados:** este registro, [[modelo-de-dados-kernel]] (`configuracoes` — chaves `taxa_*` não mais seedadas; `unidades.taxas` é a fonte única).
+
+---
+
+## 2026-09-10 — Tela de Gestão de Usuários, "Estoque e Serviços", tema no /admin, Consumo Interno só na lateral
+
+**Motivo:** Pedidos avulsos do Willians ao portar coisas do sistema-thieco e revisar a navegação.
+
+**Impacto (commits `81bfd18`, `6a403c4`, `67e6da4`, `12a1db4`):**
+- **Gestão de Usuários virou tela própria.** Já existia inteira como a aba "Gestores" dentro de Configurações (`AbaGestores` + `SecaoPerfilBarbeiro`); `isAdminEstrito`, backend `routes/usuarios.js` (`requireApenasAdmin`). Os dois componentes viraram `export`, a aba saiu de Configurações, e `pages/GestaoUsuarios.jsx` (fino) reusa sob o item de menu **"Usuários"** em Administração & Gestão. Fonte única. `SecaoPerfilBarbeiro` ganhou um campo inline **"Criar"** — quando não há profissional pra vincular, cria o profissional (sem login, `POST /profissionais`) já com o nome da conta e vincula na mesma ação (antes só vinculava um existente; solo owner num tenant sem profissional ficava travado).
+- **Aba "Estoque" → "Estoque e Serviços"** (label do menu + `<h1>` da página). E **"Consumo Interno" saiu de dentro da tela Estoque** — vive só no item de menu lateral (`ConsumoInternoBarbeiro`, que reusa o componente `ConsumoInterno` exportado de `Estoque.jsx`). A barra de abas da tela some quando sobra uma só.
+- **Toggle claro/escuro no painel da Holding (`/admin`)** — `components/AdminThemeToggle.jsx` (Sol/Lua fixo no canto superior direito), montado no `AdminApp.jsx`. O painel não tem `TenantConfigProvider`, então usa a paleta de fábrica; compartilha a chave `localStorage('orbita_tema')` com o app do tenant.
+- **Resumo da agenda do barbeiro no WhatsApp com horário configurável por unidade** — nova tabela `configuracoes_resumo_barbeiro`. `gerarResumoAgendaBarbeiros` (routes/notificacoes.js) passou a checar `hora_disparo`/`ativo` **por unidade do profissional** (janela = disparo + 4h) em vez da constante fixa `07:00–11:00`. `GET/PUT /configuracoes/resumo-barbeiro` (map `{ slug: { ativo, hora_disparo } }`), bloco `CardResumoBarbeiro` na aba Unidades das Configurações.
+
+**Status:** aplicado e em produção.
+
+**Artefatos atualizados:** este registro, [[modelo-de-dados-kernel]] (nova tabela `configuracoes_resumo_barbeiro`).
+
+---
+
+## 2026-09-10 — Hotfix: `ADD_UNIQUE_PROF_NOME` re-adicionava UNIQUE(nome) global e quebrava o boot
+
+**Motivo:** Prod ficou fora do ar num deploy. `runMigrations()` abortava em `could not create unique index "uq_prof_nome"`.
+
+**Causa:** `ADD_UNIQUE_PROF_NOME` (código antigo, pré-multi-tenant) re-adicionava um `UNIQUE(nome)` **global** em `profissionais` toda vez que rodava — mesmo depois de `ALTER_PROFISSIONAIS_UNIQUE_TENANT` já ter dropado ele e criado `uq_profissionais_tenant_nome (tenant_id, nome)` num boot anterior. Assim que surgiu o mesmo nome em dois tenants ("Lucas Ribeiro" existia em Lukinhas Barber e foi criado também no tenant Ribeiro Lucas), o `ADD CONSTRAINT` falhava, a migração abortava antes de chegar no índice por tenant, e o backend não subia.
+
+**Impacto (commit `9d6d681`):** `ADD_UNIQUE_PROF_NOME` virou `SELECT 1` (no-op). O índice de unicidade de nome de profissional é **só por tenant** — dois tenants podem ter um "Lucas Ribeiro" cada.
+
+**Status:** aplicado; prod restabelecida (~5 min fora do ar).
+
+**Artefatos atualizados:** este registro, [[modelo-de-dados-kernel]] (`profissionais` — unicidade de `nome` é por `tenant_id`).
+
+---
+
+## 2026-09-10 — Atendimento por IA: tela bloqueada ("em breve") até fechar a parceria com a Meta
+
+**Motivo:** Decisão comercial do Willians — não expor/vender o Atendimento por IA enquanto a integração oficial com a Meta (Cloud API) não está aprovada (ver 2026-09-08, bloqueio na verificação da empresa; e o risco de ban do Evolution/Baileys).
+
+**Impacto (commit `6549c91`, só frontend):**
+- Novo `frontend/src/components/EmBreveMeta.jsx` — placeholder com cadeado + "estamos em processo de parceria com a Meta … ativado automaticamente quando aprovar".
+- `pages/Atendimento.jsx` (menu "Atendimento", inbox de transbordo) e o `AbaAtendimentoIa` das Configurações passam a renderizar `<EmBreveMeta>`. O código real fica intacto em `AtendimentoInbox` / `AbaAtendimentoIaReal` — **pra religar basta trocar o wrapper/export**, nada de backend muda.
+- O item de menu continua **visível** (bloqueado, não escondido) — sinaliza que o recurso existe e está vindo.
+
+**Status:** aplicado e em produção. Backend do Atendimento (rotas `/atendimento/*`, `/internal/wpp/*`, webhooks) permanece funcional — só a UI do tenant está travada.
+
+**Artefatos atualizados:** este registro. [[modelo-de-dados-kernel]] sem mudança.
+
+---
+
+## 2026-09-10 — Lista de espera com acesso do staff + aviso no celular do dono (agendamento novo / transbordo) + Web Push
+
+**Motivo:** (1) A `lista_espera` só era preenchida pelo Kalel (`POST /internal/lista-espera`) — o staff não conseguia nem ver a fila. (2) Willians queria ser avisado **no celular** quando entra agendamento novo (qualquer origem) e quando um cliente pede atendimento humano.
+
+**Impacto (commit `4abab39`):**
+
+- **Lista de espera — acesso do staff:** `ListaEspera.findAll` / `cancelar` (models.js); `GET/POST/PATCH /agendamentos/lista-espera` (`requireAdmin`, porta do sistema-thieco adaptada pra multi-tenant); botão "Lista de Espera" + `ModalListaEspera` na tela Agenda (adicionar/cancelar, status em pt-BR). `api.agendamentos.listaEspera.*`. A fila do Kalel e a manual convivem na mesma tabela — o cron de liberação de vaga (`services/listaEsperaService.js`) não mudou.
+
+- **`backend/services/notificarAdmin.js`** (novo) — fan-out `notificarAdmin(tenantId, unidade, { tipo, titulo, mensagem, nivel, meta })`, cada canal isolado em try/catch, fire-and-forget:
+  1. Sino → `INSERT notificacoes` (`canal='sistema'`)
+  2. WhatsApp do admin → `notificarAdminViaCortex` (só se `usuarios.notif_canal_whatsapp`)
+  3. Web Push → `services/push.js`
+  Disparado em `POST /agendamentos` (painel), `/agendamentos/publico/:slug/criar` (link), `POST /internal/agendamentos/criar` (Kalel). `POST /internal/transbordo` **passou a usar** `notificarAdmin` (era WhatsApp + INSERT inline; comportamento igual + ganha o push).
+
+- **Web Push (PWA) — infra nova:** o kernel não tinha service worker nem `web-push`.
+  - `backend/services/push.js` — `web-push`, VAPID via env (`VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT`; **sem as keys → no-op silencioso**). `enviarPush` manda pros usuários admin/gestor do tenant e **apaga a inscrição no primeiro 404/410**.
+  - Tabela `push_subscriptions` (migração no boot). `backend/routes/push.js` — `GET /push/chave`, `POST /push/inscrever|desinscrever`, montado **sem featureGate**.
+  - `frontend/public/sw.js` (SW só push, sem cache), `frontend/src/lib/push.js` (registrar/ativar/desativar), `main.jsx` registra o SW no load, botão "Ativar notificações no celular" no painel de Notificações (`NotificacoesPanel`).
+  - `web-push` em `backend/package.json`; `VAPID_*` no `docker-compose.yml` (backend). Keys geradas com `npx web-push generate-vapid-keys` e postas no `.env` da VPS.
+
+**Status:** aplicado e em produção. VAPID configurado na VPS. **iOS**: Web Push só com o app "adicionado à tela inicial" (PWA) e iOS 16.4+ — no Safari normal não chega, o WhatsApp cobre esse caso.
+
+**Artefatos atualizados:** este registro, [[modelo-de-dados-kernel]] (nova tabela `push_subscriptions`; `lista_espera` agora com CRUD do staff).
