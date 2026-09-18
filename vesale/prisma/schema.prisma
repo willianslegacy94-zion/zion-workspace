@@ -1,0 +1,285 @@
+// Drogaria Vesale — schema Prisma
+// Ver Kernel Workspace/kernel-hq/arquitetura-vesale/modelo-de-dados-vesale.md
+// para o modelo completo e o motivo de cada entidade.
+//
+// Estado desta versão: schema completo (13 entidades) já modelado. Módulo PDV
+// (Usuario, Produto, CategoriaProduto, FormaPagamento, SessaoCaixa, Venda,
+// ItemVenda), Módulo Estoque (cadastro de Produto + LoteProduto), Módulo
+// Notas Fiscais de Entrada (Fornecedor, NotaFiscalEntrada, ItemNotaFiscal),
+// Módulo Financeiro (ContaFinanceira, CategoriaFinanceira), Relatórios de
+// vendas e Módulo 5 — Precificação/CMV (Produto.custoTravado/precoVenda,
+// ItemVenda.custoUnitarioNoMomento) têm UI implementada.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PapelUsuario {
+  GESTOR
+  OPERADOR_CAIXA
+}
+
+model Usuario {
+  id        String       @id @default(uuid()) @db.Uuid
+  nome      String
+  email     String       @unique
+  senhaHash String
+  papel     PapelUsuario @default(OPERADOR_CAIXA)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  vendas       Venda[]
+  sessoesCaixa SessaoCaixa[]
+
+  @@map("usuarios")
+}
+
+model CategoriaProduto {
+  id       String    @id @default(uuid()) @db.Uuid
+  nome     String    @unique
+  produtos Produto[]
+
+  @@map("categorias_produto")
+}
+
+enum StatusProduto {
+  ATIVO
+  INATIVO
+}
+
+model Produto {
+  id                String        @id @default(uuid()) @db.Uuid
+  nome              String
+  codigoBarras      String?       @unique
+  categoriaId       String        @db.Uuid
+  categoria         CategoriaProduto @relation(fields: [categoriaId], references: [id])
+  ncm               String?
+  unidade           String        @default("un")
+  // Atualizado exclusivamente por conciliação de nota fiscal (RN-009 do
+  // modelo de dados) — nunca editado direto por nenhuma tela.
+  custoTravado      Decimal?      @db.Decimal(10, 2)
+  // Sempre editável manualmente pelo gestor; nunca preenchido automaticamente (RN-009).
+  precoVenda        Decimal?      @db.Decimal(10, 2)
+  quantidadeEstoque Int           @default(0)
+  estoqueMinimo     Int           @default(0)
+  // RN-013/RN-014 — produto controlado exige confirmação de receita na venda
+  // e lote+validade preenchidos antes de conciliar a nota fiscal que o supre.
+  medicamentoControlado Boolean   @default(false)
+  status            StatusProduto @default(ATIVO)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  itensNotaFiscal ItemNotaFiscal[]
+  itensVenda      ItemVenda[]
+  lotes           LoteProduto[]
+
+  @@index([nome])
+  @@map("produtos")
+}
+
+// RN-015 — baixa de estoque na venda usa FEFO (lote de validade mais próxima
+// primeiro) entre os lotes com saldo; produto sem lote continua decrementando
+// só o agregado Produto.quantidadeEstoque, como antes desta entidade existir.
+model LoteProduto {
+  id          String   @id @default(uuid()) @db.Uuid
+  produtoId   String   @db.Uuid
+  produto     Produto  @relation(fields: [produtoId], references: [id])
+  numeroLote  String
+  validade    DateTime @db.Date
+  quantidade  Int
+  createdAt   DateTime @default(now())
+
+  itensVenda ItemVenda[]
+
+  @@unique([produtoId, numeroLote])
+  @@index([produtoId, validade])
+  @@map("lotes_produto")
+}
+
+model Fornecedor {
+  id          String   @id @default(uuid()) @db.Uuid
+  razaoSocial String
+  cnpj        String   @unique
+  createdAt   DateTime @default(now())
+
+  notasFiscais NotaFiscalEntrada[]
+
+  @@map("fornecedores")
+}
+
+enum OrigemExtracaoNota {
+  XML_PADRAO
+  IA_ASSISTIDA
+  // RF-014 (via QR da nota) — gestor bipou a chave de acesso antes de ter o
+  // XML e lançou os itens recebidos manualmente; sem parser envolvido.
+  MANUAL
+}
+
+enum StatusNotaFiscal {
+  RECEBIDA
+  EM_PROCESSAMENTO
+  PENDENTE_VINCULO
+  CONCILIADA
+  ERRO
+}
+
+model NotaFiscalEntrada {
+  id              String              @id @default(uuid()) @db.Uuid
+  fornecedorId    String?             @db.Uuid
+  fornecedor      Fornecedor?         @relation(fields: [fornecedorId], references: [id])
+  chaveAcessoNfe  String?             @unique
+  arquivoOriginal String
+  origemExtracao  OrigemExtracaoNota
+  valorTotal      Decimal?            @db.Decimal(10, 2)
+  status          StatusNotaFiscal    @default(RECEBIDA)
+  createdAt       DateTime            @default(now())
+  conciliadaEm    DateTime?
+
+  itens ItemNotaFiscal[]
+
+  @@map("notas_fiscais_entrada")
+}
+
+model ItemNotaFiscal {
+  id                  String            @id @default(uuid()) @db.Uuid
+  notaFiscalId        String            @db.Uuid
+  notaFiscal          NotaFiscalEntrada @relation(fields: [notaFiscalId], references: [id])
+  // Nulo enquanto pendente de vínculo — bloqueia conciliação da nota (RN-007).
+  produtoId           String?           @db.Uuid
+  produto             Produto?          @relation(fields: [produtoId], references: [id])
+  descricaoFornecedor String
+  quantidade          Decimal           @db.Decimal(10, 3)
+  custoUnitario       Decimal           @db.Decimal(10, 2)
+  ncm                 String?
+  // RN-014 — extraído do grupo `rastro` do XML quando presente; senão
+  // preenchido manualmente na conciliação. Obrigatório só quando o produto
+  // vinculado é medicamentoControlado.
+  numeroLote          String?
+  validade            DateTime?         @db.Date
+
+  @@map("itens_nota_fiscal")
+}
+
+model FormaPagamento {
+  id             String   @id @default(uuid()) @db.Uuid
+  nome           String   @unique
+  taxaPercentual Decimal? @db.Decimal(5, 2)
+
+  vendas Venda[]
+
+  @@map("formas_pagamento")
+}
+
+enum StatusSessaoCaixa {
+  ABERTA
+  FECHADA
+}
+
+model SessaoCaixa {
+  id              String            @id @default(uuid()) @db.Uuid
+  operadorId      String            @db.Uuid
+  operador        Usuario           @relation(fields: [operadorId], references: [id])
+  valorAbertura   Decimal           @db.Decimal(10, 2)
+  valorFechamento Decimal?          @db.Decimal(10, 2)
+  status          StatusSessaoCaixa @default(ABERTA)
+  abertaEm        DateTime          @default(now())
+  fechadaEm       DateTime?
+
+  vendas Venda[]
+
+  @@map("sessoes_caixa")
+}
+
+enum StatusVenda {
+  ABERTA
+  FINALIZADA
+  CANCELADA
+}
+
+model Venda {
+  id               String          @id @default(uuid()) @db.Uuid
+  operadorId       String          @db.Uuid
+  operador         Usuario         @relation(fields: [operadorId], references: [id])
+  sessaoCaixaId    String          @db.Uuid
+  sessaoCaixa      SessaoCaixa     @relation(fields: [sessaoCaixaId], references: [id])
+  formaPagamentoId String?         @db.Uuid
+  formaPagamento   FormaPagamento? @relation(fields: [formaPagamentoId], references: [id])
+  // RN-016 — abatimento aplicado sobre o subtotal; valorTotal já é o valor
+  // líquido efetivamente cobrado (subtotal - descontoValor), nunca negativo.
+  descontoValor    Decimal         @default(0) @db.Decimal(10, 2)
+  valorTotal       Decimal         @default(0) @db.Decimal(10, 2)
+  status           StatusVenda     @default(ABERTA)
+  createdAt        DateTime        @default(now())
+  finalizadaEm     DateTime?
+
+  itens ItemVenda[]
+
+  @@map("vendas")
+}
+
+model ItemVenda {
+  id                     String       @id @default(uuid()) @db.Uuid
+  vendaId                String       @db.Uuid
+  venda                  Venda        @relation(fields: [vendaId], references: [id])
+  produtoId              String       @db.Uuid
+  produto                Produto      @relation(fields: [produtoId], references: [id])
+  quantidade             Int
+  // Preço e custo congelados no momento da venda — nunca refletem o valor
+  // atual do produto se ele mudar depois (base do CMV real, RN-012).
+  precoUnitarioNoMomento Decimal      @db.Decimal(10, 2)
+  custoUnitarioNoMomento Decimal?     @db.Decimal(10, 2)
+  // RN-015 — de qual lote a baixa saiu (FEFO); nulo quando o produto não
+  // tem lote controlado e a baixa foi direto no agregado quantidadeEstoque.
+  loteId                 String?      @db.Uuid
+  lote                   LoteProduto? @relation(fields: [loteId], references: [id])
+  // RN-013 — obrigatório (true) para todo item de produto medicamentoControlado
+  // antes da venda poder ser finalizada.
+  receitaConfirmada      Boolean      @default(false)
+
+  @@map("itens_venda")
+}
+
+enum TipoContaFinanceira {
+  PAGAR
+  RECEBER
+}
+
+enum StatusContaFinanceira {
+  PENDENTE
+  PAGA_RECEBIDA
+  VENCIDA
+}
+
+enum NaturezaCategoriaFinanceira {
+  FIXA
+  VARIAVEL
+}
+
+model CategoriaFinanceira {
+  id       String                      @id @default(uuid()) @db.Uuid
+  nome     String
+  natureza NaturezaCategoriaFinanceira
+
+  contas ContaFinanceira[]
+
+  @@map("categorias_financeiras")
+}
+
+model ContaFinanceira {
+  id          String                 @id @default(uuid()) @db.Uuid
+  tipo        TipoContaFinanceira
+  categoriaId String                 @db.Uuid
+  categoria   CategoriaFinanceira    @relation(fields: [categoriaId], references: [id])
+  descricao   String
+  valor       Decimal                @db.Decimal(10, 2)
+  vencimento  DateTime               @db.Date
+  status      StatusContaFinanceira  @default(PENDENTE)
+  baixadaEm   DateTime?
+
+  @@map("contas_financeiras")
+}
