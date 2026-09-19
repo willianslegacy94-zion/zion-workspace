@@ -20,6 +20,14 @@ async function exigirGestor() {
   return session;
 }
 
+async function exigirAutenticado() {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Não autenticado.");
+  }
+  return session;
+}
+
 export type CategoriaOption = { id: string; nome: string };
 
 export async function listarCategorias(): Promise<CategoriaOption[]> {
@@ -43,9 +51,15 @@ export type ProdutoEstoque = {
   validadeMaisProxima: string | null;
 };
 
-/** RF-004/RF-007 — catálogo completo com sinalização de estoque baixo. */
+/**
+ * RF-004/RF-007 — catálogo completo com sinalização de estoque baixo.
+ * Operador de caixa também acessa esta tela, mas só enxerga o preço de
+ * venda — o custo travado nunca sai do servidor para esse papel (defesa em
+ * profundidade, não é só ocultado na UI).
+ */
 export async function listarProdutosEstoque(): Promise<ProdutoEstoque[]> {
-  await exigirGestor();
+  const session = await exigirAutenticado();
+  const podeVerCusto = session.user.papel === "GESTOR";
 
   const produtos = await prisma.produto.findMany({
     include: {
@@ -62,7 +76,7 @@ export async function listarProdutosEstoque(): Promise<ProdutoEstoque[]> {
     categoriaId: produto.categoriaId,
     categoriaNome: produto.categoria.nome,
     unidade: produto.unidade,
-    custoTravado: produto.custoTravado ? Number(produto.custoTravado) : null,
+    custoTravado: podeVerCusto && produto.custoTravado ? Number(produto.custoTravado) : null,
     precoVenda: produto.precoVenda ? Number(produto.precoVenda) : null,
     quantidadeEstoque: produto.quantidadeEstoque,
     estoqueMinimo: produto.estoqueMinimo,

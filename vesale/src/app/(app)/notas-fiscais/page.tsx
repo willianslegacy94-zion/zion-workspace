@@ -24,9 +24,19 @@ const STATUS_COR: Record<string, string> = {
 
 export default async function NotasFiscaisPage() {
   const session = await auth();
-  if (session?.user?.papel !== "GESTOR") {
-    // RF-002 — tela exclusiva do gestor; operador de caixa nunca a alcança.
-    redirect("/pdv");
+  if (!session?.user) {
+    redirect("/login");
+  }
+
+  // Operador de caixa só sobe a nota (upload) — conciliação, valores e
+  // busca por chave de acesso seguem exclusivos do gestor (RF-002).
+  if (session.user.papel !== "GESTOR") {
+    return (
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-4 p-4 md:p-7">
+        <h1 className="text-lg font-semibold text-vesale-ink">Notas Fiscais de Entrada</h1>
+        <UploadNotaForm />
+      </div>
+    );
   }
 
   const notas = await listarNotasFiscais();

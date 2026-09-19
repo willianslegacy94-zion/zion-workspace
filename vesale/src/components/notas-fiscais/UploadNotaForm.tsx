@@ -40,6 +40,12 @@ export function UploadNotaForm() {
           {state.message}
         </p>
       )}
+
+      {state.ok && (
+        <p className="w-full rounded-lg border border-vesale-success/30 bg-vesale-success/5 px-3 py-2 text-xs text-vesale-success sm:w-auto">
+          Nota enviada — aguardando conciliação do gestor.
+        </p>
+      )}
     </form>
   );
 }

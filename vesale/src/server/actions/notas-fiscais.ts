@@ -16,22 +16,36 @@ const TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024; // RNF-003
 async function exigirGestor() {
   const session = await auth();
   if (!session?.user || session.user.papel !== "GESTOR") {
-    // RF-002/RNF-002 — Notas Fiscais é módulo exclusivo do gestor; a
-    // verificação aqui é a que vale de fato, a UI só espelha (defesa em
-    // profundidade: nunca confiar só na página estar escondida).
+    // RF-002/RNF-002 — conciliação, vínculo e lançamento manual de nota
+    // fiscal são exclusivos do gestor; a verificação aqui é a que vale de
+    // fato, a UI só espelha (defesa em profundidade: nunca confiar só na
+    // página estar escondida).
     throw new Error("Acesso restrito ao gestor.");
+  }
+  return session;
+}
+
+async function exigirAutenticado() {
+  const session = await auth();
+  if (!session?.user) {
+    throw new Error("Não autenticado.");
   }
   return session;
 }
 
 export type UploadNotaState = { ok: boolean; message?: string; notaFiscalId?: string };
 
-/** Upload de nota fiscal (RF-014) — extrai e sugere vínculo em seguida. */
+/**
+ * Upload de nota fiscal (RF-014) — extrai e sugere vínculo em seguida.
+ * Operador de caixa também pode subir a nota (só o upload); a conciliação,
+ * o vínculo com produto e o travamento de custo continuam exclusivos do
+ * gestor nas demais funções deste arquivo.
+ */
 export async function uploadNotaFiscal(
   _prevState: UploadNotaState,
   formData: FormData,
 ): Promise<UploadNotaState> {
-  await exigirGestor();
+  await exigirAutenticado();
 
   const arquivo = formData.get("arquivo");
   if (!(arquivo instanceof File) || arquivo.size === 0) {

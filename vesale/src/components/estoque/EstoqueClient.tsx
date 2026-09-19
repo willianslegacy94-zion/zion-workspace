@@ -197,10 +197,13 @@ function ProdutoForm({
 export function EstoqueClient({
   produtosIniciais,
   categorias,
+  papel,
 }: {
   produtosIniciais: ProdutoEstoque[];
   categorias: CategoriaOption[];
+  papel: "GESTOR" | "OPERADOR_CAIXA";
 }) {
+  const somenteLeitura = papel !== "GESTOR";
   const [codigoLeitor, setCodigoLeitor] = useState("");
   const [produtoEmEdicao, setProdutoEmEdicao] = useState<ProdutoEstoque | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -244,22 +247,26 @@ export function EstoqueClient({
     <div className="mx-auto flex max-w-[1500px] flex-col gap-4 p-4 md:p-7">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-vesale-ink">Estoque</h1>
-        <button
-          type="button"
-          onClick={abrirNovo}
-          className="rounded-lg bg-vesale-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-vesale-navy-dark"
-        >
-          Novo produto
-        </button>
+        {!somenteLeitura && (
+          <button
+            type="button"
+            onClick={abrirNovo}
+            className="rounded-lg bg-vesale-navy px-4 py-2 text-sm font-semibold text-white transition hover:bg-vesale-navy-dark"
+          >
+            Novo produto
+          </button>
+        )}
       </div>
 
-      <input
-        value={codigoLeitor}
-        onChange={(e) => setCodigoLeitor(e.target.value)}
-        onKeyDown={handleLeitorKeyDown}
-        placeholder="Leia o código de barras — já cadastrado abre a edição, novo abre o cadastro…"
-        className="w-full rounded-xl border border-vesale-border bg-vesale-surface px-4 py-3 text-sm text-vesale-ink outline-none focus:border-vesale-navy"
-      />
+      {!somenteLeitura && (
+        <input
+          value={codigoLeitor}
+          onChange={(e) => setCodigoLeitor(e.target.value)}
+          onKeyDown={handleLeitorKeyDown}
+          placeholder="Leia o código de barras — já cadastrado abre a edição, novo abre o cadastro…"
+          className="w-full rounded-xl border border-vesale-border bg-vesale-surface px-4 py-3 text-sm text-vesale-ink outline-none focus:border-vesale-navy"
+        />
+      )}
 
       <div className="overflow-x-auto rounded-2xl border border-vesale-border bg-vesale-surface">
         <table className="w-full text-sm">
@@ -281,8 +288,8 @@ export function EstoqueClient({
               return (
                 <tr
                   key={produto.id}
-                  onClick={() => abrirEdicao(produto)}
-                  className={`cursor-pointer hover:bg-vesale-bg ${produto.status === "INATIVO" ? "opacity-50" : ""}`}
+                  onClick={somenteLeitura ? undefined : () => abrirEdicao(produto)}
+                  className={`${somenteLeitura ? "" : "cursor-pointer hover:bg-vesale-bg"} ${produto.status === "INATIVO" ? "opacity-50" : ""}`}
                 >
                   <td className="px-4 py-2.5">
                     <p className="flex items-center gap-2 text-vesale-ink">

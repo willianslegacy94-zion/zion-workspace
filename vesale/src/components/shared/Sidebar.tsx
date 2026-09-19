@@ -51,9 +51,10 @@ const NAV: NavItem[] = [
   { label: "Assistente IA", icon: Sparkles, emBreve: true },
 ];
 
+// Itens ocultos por completo do operador de caixa — o dashboard gerencial e
+// os módulos que expõem custo/margem, financeiro ou fornecedores.
 const GESTOR_ONLY = new Set([
-  "Estoque",
-  "Compras",
+  "Dashboard",
   "Validades",
   "Financeiro",
   "Lucro & Rentabilidade",
@@ -65,13 +66,24 @@ const GESTOR_ONLY = new Set([
   "Assistente IA",
 ]);
 
+// Dentro de um grupo com submenu, itens filhos ocultos do operador de caixa
+// mesmo quando o grupo em si (ex.: "Compras") continua visível — o operador
+// só enxerga "Notas Fiscais" (upload), nunca o cadastro de fornecedores.
+const GESTOR_ONLY_CHILDREN = new Set(["Fornecedores"]);
+
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 export function Sidebar({ papel }: { papel?: "GESTOR" | "OPERADOR_CAIXA" }) {
   const pathname = usePathname();
-  const items = NAV.filter((item) => papel === "GESTOR" || !GESTOR_ONLY.has(item.label));
+  const items = NAV.filter((item) => papel === "GESTOR" || !GESTOR_ONLY.has(item.label))
+    .map((item) =>
+      "children" in item && papel !== "GESTOR"
+        ? { ...item, children: item.children.filter((child) => !GESTOR_ONLY_CHILDREN.has(child.label)) }
+        : item,
+    )
+    .filter((item) => !("children" in item) || item.children.length > 0);
 
   return (
     <aside className="sticky top-0 flex h-screen w-[250px] shrink-0 flex-col overflow-y-auto bg-vesale-navy-dark px-3 py-5 text-white/80">
