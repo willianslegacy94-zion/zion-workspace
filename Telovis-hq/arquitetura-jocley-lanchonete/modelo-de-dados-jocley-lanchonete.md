@@ -88,6 +88,7 @@ owner: willians
 | contaSolicitada | Boolean | sim | não | default `false` — vira `true` quando alguém (tipicamente ATENDENTE) aperta "Fechar Comanda" (RF-117): trava novos itens pra quem não é caixa e dispara a ficha de conta no Caixa. Não é o fechamento em si — `paymentStatus` continua `PENDENTE` até o Caixa finalizar (RF-017). Coluna nova desde a migration `20260905180000_add_caixa_printer_conta_solicitada` |
 | contaSolicitadaEm | DateTime? | não | não | timestamp de quando `contaSolicitada` virou `true` |
 | contaSolicitadaPor | String? | não | não | snapshot do nome de quem solicitou a conta (`session.user.name` no momento) |
+| observacoes | String? | não | não | observação geral da comanda (ex.: "cliente com pressa") — até 500 caracteres, editável no painel da comanda enquanto ela pode ser editada; sai em bloco próprio em **toda** ficha (cada "Confirmar Pedido", conta, cupom) e no card do KDS. Coluna nova desde a migration `20260929120000_add_observacoes_componentes` |
 | createdAt | DateTime | sim | sim | gerado na criação |
 | closedAt | DateTime? | não | não | preenchido no fechamento |
 
@@ -107,10 +108,11 @@ owner: willians
 | productId | String | sim | não | FK → Product |
 | quantidade | Decimal(10,3) | sim | não | quantidade pedida |
 | precoUnit | Decimal(10,2) | sim | não | preço no momento da adição (snapshot) |
-| custoUnit | Decimal(10,2) | sim | não | custo no momento da adição (snapshot do `Product.costPrice`) |
+| custoUnit | Decimal(10,2) | sim | não | custo no momento da adição — snapshot do `Product.costPrice`; quando há `componentes` (desde 2026-09-29), é a ficha técnica do produto + o custo real dos componentes escolhidos, no lugar da média da categoria |
 | subtotal | Decimal(10,2) | sim | sim | quantidade × precoUnit |
-| observacoes | String? | não | não | texto livre |
-| opcionaisSel | Json? | não | não | opcionais escolhidos no pedido |
+| observacoes | String? | não | não | observação do item (ex.: "sem cebola"), até 300 caracteres — campo no modal do produto desde 2026-09-29 (a coluna existia, a tela não enviava) |
+| opcionaisSel | Json? | não | não | opcionais escolhidos no pedido — `Record<nomeDoGrupo, string[]>`; nome repetido = quantidade (ex.: `{"Espetos": ["Espeto de Carne", "Espeto de Carne"]}`) |
+| componentes | Json? | não | sim | desde 2026-09-29 — produtos escolhidos em grupos "por categoria" (ex.: espetos da Jantinha), **por unidade do item**: `[{productId, nome, quantidade}]`, resolvidos e validados no servidor a partir de `opcionaisSel`. Usado na baixa de estoque do fechamento (ficha técnica de cada componente × quantidade × `item.quantidade`) e no `custoUnit`. Coluna nova desde a migration `20260929120000_add_observacoes_componentes` |
 | status | String | sim | não | KDS — PENDENTE / PRONTO — default PENDENTE |
 | createdAt | DateTime | sim | sim | gerado na criação |
 | prontoEm | DateTime? | não | não | preenchido quando a cozinha marca como pronto |
@@ -130,7 +132,7 @@ owner: willians
 | trackInventory | Boolean | sim | não | se true, deduz o próprio `estoque` no fechamento (produto sem ficha técnica) |
 | enviaParaCozinha | Boolean | sim | não | default true — quando false, o item nunca aparece na fila do KDS (Módulo 7, RF-090). Adicionado em 2026-08-04 para produtos sem preparo (ex.: bebida revendida pronta) |
 | estoque | Decimal(10,3) | sim | não | usado só quando `trackInventory=true` e não há ficha técnica |
-| opcionais | Json? | não | não | grupos de opcionais do produto |
+| opcionais | Json? | não | não | grupos de opcionais do produto — `GrupoOpcional[]` (`src/lib/opcionais.ts`): `{nome, obrigatorio, tipo: "radio"\|"checkbox", limite?, opcoes[]}` para lista fixa, ou, desde 2026-09-29, `{..., origem: "categoria", categoria, quantidade}` — as opções são os produtos ativos da categoria e o PDV exige exatamente `quantidade` escolhas (ex.: Jantinha c/ 2 Espetos Tradicionais → 2 de "Espetos Tradicionais") |
 | createdAt / updatedAt | DateTime | sim | sim | timestamps padrão |
 
 ### Ingredient (Insumo)
@@ -452,9 +454,18 @@ custoEfetivoUnitario(Ingredient) =
 Product.costPrice =
     SE costPriceManual = true → valor mantido como está (não recalculado)
     SENÃO → Σ (RecipeItem.quantidade × custoEfetivoUnitario(RecipeItem.ingredient)) para todos os insumos da ficha técnica do produto
+          + Σ por grupo de opcionais "por categoria" (quantidade exigida × média do costPrice dos produtos ATIVOS da categoria)   // desde 2026-09-29
+
+OrderItem.custoUnit (na venda) =
+    SE não há componentes OU costPriceManual → Product.costPrice
+    SENÃO → ficha técnica do produto + Σ (componente.quantidade × costPrice do produto escolhido)
+
+CMV% (saúde, desde 2026-09-29) = costPrice ÷ preco
+    < 28% → "Abaixo da faixa" | 28%–35% → "Saudável" | 35%–40% → "Atenção" | > 40% → "Crítico"
+Preço sugerido pelo simulador = costPrice ÷ CMV-alvo  (padrão 32%, meio da faixa saudável)
 ```
 
-Recalculado em `lib/cmv.ts` sempre que: (1) um `RecipeItem` do produto é criado/editado/removido, ou (2) o `custoUnitario` **ou** o `rendimentoPercentual` de um `Ingredient` muda (recalcula em lote todos os produtos que usam aquele insumo, desde 2026-08-07). `custoEfetivoUnitario()` vive em `src/lib/cmv-calc.ts`, reexportado por `lib/cmv.ts`.
+Recalculado em `lib/cmv.ts` sempre que: (0) desde 2026-09-29, muda `opcionais`/`categoria`/`ativo`/custo manual do produto — e, em cascata de um nível, os produtos cujos grupos "por categoria" puxam da categoria dele (mudou um espeto → recalcula as Jantinhas); (1) um `RecipeItem` do produto é criado/editado/removido, ou (2) o `custoUnitario` **ou** o `rendimentoPercentual` de um `Ingredient` muda (recalcula em lote todos os produtos que usam aquele insumo, desde 2026-08-07). `custoEfetivoUnitario()` vive em `src/lib/cmv-calc.ts`, reexportado por `lib/cmv.ts`.
 
 ## Regra de cálculo — Taxa de pagamento no fechamento
 
