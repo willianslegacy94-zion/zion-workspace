@@ -3,7 +3,7 @@ status: stable
 domain: jocley-lanchonete
 source: claude
 created: 2026-07-29
-updated: 2026-09-07
+updated: 2026-10-02
 owner: willians
 ---
 
@@ -627,3 +627,29 @@ Os dois sintomas têm a mesma causa raiz: imprimir automaticamente, sozinho, no 
 **Impacto:** migration `20260930140000_precos_espetos_cardapio` (commit `c5be707`). Só `Product.preco` da venda avulsa; Jantinhas têm preço próprio e não mudam; itens já lançados mantêm o `precoUnit` do momento (RN-009).
 **Status:** aplicado e **deploy confirmado em produção em 2026-09-30** — conferido no banco: Espetos Tradicionais R$ 10,99 × 7, Espetos Premium R$ 11,99 × 9 (ativos).
 **Artefatos atualizados:** arquitetura-jocley-lanchonete (v1.43), indice-jocley-lanchonete (pendência de preços resolvida).
+
+## 2026-10-02 — Abertura e Fechamento de Caixa com conferência cega (v1.44)
+
+**Motivo:** O cliente quer controle de caixa: abrir com fundo de troco, registrar sangrias/suprimentos e fechar conferindo o que está na gaveta e nas maquininhas contra o que o sistema vendeu, com alerta de quebra e relatório automático. Decisões tomadas com o cliente: os dois modos (DIARIO e TURNO, produção em DIARIO), conferência **cega**, escopo "inteligente" (diferenças/alertas, sangria/suprimento, travas, relatório) e fechamento **permitido** com comandas abertas mediante justificativa.
+**Decisão:**
+- **Sessão de caixa como entidade própria** (`SessaoCaixa` + `MovimentoCaixa`) e vínculo explícito `Order.sessaoCaixaId` gravado na finalização — o esperado é calculado pelos pedidos da sessão, não por janela de horário (sessões atravessam a meia-noite e, em TURNO, se sobrepõem).
+- **Só a finalização exige caixa aberto** (`POST /api/orders/[id]/close` → 409 `CAIXA_FECHADO`). Lançar item, Confirmar Pedido e Fechar Comanda (solicitar conta) seguem livres — atendente nunca trava por causa do caixa. DIARIO usa a sessão aberta do sistema; TURNO, a de quem finaliza.
+- **Concorrência tratada no banco:** abertura sob `pg_advisory_xact_lock` (duplo clique/dois PCs → só uma abre); fechamento e sangria fazem `SELECT … FOR UPDATE` na sessão e a finalização `FOR SHARE` — uma venda concorrente com o fechamento ou entra no esperado ou recebe "caixa fechado"; duas sangrias simultâneas não deixam o dinheiro negativo. Unicidade não virou índice parcial porque o Prisma não o representa (tentaria dropá-lo na próxima migration).
+- **Conferência cega de verdade na API, não só na tela:** o esperado só aparece na resposta do `POST /api/caixa/fechar`. `GET /api/caixa/atual` devolve o esperado apenas a quem tem `caixa.relatorios` (gestor acompanhando) e, para o operador, só os **nomes** das formas com venda (necessário pra saber qual contado é obrigatório — vaza a existência da venda, não o valor). A tela do gestor deixa o esperado recolhido por padrão.
+- **Contado obrigatório** para toda forma conferível com venda + dinheiro sempre; **NOTA é informativa** (não entra dinheiro). Cartão pode ser detalhado por bandeira (o total da forma vira a soma). Para isso, **forma única de cartão com bandeira passou a gravar `pagamentosSplit` de 1 elemento** — antes a bandeira só sobrevivia em split de 2+ formas (Order não tem coluna de bandeira). Todos os leitores de `pagamentosSplit` já eram genéricos; o cálculo split-aware foi extraído para `pagamentosEfetivos()` (pura) e reaproveitado por `receitaPorFormaPagamento()`.
+- **Quebra** = |diferença total| > `caixa_limite_quebra` (estritamente maior; sobra também é quebra). Diferenças entre formas se compensam no total mas aparecem por forma.
+- **Pendências no escopo:** DIARIO → todas as comandas abertas. TURNO → se ainda houver outro caixa aberto, só as abertas pelo próprio operador (`Order.caixaId`); se for o último caixa aberto, todas (ninguém mais vai finalizá-las). Sempre snapshot em `comandasPendentes`.
+- **Fundo para o próximo caixa** informado no fechamento (0..dinheiro contado), vira a sugestão da próxima abertura. Sessão aberta de **dia anterior** (dia civil em SP) bloqueia nova abertura, mas não bloqueia vendas — o grill opera depois da meia-noite.
+- **Snapshots imutáveis:** `esperado` guarda também o limite e o modo vigentes, para reimpressão/histórico mostrarem o resultado como foi.
+- **Pós-fechamento fora da resposta** (`after()` do Next 15): ficha "FECHAMENTO DE CAIXA" (fila + Agente, padrão v1.37 — só altura) e resumo no WhatsApp; falhas vão pro `ErrorLog`, nunca desfazem o fechamento. Comprovante de sangria/suprimento sai na hora com linha de assinatura.
+- **Ranking de quebras por quem fechou** (quem contou a gaveta); no TURNO coincide com quem abriu.
+- **Troca de modo bloqueada com caixa aberto** — uma sessão aberta numa regra de unicidade/escopo continuaria sob outra.
+- **Gestor pode operar o caixa de outro operador** (TURNO ou sessão esquecida) passando `sessaoId`, exigindo `caixa.relatorios`.
+**Impacto:**
+- Schema: `SessaoCaixa`, `MovimentoCaixa`, enums `StatusSessaoCaixa`/`TipoMovimentoCaixa`, `Order.sessaoCaixaId` — migration `20261002120000_add_sessao_caixa` (só aditiva; pedidos antigos ficam null).
+- Código: `src/lib/caixa.ts` (puro), `src/lib/caixa-server.ts`, `src/lib/pagamentos.ts` (`pagamentosEfetivos`, split de 1 com bandeira), `src/lib/impressao.ts` (`renderFichaFechamentoCaixa`, `renderComprovanteMovimentoCaixa`, origem `CAIXA`), rotas `/api/caixa/{status,atual,abrir,movimentos,fechar,sessoes,sessoes/[id],sessoes/[id]/reimprimir}` e `/api/configuracoes/caixa`, `POST /api/orders/[id]/close`.
+- Permissões: `caixa`, `caixa.abrir_fechar`, `caixa.sangria`, `caixa.relatorios`, `configuracoes.caixa`; `/caixa` em `ROTAS_CAIXA` e `ROTAS_SUPERVISOR`.
+- Telas: `/caixa` (atual + histórico), aba Caixa em Configurações, badge no topo (Navbar/Sidebar), botão Finalizar desabilitado na comanda sem caixa.
+**Status:** implementado e commitado (`4a26259` na `main`), **não deployado**. Validação: `npm run verificar:caixa` (21 casos das regras puras); `tsc --noEmit` e `next lint` limpos; `next build` validado buildando a imagem Docker do projeto (o `node_modules` local tem binários Linux); E2E HTTP contra essa imagem num Postgres descartável — 20 cenários em DIARIO e TURNO (409 sem caixa, 5 aberturas concorrentes → 1, sangrias concorrentes, conferência cega, split/bandeira/Nota, quebra, pendências com justificativa, dia anterior, gestor fechando caixa de outro, escopo de pendências, troca de modo, ficha na fila decodificada, falha do WhatsApp no ErrorLog); migration aplicada sobre uma cópia do banco de dev; `prisma migrate diff` sem drift. **Telas não foram clicadas no navegador** (só conferido o acesso/SSR de `/caixa` e Configurações por papel) e o **envio real de WhatsApp não foi testado** (Evolution ausente no teste — validado só o caminho de falha).
+**Artefatos atualizados:** arquitetura-jocley-lanchonete (fluxo, segurança, integração WhatsApp, v1.44), modelo-de-dados-jocley-lanchonete (SessaoCaixa, MovimentoCaixa, Order.sessaoCaixaId, pagamentosSplit, chaves de configuração, origem CAIXA).
+**Observação (pós-deploy):** depois do deploy, o caixa precisa **abrir o caixa antes da primeira finalização** — sem isso o Finalizar fica bloqueado. Avisar o cliente no dia. Usuários com permissões personalizadas (override salvo) herdam os padrões novos de caixa do papel, porque o override só sobrepõe as chaves que já tinha.

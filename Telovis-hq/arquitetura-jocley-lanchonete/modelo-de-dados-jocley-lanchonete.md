@@ -3,7 +3,7 @@ status: stable
 domain: jocley-lanchonete
 source: claude
 created: 2026-07-29
-updated: 2026-09-06
+updated: 2026-10-02
 owner: willians
 ---
 
@@ -81,7 +81,7 @@ owner: willians
 | total | Decimal(10,2) | sim | sim | soma dos subtotais dos itens |
 | desconto | Decimal(10,2) | sim | não | desconto aplicado no fechamento — default 0 |
 | formaPagamento | FormaPagamento? | não | sim | forma de maior valor entre os pagamentos informados |
-| pagamentosSplit | Json? | não | não | array de `{forma, valor, bandeira?}` — só preenchido quando há mais de uma forma |
+| pagamentosSplit | Json? | não | não | array de `{forma, valor, bandeira?}` — preenchido quando há mais de uma forma **ou** (desde a v1.44) quando a forma única tem bandeira (split de 1 elemento, pra conferência do cartão por bandeira no fechamento de caixa) |
 | taxaTotal | Decimal(10,2) | sim | sim | soma da taxa aplicada por forma/bandeira no fechamento — snapshot, não recalculado depois |
 | caixaId | String? | não | não | FK → User — quem abriu/operou a comanda |
 | caixaNome | String? | não | não | snapshot do nome do operador |
@@ -91,6 +91,7 @@ owner: willians
 | observacoes | String? | não | não | observação geral da comanda (ex.: "cliente com pressa") — até 500 caracteres, editável no painel da comanda enquanto ela pode ser editada; sai em bloco próprio em **toda** ficha (cada "Confirmar Pedido", conta, cupom) e no card do KDS. Coluna nova desde a migration `20260929120000_add_observacoes_componentes` |
 | createdAt | DateTime | sim | sim | gerado na criação |
 | closedAt | DateTime? | não | não | preenchido no fechamento |
+| sessaoCaixaId | String? | não | não | FK → SessaoCaixa em que a comanda foi **finalizada** (v1.44) — gravado na transaction do `/close`; null nos pedidos anteriores ao controle de caixa |
 
 ### ContadorComanda
 
@@ -278,7 +279,7 @@ owner: willians
 
 | Atributo | Tipo | Obrigatório | Calculado | Descrição |
 |---|---|---|---|---|
-| chave | String | sim | não | chave primária — `whatsapp_telefone_notificacao` e `categorias_cardapio` (desde 2026-09-06) |
+| chave | String | sim | não | chave primária — `whatsapp_telefone_notificacao`, `categorias_cardapio` (desde 2026-09-06), `caixa_modo` (`DIARIO`/`TURNO`, default DIARIO) e `caixa_limite_quebra` (R$, default 5.00) — as duas últimas desde a v1.44, com default no código quando ausentes |
 | valor | String | sim | não | valor associado — para `categorias_cardapio` é um JSON serializado `[{nome: string, vaiParaCozinha: boolean}]` (parse/serialize em `src/lib/categorias.ts`, com fallback para `CATEGORIAS_CARDAPIO_PADRAO` se a chave não existir ou estiver corrompida) |
 
 ### ErrorLog
@@ -319,7 +320,7 @@ Configurada em Configurações → Impressoras (quem tem `configuracoes.impresso
 | Atributo | Tipo | Obrigatório | Calculado | Descrição |
 |---|---|---|---|---|
 | id | String (cuid) | sim | sim | identificador único |
-| origem | String | sim | não | `AUTO` / `REIMPRESSAO_ITEM` / `REIMPRESSAO_COMANDA` / `CONTA` / `TESTE` — `CONTA` (ficha de conta do "Fechar Comanda", RF-117) é novo em 2026-09-05 |
+| origem | String | sim | não | `AUTO` / `PEDIDO_CONFIRMADO` / `REIMPRESSAO_ITEM` / `REIMPRESSAO_COMANDA` / `CONTA` / `TESTE` / `CAIXA` (ficha de fechamento e comprovante de sangria/suprimento, v1.44) — `CONTA` (ficha de conta do "Fechar Comanda", RF-117) é novo em 2026-09-05 |
 | descricao | String | sim | não | legível — "Comanda #42 — 2x Espeto de Frango" (pra UI/ErrorLog) |
 | tipo | TipoConexaoImpressora | sim | não | REDE / USB_LOCAL — default REDE, snapshot de `Impressora.tipo` no momento do enfileiramento. Novo em 2026-09-05 |
 | ip / porta | String? / Int? | não | não | snapshot do alvo (`Impressora`) no momento do enfileiramento — preenchido só quando `tipo=REDE`. Ficaram opcionais em 2026-09-05 |
@@ -335,6 +336,37 @@ Configurada em Configurações → Impressoras (quem tem `configuracoes.impresso
 `@@index([status, criadoEm])`. Job PENDENTE com mais de 30 min (`VALIDADE_JOB_MS`) é descartado (→ ERRO + `ErrorLog`) no próximo poll do agente — ficha fria não sai. Só o servidor grava; só o agente (via token) atualiza `status`. Desde 2026-09-05, o Agente decide como imprimir pelo campo `tipo` do job: `REDE` → socket TCP `ip:porta`; `USB_LOCAL` → grava um arquivo temporário e executa `copy /b` para `\\localhost\<compartilhamento>` (jeito clássico de mandar bytes RAW pro spooler do Windows sem dependência npm extra).
 
 ---
+
+### SessaoCaixa (v1.44)
+
+| Atributo | Tipo | Obrigatório | Calculado | Descrição |
+|---|---|---|---|---|
+| id | String (cuid) | sim | sim | identificador único |
+| status | StatusSessaoCaixa | sim | não | ABERTA / FECHADA — default ABERTA |
+| abertoPorId / abertoEm | String / DateTime | sim | não | FK → User; quem abriu e quando |
+| fundoTroco | Decimal(10,2) | sim | não | dinheiro na gaveta na abertura (sugestão = `fundoProximoCaixa` do último fechamento) |
+| fechadoPorId / fechadoEm | String? / DateTime? | não | não | FK → User; quem fez a contagem e quando |
+| esperado | Json? | não | sim | snapshot `EsperadoSnapshot` (src/lib/caixa.ts): vendas por forma (com NOTA), bandeiras do cartão, sangrias/suprimentos, esperado por forma conferível, notas, total, nº comandas, ticket médio, formas com venda + `limiteQuebra` e `modo` vigentes no fechamento |
+| contado | Json? | não | não | `ContadoCaixa`: `{porForma: {DINHEIRO, CREDITO, DEBITO, PIX, VOUCHER}, bandeiras?: {CREDITO?: {Visa: n…}, DEBITO?: …}}` |
+| diferencaTotal | Decimal(10,2)? | não | sim | contado − esperado nas formas conferíveis (negativo = falta) |
+| quebraAcimaLimite | Boolean | sim | sim | `|diferencaTotal| > caixa_limite_quebra` — default false |
+| fundoProximoCaixa | Decimal(10,2)? | não | não | dinheiro deixado na gaveta (0..dinheiro contado); o resto é recolhido |
+| justificativaPendencias | String? | não | não | obrigatória quando havia comandas abertas no escopo |
+| comandasPendentes | Json? | não | sim | snapshot `[{id, tipo, mesa, comanda, clienteNome, total, contaSolicitada}]` no fechamento |
+| observacao | String? | não | não | livre |
+
+Índices: `status`, `abertoEm`, `(abertoPorId, status)`. Unicidade de sessão aberta garantida pela aplicação (advisory lock na abertura), não por índice parcial — o Prisma não representa índice parcial e tentaria dropá-lo na próxima migration.
+
+### MovimentoCaixa (v1.44)
+
+| Atributo | Tipo | Obrigatório | Calculado | Descrição |
+|---|---|---|---|---|
+| id | String (cuid) | sim | sim | identificador único |
+| sessaoCaixaId | String | sim | não | FK → SessaoCaixa (cascade) |
+| tipo | TipoMovimentoCaixa | sim | não | SANGRIA (retirada) / SUPRIMENTO (reforço de troco) |
+| valor | Decimal(10,2) | sim | não | > 0; sangria não pode deixar o dinheiro esperado negativo |
+| motivo | String | sim | não | obrigatório, até 300 caracteres |
+| criadoPorId / criadoEm | String / DateTime | sim | sim | FK → User; quando |
 
 ## Relacionamentos
 
