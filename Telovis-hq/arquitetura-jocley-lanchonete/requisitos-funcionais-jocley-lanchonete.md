@@ -3,7 +3,7 @@ status: stable
 domain: jocley-lanchonete
 source: claude
 created: 2026-07-29
-updated: 2026-09-07
+updated: 2026-10-02
 owner: willians
 ---
 
@@ -73,7 +73,7 @@ Dois pontos de entrada para o mesmo fluxo de comanda — mesa física (grid nume
 |---|---|---|---|
 | RF-015 | Adiciona item à comanda | dado `productId` e quantidade | persiste `OrderItem` com `precoUnit` e `custoUnit` (snapshot do produto no momento) e recalcula `Order.total` |
 | RF-016 | Remove item da comanda | dado `itemId`, comanda ainda `PENDENTE` | exclui o item e recalcula o total |
-| RF-017 | Finaliza comanda com pagamento simples ou dividido | dado array de pagamentos `{forma, valor, bandeira?}` cuja soma bate com o total menos desconto, chamado por CAIXA/SUPERVISOR/ADMIN | seta `paymentStatus=FECHADO`, `closedAt`, calcula `formaPagamento` (maior valor) e `pagamentosSplit` (se houver mais de uma forma), calcula `taxaTotal` — botão "Finalizar Comanda" na tela, imprime o cupom de pagamento via `window.print()` na máquina de quem finalizou (Módulo 8). *(Renomeado de "Fecha comanda" em 2026-09-05 — ver RF-117/RN-061: fechar e finalizar viraram ações distintas)* |
+| RF-017 | Finaliza comanda com pagamento simples ou dividido | dado array de pagamentos `{forma, valor, bandeira?}` cuja soma bate com o total menos desconto, chamado por CAIXA/SUPERVISOR/ADMIN | seta `paymentStatus=FECHADO`, `closedAt`, calcula `formaPagamento` (maior valor) e `pagamentosSplit` (se houver mais de uma forma), calcula `taxaTotal` — botão "Finalizar Comanda" na tela, imprime o cupom de pagamento via `window.print()` na máquina de quem finalizou (Módulo 8). *(Renomeado de "Fecha comanda" em 2026-09-05 — ver RF-117/RN-061: fechar e finalizar viraram ações distintas. Desde 2026-10-02 exige caixa aberto e grava a sessão — RF-143/RF-144)* |
 | RF-018 | Deduz estoque no fechamento | dado comanda fechada com sucesso | para cada item, se o produto tem ficha técnica, decrementa `Ingredient.quantidadeAtual` de cada insumo proporcionalmente e registra `MovimentacaoEstoque` tipo VENDA; produtos sem ficha técnica mas com `trackInventory=true` decrementam o próprio `Product.estoque` |
 | RF-019 | Cancela comanda | dado `orderId` sem itens fechados | seta `paymentStatus=CANCELADO`, libera a mesa se for tipo MESA |
 | RF-020 | Aplica desconto | dado valor de desconto informado no fechamento | subtrai do total antes de validar a soma dos pagamentos |
@@ -431,6 +431,38 @@ Até esta sessão, o controle de acesso era só por papel (5 roles fixos, allowl
 - **RN-049 (nuance registrada em 2026-09-06):** Para **acesso a página**, permissão granular continua sendo restrição **adicional**, nunca ampliação — o middleware por papel bloqueia a rota antes da checagem granular (ex.: não dá pra abrir `/configuracoes` num CAIXA pela matriz). Para **ações de escrita de gestão**, porém, a autorização passou a ser a permissão granular (`guardPermissao()`, RN-070): conceder a chave `produtos` a um ATENDENTE — que já enxerga `/produtos` em leitura pelo padrão do papel — agora **libera de fato** o cadastro/edição de produto pra ele. É o comportamento pedido ("funcionalidade aparece pra quem tem a permissão"), mas é uma mudança de semântica em relação a antes, quando essas ações eram sempre `guardGestor()` (só ADMIN/SUPERVISOR) independentemente da matriz
 - **RN-050:** Conta ADMIN nunca tem override de permissão configurável — sempre acesso total, para não haver risco de autolimitação acidental que trave a própria conta administradora
 - **RN-051:** Usuário sem override configurado (`permissoesOverride=null`) usa os padrões do papel dele, idênticos ao comportamento do sistema antes deste módulo existir — zero regressão para quem nunca teve a matriz customizada
+
+## Módulo 18 — Caixa: abertura, sangria/suprimento e fechamento com conferência cega (v1.44, 2026-10-02)
+
+Controle de caixa pedido pelo cliente: abrir com fundo de troco, registrar retiradas e reforços e fechar conferindo gaveta e maquininhas contra o que o sistema vendeu. Dois modos em Configurações → Caixa: **Diário** (um caixa para a casa toda — padrão, usado em produção) e **Por turno** (um caixa por operador).
+
+#### Requisitos Funcionais
+
+| ID | O que o sistema faz | Condição | Resultado esperado |
+|---|---|---|---|
+| RF-141 | Abre o caixa com fundo de troco | dado usuário com `caixa.abrir_fechar` informa o fundo (≥ 0) em `/caixa` | cria a sessão ABERTA; sugere como fundo o "fundo para o próximo caixa" do último fechamento. Recusa (409) se já houver caixa aberto no escopo (Diário: qualquer um; Por turno: o do próprio operador) |
+| RF-142 | Exige fechar caixa esquecido de outro dia | dado tentativa de abrir com uma sessão aberta num dia anterior (dia civil em São Paulo) | 409 "Existe um caixa aberto desde … — feche-o antes de abrir o de hoje"; a tela mostra o aviso no caixa aberto |
+| RF-143 | Bloqueia finalizar comanda sem caixa aberto | dado "Finalizar Comanda" sem sessão aberta (Diário: nenhuma; Por turno: nenhuma do usuário) | API responde 409 "Abra o caixa para finalizar a comanda"; na tela o botão fica desabilitado com aviso e link para `/caixa`. Lançar item, Confirmar Pedido e Fechar Comanda (RF-117) **não** são bloqueados |
+| RF-144 | Vincula a venda à sessão | dado finalização com caixa aberto | grava `Order.sessaoCaixaId` na mesma transação; se o caixa foi fechado no mesmo instante, a finalização é recusada (nunca entra numa sessão já conferida) |
+| RF-145 | Registra sangria e suprimento | dado usuário com `caixa.sangria`, valor > 0 e motivo | grava o movimento e imprime no Caixa um comprovante curto com linha de assinatura; sangria maior que o dinheiro esperado na gaveta é recusada sem informar quanto há |
+| RF-146 | Fecha o caixa com contagem cega | dado usuário com `caixa.abrir_fechar` na etapa 1 do fechamento | informa o contado por forma (dinheiro com calculadora opcional de cédulas/moedas; crédito/débito opcionalmente por bandeira) **sem ver o esperado**; contado obrigatório em dinheiro e em toda forma que teve venda |
+| RF-147 | Trata comandas abertas no fechamento | dado comandas abertas no escopo da sessão | etapa 2 lista as comandas; fechar é permitido, mas a justificativa é obrigatória; snapshot das comandas fica gravado na sessão |
+| RF-148 | Mostra o resultado da conferência | dado envio da contagem | etapa 3 mostra esperado × contado × diferença por forma (e por bandeira se detalhado), diferença total com cores e selo de quebra, vendas, notas e o fundo para o próximo caixa/valor a recolher |
+| RF-149 | Emite relatório automático do fechamento | dado fechamento concluído | ficha "FECHAMENTO DE CAIXA" na impressora do Caixa (fila + Agente) e resumo no WhatsApp de notificações; falha em qualquer um vai pro log de erros e não desfaz o fechamento |
+| RF-150 | Mostra o status do caixa | dado usuário com alguma permissão de caixa | selo "Caixa aberto/fechado" no topo (Navbar/Sidebar), atualizado a cada 30 s, com link para `/caixa` |
+| RF-151 | Histórico e ranking de quebras | dado usuário com `caixa.relatorios` | aba Histórico: sessões do período com vendas, diferença, selo de quebra e pendências; detalhe da sessão (conferência, movimentos, pendências, comandas finalizadas); reimprimir a ficha; ranking por operador (quem fez a contagem): fechamentos, quebras, soma das faltas |
+| RF-152 | Gestor opera o caixa de outro operador | dado modo Por turno (ou caixa esquecido) e usuário com `caixa.relatorios` | vê "Outros caixas abertos" e pode lançar movimentos e fechar a sessão de outro operador |
+| RF-153 | Configura o caixa | dado usuário com `configuracoes.caixa` | escolhe o modo (Diário/Por turno) e o limite de quebra (R$); troca de modo é recusada enquanto houver caixa aberto |
+
+#### Regras de negócio
+- **RN-077:** Esperado por forma = soma dos pagamentos das comandas finalizadas na sessão (split-aware). **Dinheiro esperado = fundo de troco + vendas em dinheiro + suprimentos − sangrias.** Nota (fiado) é só informativa — não é conferida.
+- **RN-078:** Diferença = contado − esperado (negativa = falta, positiva = sobra). **Quebra** = |diferença total| **maior** que o limite configurado (padrão R$ 5,00); sobra também é quebra.
+- **RN-079:** Conferência cega: nenhuma tela nem resposta de API mostra o esperado a quem vai fechar antes do envio da contagem; só quem tem `caixa.relatorios` acompanha o esperado (recolhido por padrão na tela).
+- **RN-080:** Escopo das comandas pendentes: Diário → todas as abertas; Por turno → só as abertas pelo operador, a menos que este seja o último caixa aberto (aí todas).
+- **RN-081:** Fundo para o próximo caixa: entre 0 e o dinheiro contado; o restante é recolhido.
+- **RN-082:** Permissões padrão — CAIXA: abrir/fechar + sangria; SUPERVISOR: abrir/fechar + sangria + relatórios; ADMIN: tudo; ATENDENTE/COZINHA: nenhuma.
+- **RN-083:** Os valores do fechamento (esperado, contado, limite e modo) ficam congelados na sessão — reimpressão e histórico não mudam se a configuração ou os pedidos mudarem depois.
+- **RN-084:** Pagamento único em cartão com bandeira informada passa a guardar a bandeira (antes só ficava registrada quando havia mais de uma forma de pagamento).
 
 ---
 

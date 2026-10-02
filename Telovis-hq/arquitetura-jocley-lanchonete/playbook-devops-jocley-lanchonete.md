@@ -3,7 +3,7 @@ status: stable
 domain: jocley-lanchonete
 source: claude
 created: 2026-08-10
-updated: 2026-09-06
+updated: 2026-10-02
 owner: willians
 ---
 
@@ -154,6 +154,10 @@ Sintoma clássico: tela pisca um erro de hidratação do React e se auto-recuper
 
 **Regra a seguir em qualquer card/valor calculado que apareça antes do carregamento terminar:** nunca chamar `formatCurrency`/`toLocaleString` incondicionalmente — sempre gatear atrás de `isLoading` (placeholder tipo `"—"` ou `"Carregando..."` enquanto os dados não chegaram, só formata depois). Ver `estoque-table.tsx` (card de valor total) como referência do padrão corrigido.
 
+### Gotcha: `node_modules` com binários Linux — validar build no Windows (2026-10-02)
+
+O `node_modules` desta pasta foi instalado pelo WSL: `tsc --noEmit` e `next lint` rodam no Windows, mas `next build`, `next dev` e `tsx` quebram (`lightningcss`/`esbuild`/`@next/swc` só em linux-x64). Sem reinstalar: (1) `tsx` (seed, `verificar:caixa`) com `ESBUILD_BINARY_PATH` apontando pra um `esbuild.exe` baixado via `npm pack @esbuild/win32-x64@<versão>` fora do repo; (2) `next build` buildando a imagem do `Dockerfile` a partir de uma **cópia limpa** (`git ls-files` + arquivos novos) — o repo não tem `.dockerignore`, buildar direto copiaria `node_modules` e `.env` pra imagem; (3) E2E rodando essa imagem contra um database descartável criado no próprio `jocley-lanchonete-db` (`host.docker.internal:5434`, `AUTH_TRUST_HOST=true`), nunca no banco de dev.
+
 ### Sistema de tratamento e registro de erros (desde 2026-07-30) — pode servir de referência pra outros sistemas
 
 Nenhuma rota de API tinha tratamento de exceção até esta sessão. Padrão implementado, reutilizável em qualquer projeto Next.js App Router do workspace:
@@ -248,6 +252,19 @@ Migrations aplicam no boot: `add_cliente_nome_despesa`, `add_impressora`, `add_f
 **Gotcha confirmado em 2026-09-06: nem todo PC do caixa usa a Opção B (nssm).** O PC do caixa em produção foi configurado com a **Opção A (Agendador de Tarefas)** — não existe `nssm.exe` na pasta do agente ali. Rodar `nssm stop/start ...` nesse PC dá `"nssm" não é reconhecido como comando`, porque o `nssm.exe` simplesmente não está instalado (nem faria sentido, já que o agente não roda como serviço nssm nesse PC). Antes de mandar reiniciar via nssm, **confirme qual opção foi usada**: `dir C:\jocley-agente\nssm.exe` — se der "arquivo não encontrado", é Agendador. Reiniciar pelo Agendador: `taskschd.msc` → localizar a tarefa (nome sugerido no runbook: "Jocley Agente Impressao", mas pode ter outro nome) → botão direito ou painel da direita → **Finalizar** (se estiver rodando) → **Executar**.
 
 **Erros comuns:** `HTTP 401` no log = token não bate. `ETIMEDOUT`/`EHOSTUNREACH` = PC não alcança a impressora (IP, energia, Wi-Fi). `fila: sem conexão com o servidor` = PC não abre `jocleygrill.online`. "online mas não confirmou o teste" = agente rodando mas impressora com problema (papel/energia). Parou depois de dias = IP mudou → reserva de DHCP + atualizar em Configurações. Tabela completa no `agente-impressao/README.md`.
+
+### Caixa — abertura, sangria/suprimento e fechamento (desde 2026-10-02, v1.44)
+
+- **Onde está:** regras puras em `src/lib/caixa.ts` (esperado, contado, quebra, pendências — testadas por `npm run verificar:caixa`), banco/travas/pós-fechamento em `src/lib/caixa-server.ts`, rotas em `src/app/api/caixa/*`, tela em `/caixa`.
+- **Modo e limite:** `ConfiguracaoGeral` `caixa_modo` (`DIARIO`/`TURNO`) e `caixa_limite_quebra`; sem linha no banco vale DIARIO e R$ 5,00. A troca de modo é recusada com caixa aberto.
+- **Sintoma "Abra o caixa para finalizar a comanda" (409):** não há sessão aberta (DIARIO) ou o usuário não tem a dele (TURNO). Abrir em `/caixa`. Ver sessões abertas direto no banco:
+```bash
+docker exec -it jocley-lanchonete-db psql -U postgres -d jocley_lanchonete -c \
+  "SELECT s.id, s.status, u.nome, s.\"abertoEm\" FROM \"SessaoCaixa\" s JOIN \"User\" u ON u.id=s.\"abertoPorId\" WHERE s.status='ABERTA';"
+```
+- **Caixa esquecido aberto de ontem:** bloqueia abrir outro (por design). Quem tem `caixa.relatorios` fecha pela tela (`/caixa` → o próprio caixa em DIARIO, ou "Outros caixas abertos" em TURNO) — nunca fechar por UPDATE manual, senão a sessão fica sem esperado/contado.
+- **Ficha de fechamento não saiu:** é job comum da fila (origem `CAIXA`) — mesmo diagnóstico da seção de impressão (Agente rodando? impressora do Caixa ativa?). Dá pra reimprimir pelo Histórico. Falha de enfileirar ou de WhatsApp aparece no `ErrorLog` com rota `POST /api/caixa/fechar (ficha)` / `(WhatsApp)`.
+- **Concorrência:** a abertura usa `pg_advisory_xact_lock(71440144)`; fechamento e sangria fazem `FOR UPDATE` na linha da sessão e o `/close` faz `FOR SHARE`. Se um fechamento travar (ex.: transação presa), a finalização de comandas espera junto — olhar `pg_stat_activity`.
 
 ### Configurações → Taxas (dois grupos, desde 2026-07-30)
 
