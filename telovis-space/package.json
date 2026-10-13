@@ -1,0 +1,18 @@
+{
+  "name": "telovis-space",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,realtime -c cyan,magenta \"npm run dev -w @telovis/web\" \"npm run dev -w @telovis/realtime\"",
+    "build": "npm run build -w @telovis/web",
+    "test": "npm test -w @telovis/web",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

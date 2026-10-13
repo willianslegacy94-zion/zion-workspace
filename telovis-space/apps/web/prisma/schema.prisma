@@ -1,0 +1,60 @@
+// TeloVis Space — schema Prisma (spec, seção 5).
+// Prisma 7: a URL do banco fica em prisma.config.ts, não no datasource.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  /// scrypt: "salt:hash" em hex (ver src/lib/auth/password.ts)
+  passwordHash String
+  avatarSprite String        @default("default_avatar.png")
+  spaceMembers SpaceMember[]
+  sessions     Session[]
+  ownedSpaces  Space[]
+  createdAt    DateTime      @default(now())
+}
+
+/// Sessão de login. O cookie guarda o token cru; aqui fica só o SHA-256 dele,
+/// então um vazamento do banco não dá sessões válidas.
+model Session {
+  id        String   @id // sha256(token) em hex
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Space {
+  id         String        @id @default(uuid())
+  name       String
+  slug       String        @unique
+  mapJsonUrl String // URL do .json exportado do Tiled
+  tilesetUrl String // URL da imagem do tileset
+  ownerId    String
+  owner      User          @relation(fields: [ownerId], references: [id])
+  members    SpaceMember[]
+  createdAt  DateTime      @default(now())
+}
+
+model SpaceMember {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId  String
+  space    Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  role     String   @default("MEMBER") // ADMIN, MEMBER, GUEST
+  joinedAt DateTime @default(now())
+
+  @@unique([userId, spaceId])
+}

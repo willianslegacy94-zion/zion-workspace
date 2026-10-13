@@ -1,0 +1,21 @@
+# Postgres local do TeloVis Space. Porta 5450 para não brigar com outros
+# Postgres da máquina.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: telovis_space_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: telovis_space
+    ports:
+      - "127.0.0.1:5450:5432"
+    volumes:
+      - telovis_space_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d telovis_space"]
+      interval: 2s
+      retries: 15
+
+volumes:
+  telovis_space_pg:

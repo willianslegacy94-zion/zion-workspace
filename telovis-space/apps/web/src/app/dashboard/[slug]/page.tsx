@@ -1,0 +1,105 @@
+import Link from "next/link";
+import AddMemberForm from "@/components/dashboard/AddMemberForm";
+import MemberActions from "@/components/dashboard/MemberActions";
+import { requireUser } from "@/lib/auth/session";
+import { prisma } from "@/lib/prisma";
+import { parseRole } from "@/lib/space/access";
+import { getAdminSpace } from "@/lib/space/admin";
+
+export default async function ManageSpacePage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const user = await requireUser(`/dashboard/${slug}`);
+  const space = await getAdminSpace(slug, user.id);
+
+  if (!space) {
+    return (
+      <main className="grid min-h-dvh place-items-center p-6 text-center">
+        <div>
+          <h1 className="text-2xl font-semibold">Sem acesso</h1>
+          <p className="mt-2 text-slate-400">Só administradores do escritório podem gerenciá-lo.</p>
+          <Link href="/dashboard" className="mt-6 inline-block text-emerald-400 underline">
+            Voltar ao dashboard
+          </Link>
+        </div>
+      </main>
+    );
+  }
+
+  const [owner, members] = await Promise.all([
+    prisma.user.findUniqueOrThrow({
+      where: { id: space.ownerId },
+      select: { name: true, email: true },
+    }),
+    prisma.spaceMember.findMany({
+      where: { spaceId: space.id },
+      select: { id: true, role: true, user: { select: { id: true, name: true, email: true } } },
+      orderBy: { joinedAt: "asc" },
+    }),
+  ]);
+
+  return (
+    <main className="mx-auto max-w-3xl p-6 sm:p-8">
+      <Link href="/dashboard" className="text-sm text-slate-400 hover:text-slate-200">
+        ← Dashboard
+      </Link>
+      <header className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">{space.name}</h1>
+          <p className="text-sm text-slate-500">/space/{space.slug}</p>
+        </div>
+        <Link
+          href={`/space/${space.slug}`}
+          className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400"
+        >
+          Entrar
+        </Link>
+      </header>
+
+      <section className="mt-8">
+        <h2 className="text-lg font-semibold">Adicionar pessoa</h2>
+        <p className="mb-3 mt-1 text-sm text-slate-400">
+          A pessoa precisa já ter uma conta. Ainda não enviamos convite por e-mail.
+        </p>
+        <AddMemberForm slug={space.slug} />
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold">
+          Membros <span className="text-sm font-normal text-slate-500">({members.length + 1})</span>
+        </h2>
+        <ul className="mt-3 divide-y divide-slate-800 rounded-xl border border-slate-800">
+          <li className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <Person name={owner.name} email={owner.email} self={space.ownerId === user.id} />
+            <span className="text-sm text-slate-400">Dono</span>
+          </li>
+          {members.map((m) => (
+            <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+              <Person name={m.user.name} email={m.user.email} self={m.user.id === user.id} />
+              <MemberActions
+                slug={space.slug}
+                memberId={m.id}
+                memberName={m.user.name}
+                role={parseRole(m.role) ?? "GUEST"}
+                isSelf={m.user.id === user.id}
+              />
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-xs text-slate-500">
+          Quem for removido perde o acesso na próxima vez que entrar ou reconectar.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function Person({ name, email, self }: { name: string; email: string; self: boolean }) {
+  return (
+    <div className="min-w-0">
+      <p className="truncate font-medium">
+        {name} {self && <span className="text-xs text-slate-500">(você)</span>}
+      </p>
+      <p className="truncate text-xs text-slate-500">{email}</p>
+    </div>
+  );
+}
