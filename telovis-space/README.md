@@ -31,7 +31,7 @@ telovis-space/
         │   ├── dashboard/actions.ts              # createSpace, addMember, updateMemberRole, removeMember
         │   └── space/[spaceId]/
         │       ├── page.tsx                      # /space/[spaceId]
-        │       └── customizer/page.tsx           # editor de avatar (stub)
+        │       └── customizer/page.tsx           # editor de avatar
         ├── components/space/
         │   ├── SpaceClient.tsx   # client component: socket, mídia, HUD, next/dynamic ssr:false
         │   └── PhaserGame.tsx    # monta/destrói o Phaser.Game (só no cliente)
@@ -117,8 +117,15 @@ Testes do algoritmo de proximidade: `npm test`.
 
 ## No mapa
 
-- Avatares pixel art com 4 direções e caminhada (`game/avatar.ts`), gerados em
-  runtime a partir do nome — todos veem a mesma pessoa com o mesmo visual.
+- Avatares pixel art com 4 direções e caminhada, gerados em runtime.
+  `game/avatar-draw.ts` desenha em canvas 2D puro (usado pela cena e pela
+  prévia do Customizer); `game/avatar.ts` transforma em textura do Phaser.
+- **Customizer** (`/space/[id]/customizer`, botão "Avatar" na HUD): pele,
+  cabelo (curto/longo/careca + cor), camisa e calça. O visual é um
+  `AvatarLook` de índices nas paletas de `packages/protocol` (só acrescente
+  opções no fim das listas), salvo em `User.avatar`. Sem visual salvo, vale o
+  padrão derivado do nome. O visual vai assinado no ticket; os colegas veem a
+  mudança quando a pessoa volta ao space.
 - Círculo do raio de 150px em volta de você (some dentro de zonas) e anel verde
   nos colegas cuja mídia está ativa.
 - Zonas com contorno sempre visível; ao entrar, a sala acende e a HUD avisa
@@ -143,4 +150,7 @@ tileset por enquanto.
   `@socket.io/redis-adapter`.
 - **Dashboard**: sem convite por e-mail (só adiciona quem já tem conta), sem
   métricas de uso, sem renomear/excluir space nem transferir a posse.
-- Customizer, avatares em spritesheet, upload de mapa e Shadcn/UI ainda não existem.
+- **Avatar**: trocar o visual não atualiza ao vivo quem já está na sala (só
+  após voltar ao space). `User.avatarSprite` (da spec) segue sem uso, reservado
+  para spritesheets enviados.
+- Upload de mapa e Shadcn/UI ainda não existem.

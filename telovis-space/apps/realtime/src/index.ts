@@ -96,6 +96,7 @@ io.on("connection", (socket) => {
       id: socket.id,
       userId: user.sub,
       name: user.name,
+      avatar: user.avatar,
       x: Math.round(payload.x),
       y: Math.round(payload.y),
       direction: "down",

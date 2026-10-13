@@ -6,6 +6,10 @@
 // (socket.id e a sala em que ele entrou via `room:join`), então um cliente não
 // consegue mover o avatar de outra pessoa nem publicar em outra sala.
 
+import type { AvatarLook } from "./avatar";
+
+export * from "./avatar";
+
 export type Direction = "up" | "down" | "left" | "right";
 
 export const DIRECTIONS: readonly Direction[] = ["up", "down", "left", "right"];
@@ -16,6 +20,7 @@ export interface PlayerState {
   /** id do User dono do avatar. */
   userId: string;
   name: string;
+  avatar: AvatarLook;
   x: number;
   y: number;
   direction: Direction;
@@ -51,6 +56,8 @@ export interface RealtimeTicketClaims {
   /** slug do space que o ticket libera */
   space: string;
   role: SpaceRole;
+  /** Visual salvo no Customizer (ou o padrão derivado do nome). */
+  avatar: AvatarLook;
 }
 
 export type SpaceRole = "ADMIN" | "MEMBER" | "GUEST";

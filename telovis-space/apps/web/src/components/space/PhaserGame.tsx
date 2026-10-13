@@ -20,7 +20,7 @@ export default function PhaserGame(props: Props) {
     propsRef.current = props;
   });
 
-  const { socket, media, spaceId, mapJsonUrl, tilesetUrl, playerName } = props;
+  const { socket, media, spaceId, mapJsonUrl, tilesetUrl, playerName, avatar } = props;
 
   useEffect(() => {
     const parent = containerRef.current;
@@ -48,6 +48,7 @@ export default function PhaserGame(props: Props) {
       media,
       spaceId,
       playerName,
+      avatar,
       mapJsonUrl,
       tilesetUrl,
       onStatus: (s) => propsRef.current.onStatus(s),
@@ -59,7 +60,7 @@ export default function PhaserGame(props: Props) {
     return () => {
       game.destroy(true);
     };
-  }, [socket, media, spaceId, mapJsonUrl, tilesetUrl, playerName]);
+  }, [socket, media, spaceId, mapJsonUrl, tilesetUrl, playerName, avatar]);
 
   return <div ref={containerRef} className="absolute inset-0" />;
 }

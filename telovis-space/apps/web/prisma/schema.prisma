@@ -17,6 +17,9 @@ model User {
   /// scrypt: "salt:hash" em hex (ver src/lib/auth/password.ts)
   passwordHash String
   avatarSprite String        @default("default_avatar.png")
+  /// Visual do Customizer: AvatarLook de @telovis/protocol (índices nas
+  /// paletas). null = padrão derivado do nome.
+  avatar       Json?
   spaceMembers SpaceMember[]
   sessions     Session[]
   ownedSpaces  Space[]

@@ -1,5 +1,6 @@
 import { jwtVerify } from "jose";
 import {
+  parseAvatarLook,
   REALTIME_TICKET_AUDIENCE,
   SPACE_ID_PATTERN,
   type RealtimeTicketClaims,
@@ -32,12 +33,14 @@ export async function verifyTicket(
       algorithms: ["HS256"],
       audience: REALTIME_TICKET_AUDIENCE,
     });
-    const { sub, name, space, role } = payload as Record<string, unknown>;
+    const { sub, name, space, role, avatar } = payload as Record<string, unknown>;
     if (typeof sub !== "string" || !sub) return null;
     if (typeof name !== "string" || !name.trim()) return null;
     if (typeof space !== "string" || !SPACE_ID_PATTERN.test(space)) return null;
     if (!ROLES.includes(role as SpaceRole)) return null;
-    return { sub, name: name.trim().slice(0, 32), space, role: role as SpaceRole };
+    const look = parseAvatarLook(avatar);
+    if (!look) return null;
+    return { sub, name: name.trim().slice(0, 32), space, role: role as SpaceRole, avatar: look };
   } catch {
     return null;
   }

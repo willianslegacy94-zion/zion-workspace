@@ -34,6 +34,7 @@ export default async function SpacePage({ params }: { params: Promise<{ spaceId:
       mapJsonUrl={space.mapJsonUrl}
       tilesetUrl={space.tilesetUrl}
       playerName={user.name}
+      avatar={user.avatar}
     />
   );
 }

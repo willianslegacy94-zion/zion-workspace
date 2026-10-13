@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cache } from "react";
 import { cookies } from "next/headers";
+import { defaultAvatarLook, parseAvatarLook, type AvatarLook } from "@telovis/protocol";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 
@@ -12,6 +13,8 @@ export interface CurrentUser {
   id: string;
   name: string;
   email: string;
+  /** Sempre preenchido: o salvo no Customizer ou o padrão do nome. */
+  avatar: AvatarLook;
 }
 
 function hashToken(token: string): string {
@@ -54,7 +57,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     where: { id },
     select: {
       expiresAt: true,
-      user: { select: { id: true, name: true, email: true } },
+      user: { select: { id: true, name: true, email: true, avatar: true } },
     },
   });
   if (!session) return null;
@@ -63,7 +66,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     await prisma.session.deleteMany({ where: { id } });
     return null;
   }
-  return session.user;
+  const { avatar, ...user } = session.user;
+  return { ...user, avatar: parseAvatarLook(avatar) ?? defaultAvatarLook(user.name) };
 });
 
 /** Para pages protegidas: devolve o usuário ou manda para o login. */

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     name: user.name,
     space: access.space.slug,
     role: access.role,
+    avatar: user.avatar,
   });
   return Response.json({ token }, { headers: { "cache-control": "no-store" } });
 }

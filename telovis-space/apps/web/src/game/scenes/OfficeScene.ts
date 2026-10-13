@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import {
   EARSHOT_RADIUS,
+  type AvatarLook,
   type ChatMessage,
   type Direction,
   type PlayerMove,
@@ -14,7 +15,7 @@ import {
   type MediaDecisions,
 } from "@/lib/proximity/proximity";
 import { parseZones, zoneAt, type PrivateZone } from "../zones";
-import { AVATAR_SIZE, ensureAvatar, idleFrame, lookFor, walkAnimKey } from "../avatar";
+import { AVATAR_SIZE, ensureAvatar, idleFrame, walkAnimKey } from "../avatar";
 
 export type SceneStatus =
   | { kind: "connecting" }
@@ -39,6 +40,7 @@ export interface OfficeSceneData {
   media: MediaController;
   spaceId: string;
   playerName: string;
+  avatar: AvatarLook;
   mapJsonUrl: string;
   tilesetUrl: string;
   onStatus: (status: SceneStatus) => void;
@@ -58,7 +60,6 @@ const MINIMAP_MARGIN = { x: 12, y: 64 }; // abaixo do cabeçalho da HUD
 // fica na frente); decoração de mundo fica abaixo deles, textos acima.
 const DEPTH = { zones: 1, radius: 2, ring: 3, overlay: 100_000 } as const;
 
-const PALETTE = [0x3b82f6, 0xf97316, 0xa855f7, 0xec4899, 0xeab308, 0x14b8a6, 0xef4444, 0x22c55e];
 
 type MoveKeys = Record<
   "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT",
@@ -178,7 +179,7 @@ export class OfficeScene extends Phaser.Scene {
     const spawnX = (spawn?.x ?? map.widthInPixels / 2) + Phaser.Math.Between(-24, 24);
     const spawnY = (spawn?.y ?? map.heightInPixels / 2) + Phaser.Math.Between(-24, 24);
 
-    const myTexture = this.avatarTextureFor(this.ctx.playerName);
+    const myTexture = ensureAvatar(this, this.ctx.avatar);
     const sprite = this.physics.add.sprite(spawnX, spawnY, myTexture, idleFrame("down"));
     sprite.setCollideWorldBounds(true);
     // Hitbox só nos pés: deixa passar rente a móveis e "atrás" de mesas.
@@ -341,12 +342,6 @@ export class OfficeScene extends Phaser.Scene {
 
   // --- Avatares ----------------------------------------------------------------
 
-  private avatarTextureFor(name: string): string {
-    // O visual é derivado do nome, não do socket.id: todo mundo vê a mesma
-    // pessoa com a mesma cara, e ela não muda de roupa ao reconectar.
-    return ensureAvatar(this, lookFor(name, PALETTE[hash(name) % PALETTE.length]));
-  }
-
   private createDecor(name: string, labelColor: string, dotColor: number, x: number, y: number) {
     const label = this.add
       .text(x, y, name, {
@@ -406,7 +401,9 @@ export class OfficeScene extends Phaser.Scene {
       existing.state = { ...player };
       return;
     }
-    const textureKey = this.avatarTextureFor(player.name);
+    // O visual vem do servidor (que o recebeu assinado no ticket), então todo
+    // mundo vê a mesma pessoa com a mesma roupa.
+    const textureKey = ensureAvatar(this, player.avatar);
     const sprite = this.add.sprite(player.x, player.y, textureKey, idleFrame(player.direction));
     this.minimap.ignore(sprite);
     const ring = this.add
@@ -589,10 +586,4 @@ function isTyping(): boolean {
     el instanceof HTMLTextAreaElement ||
     (el instanceof HTMLElement && el.isContentEditable)
   );
-}
-
-function hash(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
 }

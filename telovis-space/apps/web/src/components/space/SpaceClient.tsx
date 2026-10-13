@@ -1,6 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import type { AvatarLook } from "@telovis/protocol";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { NearbyPeer, SceneStatus, ZoneInfo } from "@/game/scenes/OfficeScene";
 import { createSpaceSocket, type SpaceSocket } from "@/lib/space/socket";
@@ -24,6 +26,7 @@ interface Props {
   mapJsonUrl: string;
   tilesetUrl: string;
   playerName: string;
+  avatar: AvatarLook;
 }
 
 interface Session {
@@ -66,6 +69,7 @@ export default function SpaceClient(props: Props) {
           media={session.media}
           spaceId={props.spaceId}
           playerName={props.playerName}
+          avatar={props.avatar}
           mapJsonUrl={props.mapJsonUrl}
           tilesetUrl={props.tilesetUrl}
           onStatus={setStatus}
@@ -85,8 +89,16 @@ export default function SpaceClient(props: Props) {
             {status.kind === "joined" && !status.media && " (sem mídia: LiveKit não configurado)"}
           </span>
         </div>
-        <div className="hidden rounded-lg bg-black/60 px-3 py-2 text-xs text-slate-400 backdrop-blur sm:block">
-          WASD / setas para andar · Enter para conversar
+        <div className="flex items-center gap-2">
+          <div className="hidden rounded-lg bg-black/60 px-3 py-2 text-xs text-slate-400 backdrop-blur sm:block">
+            WASD / setas para andar · Enter para conversar
+          </div>
+          <Link
+            href={`/space/${props.spaceId}/customizer`}
+            className="pointer-events-auto rounded-lg bg-black/60 px-3 py-2 text-sm backdrop-blur hover:bg-black/80"
+          >
+            Avatar
+          </Link>
         </div>
       </header>
 
