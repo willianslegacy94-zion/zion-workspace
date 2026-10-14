@@ -10,6 +10,7 @@ import {
   type Direction,
   type PlayerMove,
   type PlayerState,
+  type Vehicle,
 } from "@telovis/protocol";
 import { UNAUTHORIZED, type SpaceSocket } from "@/lib/space/socket";
 import type { MediaController } from "@/lib/media/media-controller";
@@ -22,14 +23,18 @@ import {
   areaAt,
   parseAreas,
   parseDeskSlots,
+  parseVehicleStations,
   parseZones,
   zoneAt,
   type DeskSlot,
   type MapArea,
   type PrivateZone,
+  type VehicleStation,
 } from "../zones";
 import { DESK_H, DESK_TEX_H, DESK_W, deskTextureKey, drawDesk } from "../desk-draw";
 import { AVATAR_SIZE, ensureAvatar, idleFrame, walkAnimKey } from "../avatar";
+import { ensureVehicle } from "../vehicle";
+import { VEHICLE_ANCHOR, VEHICLE_FRAME, vehicleFrame, vehicleInFront } from "../vehicle-draw";
 
 export type SceneStatus =
   | { kind: "connecting" }
@@ -57,6 +62,17 @@ export interface DeskFocus {
   setup: DeskSetup;
 }
 
+/** O que a tecla E faz com veículo agora: subir (perto da garagem) ou descer. */
+export interface VehicleFocus {
+  action: "mount" | "dismount";
+  vehicle: Vehicle;
+}
+
+/** Comandos que a HUD (React) dispara na cena. */
+export interface SceneApi {
+  toggleVehicle: () => void;
+}
+
 export interface OfficeSceneData {
   socket: SpaceSocket;
   media: MediaController;
@@ -73,9 +89,11 @@ export interface OfficeSceneData {
   onZoneChange: (zone: ZoneInfo | null) => void;
   onAreaChange: (area: string | null) => void;
   onDeskFocus: (desk: DeskFocus | null) => void;
+  onVehicleFocus: (focus: VehicleFocus | null) => void;
+  onReady: (api: SceneApi) => void;
 }
 
-const SPEED = 160; // px/s
+const SPEED: Record<Vehicle | "walk", number> = { walk: 160, patinete: 240, kart: 310 }; // px/s
 const MOVE_EMIT_INTERVAL_MS = 66; // ~15Hz; o servidor descarta acima de ~30Hz
 const PROXIMITY_INTERVAL_MS = 200; // 5Hz basta para ligar/desligar mídia
 const REMOTE_SMOOTHING_MS = 90; // constante de tempo da interpolação remota
@@ -89,7 +107,10 @@ const DEPTH = { areas: 1, zones: 1, radius: 2, ring: 3, overlay: 100_000 } as co
 
 /** Distância (px) do jogador até a cadeira para a mesa entrar em foco. */
 const DESK_REACH = 40;
-
+/** Distância (px) até o ponto da garagem para poder pegar o veículo. */
+const VEHICLE_REACH = 36;
+/** Troca de quadro das rodas em movimento. */
+const WHEEL_FRAME_MS = 110;
 
 type MoveKeys = Record<
   "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT",
@@ -105,6 +126,8 @@ interface AvatarView {
   dot: Phaser.GameObjects.Arc;
   bubble: Phaser.GameObjects.Text | null;
   bubbleTimer: Phaser.Time.TimerEvent | null;
+  vehicle: Vehicle | null;
+  vehicleSprite: Phaser.GameObjects.Sprite | null;
 }
 
 interface RemoteAvatar extends AvatarView {
@@ -126,6 +149,7 @@ interface SentState {
   direction: Direction;
   moving: boolean;
   zoneId: string | null;
+  vehicle: Vehicle | null;
 }
 
 export class OfficeScene extends Phaser.Scene {
@@ -140,6 +164,9 @@ export class OfficeScene extends Phaser.Scene {
   private deskHighlight!: Phaser.GameObjects.Rectangle;
   private focusedDesk: string | null = null;
   private lastFocusKey = "";
+  private stations: VehicleStation[] = [];
+  private focusedStation: VehicleStation | null = null;
+  private lastVehicleFocusKey = "";
   private radius!: Phaser.GameObjects.Arc;
   private minimap!: Phaser.Cameras.Scene2D.Camera;
   private viewportBox!: Phaser.GameObjects.Rectangle;
@@ -279,6 +306,19 @@ export class OfficeScene extends Phaser.Scene {
       .setVisible(false);
     this.minimap.ignore(this.deskHighlight);
 
+    // --- Garagens de kart e patinete -----------------------------------------
+    this.stations = parseVehicleStations(map);
+    const spots = this.add.graphics().setDepth(DEPTH.areas);
+    for (const { x, y, vehicle } of this.stations) {
+      spots.lineStyle(2, 0xfacc15, 0.55).strokeRect(x - 18, y - 14, 36, 30);
+      // Veículo estacionado de enfeite: a garagem nunca esvazia.
+      const parked = this.add
+        .sprite(x, y, ensureVehicle(this, vehicle), vehicleFrame("right", 0))
+        .setOrigin(VEHICLE_ANCHOR.x / VEHICLE_FRAME, VEHICLE_ANCHOR.y / VEHICLE_FRAME)
+        .setDepth(y);
+      this.minimap.ignore(parked);
+    }
+
     // --- Jogador local -------------------------------------------------------
     const spawn = map.findObject("objects", (o) => o.name === "spawn");
     const spawnX = (spawn?.x ?? map.widthInPixels / 2) + Phaser.Math.Between(-24, 24);
@@ -339,6 +379,8 @@ export class OfficeScene extends Phaser.Scene {
       (window as unknown as { __officeScene?: OfficeScene }).__officeScene = this;
     }
 
+    this.ctx.onReady({ toggleVehicle: () => this.toggleVehicle() });
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.teardown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.teardown, this);
   }
@@ -348,6 +390,7 @@ export class OfficeScene extends Phaser.Scene {
     this.updateRemotes(delta);
     this.updateZone();
     this.updateDeskFocus();
+    this.updateVehicleFocus();
 
     const view = this.cameras.main.worldView;
     this.viewportBox.setPosition(view.x, view.y).setSize(view.width, view.height);
@@ -390,7 +433,8 @@ export class OfficeScene extends Phaser.Scene {
     const vy = typing ? 0 : Number(k.S.isDown || k.DOWN.isDown) - Number(k.W.isDown || k.UP.isDown);
 
     // Normaliza para a diagonal não ser √2 mais rápida.
-    const velocity = new Phaser.Math.Vector2(vx, vy).normalize().scale(SPEED);
+    const speed = SPEED[this.me.vehicle ?? "walk"];
+    const velocity = new Phaser.Math.Vector2(vx, vy).normalize().scale(speed);
     const { sprite } = this.me;
     sprite.setVelocity(velocity.x, velocity.y);
 
@@ -412,6 +456,7 @@ export class OfficeScene extends Phaser.Scene {
       direction: this.direction,
       moving: sprite.body!.velocity.lengthSq() > 0,
       zoneId: this.currentZone?.id ?? null,
+      vehicle: this.me.vehicle,
     };
   }
 
@@ -448,12 +493,17 @@ export class OfficeScene extends Phaser.Scene {
       prev.y === next.y &&
       prev.direction === next.direction &&
       prev.moving === next.moving &&
-      prev.zoneId === next.zoneId
+      prev.zoneId === next.zoneId &&
+      prev.vehicle === next.vehicle
     ) {
       return;
     }
 
-    const urgent = !prev || prev.moving !== next.moving || prev.zoneId !== next.zoneId;
+    const urgent =
+      !prev ||
+      prev.moving !== next.moving ||
+      prev.zoneId !== next.zoneId ||
+      prev.vehicle !== next.vehicle;
     if (!urgent && time - this.lastEmitAt < MOVE_EMIT_INTERVAL_MS) return;
 
     this.ctx.socket.emit("player:move", next);
@@ -485,7 +535,9 @@ export class OfficeScene extends Phaser.Scene {
     const { x, y } = this.me.sprite;
     let best: DeskView | null = null;
     let bestDist = DESK_REACH;
-    for (const view of this.desks.values()) {
+    // De kart ou patinete não se mexe em mesa: o E serve para descer.
+    const desks = this.me.vehicle ? [] : this.desks.values();
+    for (const view of desks) {
       const seatX = view.slot.x + DESK_W / 2;
       const seatY = view.slot.y + DESK_H + 12;
       const d = Math.hypot(seatX - x, seatY - y);
@@ -518,6 +570,55 @@ export class OfficeScene extends Phaser.Scene {
     );
   }
 
+  // --- Veículos ----------------------------------------------------------------
+
+  private updateVehicleFocus() {
+    const { x, y } = this.me.sprite;
+    let best: VehicleStation | null = null;
+    let bestDist = VEHICLE_REACH;
+    if (!this.me.vehicle) {
+      for (const station of this.stations) {
+        const d = Math.hypot(station.x - x, station.y - y);
+        if (d < bestDist) {
+          best = station;
+          bestDist = d;
+        }
+      }
+    }
+    this.focusedStation = best;
+
+    const focus: VehicleFocus | null = this.me.vehicle
+      ? { action: "dismount", vehicle: this.me.vehicle }
+      : best
+        ? { action: "mount", vehicle: best.vehicle }
+        : null;
+    const key = focus ? focus.action + ":" + focus.vehicle : "";
+    if (key === this.lastVehicleFocusKey) return;
+    this.lastVehicleFocusKey = key;
+    this.ctx.onVehicleFocus(focus);
+  }
+
+  /** Sobe no veículo da garagem ao alcance, ou desce do atual. */
+  toggleVehicle() {
+    if (this.disposed) return;
+    if (this.me.vehicle) this.setVehicle(this.me, null);
+    else if (this.focusedStation) this.setVehicle(this.me, this.focusedStation.vehicle);
+  }
+
+  private setVehicle(view: AvatarView, vehicle: Vehicle | null) {
+    if (view.vehicle === vehicle) return;
+    view.vehicleSprite?.destroy();
+    view.vehicleSprite = null;
+    view.vehicle = vehicle;
+    if (vehicle) {
+      view.vehicleSprite = this.add
+        .sprite(view.sprite.x, view.sprite.y, ensureVehicle(this, vehicle), 0)
+        .setOrigin(VEHICLE_ANCHOR.x / VEHICLE_FRAME, VEHICLE_ANCHOR.y / VEHICLE_FRAME);
+      this.minimap.ignore(view.vehicleSprite);
+    }
+    this.positionDecor(view);
+  }
+
   // --- Avatares ----------------------------------------------------------------
 
   private createDecor(name: string, labelColor: string, dotColor: number, x: number, y: number) {
@@ -536,10 +637,18 @@ export class OfficeScene extends Phaser.Scene {
     const dot = this.add.circle(x, y, 28, dotColor).setDepth(DEPTH.overlay);
     this.cameras.main.ignore(dot);
 
-    return { label, dot, bubble: null, bubbleTimer: null };
+    return { label, dot, bubble: null, bubbleTimer: null, vehicle: null, vehicleSprite: null };
   }
 
   private animate(view: AvatarView, direction: Direction, moving: boolean) {
+    if (view.vehicleSprite) {
+      // Em cima do veículo o avatar fica parado; quem "anda" são as rodas.
+      view.sprite.anims.stop();
+      view.sprite.setFrame(idleFrame(direction));
+      const phase = moving ? Math.floor(this.time.now / WHEEL_FRAME_MS) : 0;
+      view.vehicleSprite.setFrame(vehicleFrame(direction, phase));
+      return;
+    }
     if (moving) {
       view.sprite.anims.play(walkAnimKey(view.textureKey, direction), true);
     } else {
@@ -551,6 +660,9 @@ export class OfficeScene extends Phaser.Scene {
   private positionDecor(view: AvatarView) {
     const { x, y } = view.sprite;
     view.sprite.setDepth(y);
+    if (view.vehicle && view.vehicleSprite) {
+      view.vehicleSprite.setPosition(x, y).setDepth(y + (vehicleInFront(view.vehicle) ? 0.5 : -0.5));
+    }
     const top = y - AVATAR_SIZE / 2;
     view.label.setPosition(x, top).setDepth(DEPTH.overlay + y);
     view.bubble?.setPosition(x, top - 14).setDepth(DEPTH.overlay + 1_000 + y);
@@ -577,6 +689,7 @@ export class OfficeScene extends Phaser.Scene {
     const existing = this.remotes.get(player.id);
     if (existing) {
       existing.state = { ...player };
+      this.setVehicle(existing, player.vehicle);
       return;
     }
     // O visual vem do servidor (que o recebeu assinado no ticket), então todo
@@ -590,14 +703,17 @@ export class OfficeScene extends Phaser.Scene {
       .setVisible(false);
     this.minimap.ignore(ring);
     const decor = this.createDecor(player.name, "#ffffff", 0xf8fafc, player.x, player.y);
-    this.remotes.set(player.id, { ...decor, sprite, textureKey, ring, state: { ...player } });
+    const remote: RemoteAvatar = { ...decor, sprite, textureKey, ring, state: { ...player } };
+    this.remotes.set(player.id, remote);
+    this.setVehicle(remote, player.vehicle);
   }
 
   private removeRemote(id: string) {
     const remote = this.remotes.get(id);
     if (!remote) return;
     remote.bubbleTimer?.remove();
-    for (const obj of [remote.sprite, remote.label, remote.dot, remote.ring, remote.bubble]) {
+    const parts = [remote.sprite, remote.label, remote.dot, remote.ring, remote.bubble, remote.vehicleSprite];
+    for (const obj of parts) {
       obj?.destroy();
     }
     this.remotes.delete(id);
@@ -728,7 +844,9 @@ export class OfficeScene extends Phaser.Scene {
   private onPlayerMoved = (move: PlayerMove) => {
     if (this.disposed) return;
     const remote = this.remotes.get(move.id);
-    if (remote) Object.assign(remote.state, move);
+    if (!remote) return;
+    Object.assign(remote.state, move);
+    this.setVehicle(remote, move.vehicle);
   };
 
   private onPlayerUpdated = ({ id, avatar }: { id: string; avatar: AvatarLook }) => {

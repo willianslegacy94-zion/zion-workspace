@@ -60,6 +60,8 @@ export default function PhaserGame(props: Props) {
       onZoneChange: (z) => propsRef.current.onZoneChange(z),
       onAreaChange: (a) => propsRef.current.onAreaChange(a),
       onDeskFocus: (d) => propsRef.current.onDeskFocus(d),
+      onVehicleFocus: (v) => propsRef.current.onVehicleFocus(v),
+      onReady: (api) => propsRef.current.onReady(api),
     };
     game.scene.add("OfficeScene", OfficeScene, true, data);
 

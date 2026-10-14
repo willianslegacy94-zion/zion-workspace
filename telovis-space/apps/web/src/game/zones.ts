@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { isVehicle, type Vehicle } from "@telovis/protocol";
 
 export interface PrivateZone {
   id: string;
@@ -76,4 +77,22 @@ export function parseDeskSlots(map: Phaser.Tilemaps.Tilemap): DeskSlot[] {
   return layer.objects
     .filter((o) => o.name)
     .map((o) => ({ key: o.name, x: o.x ?? 0, y: o.y ?? 0 }));
+}
+
+export interface VehicleStation {
+  vehicle: Vehicle;
+  x: number;
+  y: number;
+}
+
+/**
+ * Garagens (camada `vehicles`): pontos cujo nome é o veículo ("kart",
+ * "patinete"). Nomes desconhecidos são ignorados.
+ */
+export function parseVehicleStations(map: Phaser.Tilemaps.Tilemap): VehicleStation[] {
+  const layer = map.getObjectLayer("vehicles");
+  if (!layer) return [];
+  return layer.objects.flatMap((o) =>
+    isVehicle(o.name) ? [{ vehicle: o.name, x: o.x ?? 0, y: o.y ?? 0 }] : [],
+  );
 }

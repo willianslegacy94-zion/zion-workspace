@@ -156,6 +156,7 @@ io.on("connection", (socket) => {
       direction: "down",
       moving: false,
       zoneId: null,
+      vehicle: null,
     };
 
     let livekit: LivekitCredentials | null = null;

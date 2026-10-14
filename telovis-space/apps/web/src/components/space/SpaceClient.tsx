@@ -2,9 +2,16 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import type { AvatarLook, DeskState } from "@telovis/protocol";
+import { VEHICLE_NAMES, type AvatarLook, type DeskState } from "@telovis/protocol";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
-import type { DeskFocus, NearbyPeer, SceneStatus, ZoneInfo } from "@/game/scenes/OfficeScene";
+import type {
+  DeskFocus,
+  NearbyPeer,
+  SceneApi,
+  SceneStatus,
+  VehicleFocus,
+  ZoneInfo,
+} from "@/game/scenes/OfficeScene";
 import { claimDesk } from "@/app/space/desk-actions";
 import { createSpaceSocket, type SpaceSocket } from "@/lib/space/socket";
 import { MediaController, type MediaState } from "@/lib/media/media-controller";
@@ -56,6 +63,11 @@ export default function SpaceClient(props: Props) {
   const [zone, setZone] = useState<ZoneInfo | null>(null);
   const [area, setArea] = useState<string | null>(null);
   const [desk, setDesk] = useState<DeskFocus | null>(null);
+  const [vehicle, setVehicle] = useState<VehicleFocus | null>(null);
+  const sceneApi = useRef<SceneApi | null>(null);
+  const onSceneReady = useCallback((api: SceneApi) => {
+    sceneApi.current = api;
+  }, []);
   const [editingDesk, setEditingDesk] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [claiming, startClaim] = useTransition();
@@ -67,8 +79,14 @@ export default function SpaceClient(props: Props) {
     return () => clearTimeout(t);
   }, [notice]);
 
-  // Ação da tecla E / do botão: pegar a mesa livre ou abrir o setup da sua.
-  const deskAction = useCallback(() => {
+  // Tecla E / botão: subir ou descer do veículo; senão, ação de mesa.
+  function interact() {
+    if (vehicle) sceneApi.current?.toggleVehicle();
+    else deskAction();
+  }
+
+  // Ação de mesa: pegar a mesa livre ou abrir o setup da sua.
+  function deskAction() {
     if (!desk || claiming) return;
     if (desk.mine) {
       setEditingDesk(true);
@@ -85,7 +103,7 @@ export default function SpaceClient(props: Props) {
       // A cena atualiza pelo `desk:updated`; já abre o setup da mesa nova.
       else setEditingDesk(true);
     });
-  }, [desk, claiming, props.deskBlockedReason, props.spaceId, showNotice]);
+  }
 
   // Longe de qualquer mesa não há o que editar (ex.: pegou a mesa mas o
   // aviso do realtime não chegou e a pessoa saiu andando).
@@ -97,11 +115,11 @@ export default function SpaceClient(props: Props) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "e" && e.key !== "E") return;
       if (e.repeat || editingDesk || isTextInput(document.activeElement)) return;
-      deskAction();
+      interact();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [deskAction, editingDesk]);
+  }, [interact, editingDesk]);
 
   // Socket e mídia vivem fora do Phaser: sobrevivem a um remount da cena e
   // são encerrados juntos quando a página sai.
@@ -134,6 +152,8 @@ export default function SpaceClient(props: Props) {
           onZoneChange={setZone}
           onAreaChange={setArea}
           onDeskFocus={setDesk}
+          onVehicleFocus={setVehicle}
+          onReady={onSceneReady}
         />
       )}
 
@@ -176,14 +196,18 @@ export default function SpaceClient(props: Props) {
         className="pointer-events-none absolute right-3 top-16 flex flex-col gap-2"
       />
 
-      {(desk || notice) && (
+      {(desk || vehicle || notice) && (
         <div className="pointer-events-none absolute inset-x-0 bottom-24 flex flex-col items-center gap-2">
           {notice && (
             <div role="status" className="rounded-lg bg-amber-500/90 px-4 py-2 text-sm font-medium text-black shadow-lg">
               {notice}
             </div>
           )}
-          {desk && !editingDesk && <DeskPrompt desk={desk} busy={claiming} onAction={deskAction} />}
+          {vehicle ? (
+            <VehiclePrompt focus={vehicle} onAction={interact} />
+          ) : (
+            desk && !editingDesk && <DeskPrompt desk={desk} busy={claiming} onAction={interact} />
+          )}
         </div>
       )}
 
@@ -208,6 +232,21 @@ export default function SpaceClient(props: Props) {
         </footer>
       )}
     </main>
+  );
+}
+
+function VehiclePrompt({ focus, onAction }: { focus: VehicleFocus; onAction: () => void }) {
+  const name = VEHICLE_NAMES[focus.vehicle];
+  return (
+    <button
+      type="button"
+      onClick={onAction}
+      className="pointer-events-auto rounded-full bg-black/75 px-4 py-2 text-sm text-slate-100 shadow-lg backdrop-blur hover:bg-black/90"
+    >
+      {focus.action === "mount" ? `${name} · ` : `De ${name.toLowerCase()} · `}
+      <kbd className="rounded bg-white/20 px-1.5 py-0.5 font-mono text-xs">E</kbd>
+      {focus.action === "mount" ? " subir" : " descer"}
+    </button>
   );
 }
 

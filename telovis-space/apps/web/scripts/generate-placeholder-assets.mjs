@@ -2,12 +2,13 @@
 // formato que o Tiled exporta. Substitua por assets de pixel art de verdade
 // quando existirem — a cena só depende dos nomes das camadas:
 //   floor, walls, furniture, decor (tile layers)
-//   zones, areas, desks, objects (object layers)
+//   zones, areas, desks, vehicles, objects (object layers)
 //
 // - walls/furniture colidem; decor (cadeiras, puffs) não.
 // - zones: salas privadas (propriedade zoneId) — áudio só entre quem está dentro.
 // - areas: áreas abertas com nome no chão (cozinha, café…), áudio por proximidade.
 // - desks: posições de mesa que cada pessoa pode pegar e montar (nome = id).
+// - vehicles: garagens; pontos chamados "kart" ou "patinete".
 // - objects: ponto "spawn".
 //
 // Uso: node scripts/generate-placeholder-assets.mjs
@@ -48,6 +49,7 @@ const T = {
   chair: 20,
   beanbag: 21,
   tileFloor: 22,
+  parkingSign: 23,
 };
 const TILES = Object.keys(T).length;
 const img = Buffer.alloc(TILES * TILE * TILE * 4);
@@ -231,6 +233,16 @@ const counterTop = (p) => {
   p.rect(6, 18, 16, 1, "#2563eb");
   p.rect(6, 22, 8, 1, "#dc2626");
 }
+{
+  // Placa de estacionamento: poste com "P" branco.
+  const p = painter(T.parkingSign);
+  p.box(14, 18, 4, 14, "#94a3b8");
+  p.box(6, 2, 20, 18, "#ec4899");
+  p.rect(12, 6, 3, 10, "#f8fafc");
+  p.rect(15, 6, 4, 2, "#f8fafc");
+  p.rect(15, 10, 4, 2, "#f8fafc");
+  p.rect(19, 7, 2, 4, "#f8fafc");
+}
 // Decoração sem colisão
 {
   const p = painter(T.chair);
@@ -389,6 +401,16 @@ set(furniture, 32, 30, T.plant);
 for (const [x, y] of [[1, 12], [1, 30], [29, 12], [29, 30]]) set(furniture, x, y, T.plant);
 for (const y of [14, 15, 16]) set(furniture, 1, y, T.bookshelf);
 
+// Garagens: karts na recepção, patinetes na área de trabalho e no café.
+const VEHICLE_SPOTS = [
+  ["kart", 19, 5], ["kart", 21, 5], ["kart", 19, 7], ["kart", 21, 7],
+  ["patinete", 28, 16], ["patinete", 28, 17], ["patinete", 28, 18],
+  ["patinete", 47, 15], ["patinete", 47, 16],
+];
+set(furniture, 23, 4, T.parkingSign);
+set(furniture, 29, 15, T.parkingSign);
+set(furniture, 47, 13, T.parkingSign);
+
 // --- Mesas de trabalho (objetos) ----------------------------------------------
 // Cada mesa ocupa 2×1 tiles; a cadeira fica logo abaixo (quem senta olha para
 // cima, para o monitor). 3 fileiras × 6 mesas.
@@ -458,8 +480,8 @@ const map = {
   tilewidth: TILE,
   tileheight: TILE,
   compressionlevel: -1,
-  nextlayerid: 9,
-  nextobjectid: 200,
+  nextlayerid: 10,
+  nextobjectid: 400,
   tilesets: [
     {
       firstgid: 1,
@@ -496,6 +518,22 @@ const map = {
       area(13, "Cozinha", KITCHEN),
     ]),
     objectLayer(7, "desks", desks),
+    objectLayer(
+      9,
+      "vehicles",
+      VEHICLE_SPOTS.map(([name, x, y], i) => ({
+        id: 300 + i,
+        name,
+        type: "vehicle",
+        point: true,
+        x: x * TILE + TILE / 2,
+        y: y * TILE + TILE / 2,
+        width: 0,
+        height: 0,
+        rotation: 0,
+        visible: true,
+      })),
+    ),
     objectLayer(8, "objects", [
       { id: 20, name: "spawn", type: "", point: true, x: 10 * TILE, y: 5 * TILE, width: 0, height: 0, rotation: 0, visible: true },
     ]),
@@ -506,4 +544,4 @@ mkdirSync(join(root, "maps"), { recursive: true });
 mkdirSync(join(root, "tilesets"), { recursive: true });
 writeFileSync(join(root, "tilesets", "office-tiles.png"), png(TILES * TILE, TILE, img));
 writeFileSync(join(root, "maps", "office.json"), JSON.stringify(map));
-console.log(`ok: mapa ${W}×${H}, ${TILES} tiles, ${desks.length} mesas`);
+console.log(`ok: mapa ${W}×${H}, ${TILES} tiles, ${desks.length} mesas, ${VEHICLE_SPOTS.length} vagas`);

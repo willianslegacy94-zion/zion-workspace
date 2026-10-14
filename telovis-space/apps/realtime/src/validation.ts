@@ -1,6 +1,7 @@
 import {
   CHAT_MAX_LENGTH,
   DIRECTIONS,
+  isVehicle,
   SPACE_ID_PATTERN,
   type Direction,
   type JoinPayload,
@@ -32,18 +33,20 @@ export function parseJoin(raw: unknown): JoinPayload | null {
 
 export function parseMove(raw: unknown): MovePayload | null {
   if (typeof raw !== "object" || raw === null) return null;
-  const { x, y, direction, moving, zoneId } = raw as Record<string, unknown>;
+  const { x, y, direction, moving, zoneId, vehicle } = raw as Record<string, unknown>;
   if (!isCoord(x) || !isCoord(y)) return null;
   if (!DIRECTIONS.includes(direction as Direction)) return null;
   if (typeof moving !== "boolean") return null;
   const zone = parseZoneId(zoneId);
   if (zone === undefined) return null;
+  if (vehicle !== null && !isVehicle(vehicle)) return null;
   return {
     x: Math.round(x),
     y: Math.round(y),
     direction: direction as Direction,
     moving,
     zoneId: zone,
+    vehicle,
   };
 }
 

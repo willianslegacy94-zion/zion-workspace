@@ -140,7 +140,8 @@ Testes do algoritmo de proximidade: `npm test`.
 
 O mapa padrão (`scripts/generate-placeholder-assets.mjs`, 50×32 tiles) tem
 recepção, área de trabalho com 18 mesas, três salas de reunião privadas (Sala
-Atlântico, Sala 1:1, Sala Foco), café/descanso e cozinha.
+Atlântico, Sala 1:1, Sala Foco), café/descanso, cozinha e garagens de kart
+(recepção) e patinete (área de trabalho e café).
 
 A cena lê estas camadas (nomes exatos; só `floor`, `walls` e `furniture` são
 obrigatórias):
@@ -153,6 +154,7 @@ obrigatórias):
 | `zones` | retângulos com `zoneId` | salas privadas (áudio/chat só entre quem está dentro) |
 | `areas` | retângulos com nome | áreas abertas (café, cozinha…): nome no chão e na HUD, áudio por proximidade |
 | `desks` | retângulos 64×32 | posições de mesa; o **nome** do objeto é a chave (`mesa-01`) |
+| `vehicles` | pontos `kart` / `patinete` | garagens: perto do ponto, **E** sobe no veículo |
 | `objects` | ponto `spawn` | onde se nasce |
 
 Um mapa só pode usar um tileset por enquanto.
@@ -160,8 +162,13 @@ Um mapa só pode usar um tileset por enquanto.
 ## Mesas pessoais
 
 - Perto da cadeira de uma mesa livre, **E** (ou clique no aviso) pega a mesa e
-  abre o setup: telas (notebook, 1 ou 2 monitores), tampo, cor da cadeira,
-  planta, caneca, luminária. Na sua mesa, **E** abre o setup de novo.
+  abre o setup. Na sua mesa, **E** abre o setup de novo. Opções:
+  - modelo: clássica, em pé (sem cadeira, com tapete) ou gamer (fita de LED);
+  - telas: notebook, 1 ou 2 monitores, monitor curvo, ultrawide curvo, em
+    preto ou branco;
+  - tampo em 8 cores;
+  - cadeira escritório, gamer ou banqueta, em 10 cores;
+  - planta, caneca, luminária.
 - Uma mesa por pessoa em cada space; pegar outra muda de lugar levando o setup.
   Duas pessoas na mesma mesa ao mesmo tempo: o banco (`@@unique`) desempata.
 - O servidor só aceita chaves que existem na camada `desks` do mapa do space.
@@ -170,7 +177,21 @@ Um mapa só pode usar um tileset por enquanto.
   tem a mesa liberada.
 - O setup é um `DeskSetup` de índices (`packages/protocol/src/desk.ts`), mesmo
   esquema do avatar. Desenho em `game/desk-draw.ts`, usado pela cena e pela
-  prévia do diálogo.
+  prévia do diálogo. Campos acrescentados depois (`model`, `chairModel`,
+  `screenColor`) assumem o padrão quando faltam no JSON já salvo; campo novo
+  entra em `ADDED_LATER`.
+
+## Kart e patinete
+
+- Perto de uma vaga (placa **P**), **E** sobe no veículo; **E** de novo desce,
+  em qualquer lugar. A garagem nunca esvazia.
+- Kart anda a 310 px/s, patinete a 240 (a pé, 160). Colisão igual à de quem
+  anda a pé.
+- De veículo, mesas não entram em foco: o **E** serve só para descer.
+- O veículo vai no `player:move` (`vehicle: "kart" | "patinete" | null`), então
+  todo mundo vê ao vivo. Não é gravado no banco: ao recarregar, volta a pé.
+- Desenho em `game/vehicle-draw.ts`: o kart cobre as pernas do avatar, o
+  patinete fica por baixo.
 
 ## Mudanças ao vivo (Next → realtime)
 

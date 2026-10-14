@@ -3,9 +3,13 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import {
   CHAIR_COLORS,
+  CHAIR_MODELS,
+  DESK_MODELS,
   DESK_SCREENS,
   DESK_SURFACE_NAMES,
   DESK_SURFACES,
+  SCREEN_COLOR_NAMES,
+  SCREEN_COLORS,
   type DeskSetup,
 } from "@telovis/protocol";
 import { releaseDesk, updateDeskSetup } from "@/app/space/desk-actions";
@@ -42,6 +46,9 @@ function DeskPreview({ setup }: { setup: DeskSetup }) {
     />
   );
 }
+
+/** Índice de "Em pé" em DESK_MODELS: mesa sem cadeira. */
+const STANDING_MODEL = DESK_MODELS.indexOf("Em pé");
 
 const choiceClass = (active: boolean) =>
   `rounded-lg border px-3 py-1.5 text-sm ${
@@ -109,18 +116,56 @@ export default function DeskSetupDialog({
         </div>
 
         <fieldset className="mt-5">
+          <legend className="text-sm font-medium text-slate-300">Modelo</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {DESK_MODELS.map((label, i) => (
+              <button
+                key={label}
+                ref={i === 0 ? firstButton : undefined}
+                type="button"
+                aria-pressed={setup.model === i}
+                onClick={() => set("model", i)}
+                className={choiceClass(setup.model === i)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="mt-4">
           <legend className="text-sm font-medium text-slate-300">Telas</legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {DESK_SCREENS.map((label, i) => (
               <button
                 key={label}
-                ref={i === 0 ? firstButton : undefined}
                 type="button"
                 aria-pressed={setup.screens === i}
                 onClick={() => set("screens", i)}
                 className={choiceClass(setup.screens === i)}
               >
                 {label}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="mt-4">
+          <legend className="text-sm font-medium text-slate-300">Cor das telas</legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {SCREEN_COLORS.map((color, i) => (
+              <button
+                key={color}
+                type="button"
+                aria-pressed={setup.screenColor === i}
+                onClick={() => set("screenColor", i)}
+                className={choiceClass(setup.screenColor === i)}
+              >
+                <span
+                  className="mr-1.5 inline-block size-3 rounded-sm border border-slate-500 align-[-1px]"
+                  style={{ backgroundColor: color }}
+                />
+                {SCREEN_COLOR_NAMES[i]}
               </button>
             ))}
           </div>
@@ -149,23 +194,42 @@ export default function DeskSetupDialog({
 
         <fieldset className="mt-4">
           <legend className="text-sm font-medium text-slate-300">Cadeira</legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {CHAIR_COLORS.map((color, i) => (
-              <button
-                key={color}
-                type="button"
-                aria-label={`Cadeira: cor ${i + 1}`}
-                aria-pressed={setup.chair === i}
-                onClick={() => set("chair", i)}
-                style={{ backgroundColor: color }}
-                className={`size-8 rounded-lg border-2 ${
-                  setup.chair === i
-                    ? "border-emerald-400 ring-2 ring-emerald-400/40"
-                    : "border-slate-700 hover:border-slate-400"
-                }`}
-              />
-            ))}
-          </div>
+          {setup.model === STANDING_MODEL ? (
+            <p className="mt-2 text-sm text-slate-400">Mesa em pé não tem cadeira.</p>
+          ) : (
+            <>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {CHAIR_MODELS.map((label, i) => (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-pressed={setup.chairModel === i}
+                    onClick={() => set("chairModel", i)}
+                    className={choiceClass(setup.chairModel === i)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {CHAIR_COLORS.map((color, i) => (
+                  <button
+                    key={color}
+                    type="button"
+                    aria-label={`Cadeira: cor ${i + 1}`}
+                    aria-pressed={setup.chair === i}
+                    onClick={() => set("chair", i)}
+                    style={{ backgroundColor: color }}
+                    className={`size-8 rounded-lg border-2 ${
+                      setup.chair === i
+                        ? "border-emerald-400 ring-2 ring-emerald-400/40"
+                        : "border-slate-700 hover:border-slate-400"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </fieldset>
 
         <fieldset className="mt-4">

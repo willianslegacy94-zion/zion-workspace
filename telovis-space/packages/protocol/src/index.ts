@@ -8,9 +8,11 @@
 
 import type { AvatarLook } from "./avatar";
 import type { DeskState } from "./desk";
+import type { Vehicle } from "./vehicle";
 
 export * from "./avatar";
 export * from "./desk";
+export * from "./vehicle";
 
 export type Direction = "up" | "down" | "left" | "right";
 
@@ -29,11 +31,13 @@ export interface PlayerState {
   moving: boolean;
   /** Zona privada do Tiled em que o avatar está, ou null fora de zonas. */
   zoneId: string | null;
+  /** Veículo em que está andando, ou null a pé. */
+  vehicle: Vehicle | null;
 }
 
 export type PlayerMove = Pick<
   PlayerState,
-  "id" | "x" | "y" | "direction" | "moving" | "zoneId"
+  "id" | "x" | "y" | "direction" | "moving" | "zoneId" | "vehicle"
 >;
 
 /**
