@@ -91,6 +91,13 @@ por mensagem, inviabilizando o canal de alerta (mesmo raciocínio de
 subconjunto de `TIPOS_RELATORIO_SOB_DEMANDA` em
 `telovis-barber/backend/routes/internal.js`, senão o backend responde 422.
 
+### 2.4 `_PROPOSTAS_META: dict[str, dict]`
+Proposta de meta aguardando "confirmar" (RD-018).
+- **Chave:** `"{tenant_id}:{telefone}"`.
+- **Valor:** `{"ano", "mes", "criado_em" (time.monotonic()), "unidades": [{"unidade", "meta_mes"}]}`. Só parâmetros; a distribuição por dia nunca fica aqui.
+- **Vida útil:** 30 min (`_TTL_PROPOSTA_META_SEGUNDOS = 1800`), conferida só quando o mesmo gestor manda nova mensagem. Removida depois da confirmação, com sucesso ou não.
+- **Restart:** perde todas as propostas. O gestor só precisa pedir de novo.
+
 ---
 
 ## 3. Estruturas de dados em trânsito
@@ -150,6 +157,8 @@ Cada item consumido por `_formatar_resposta_relatorio` tem `unidade`, `titulo` e
 | `unidades` (slug, ativo) | Postgres do Telovis Barber | Implícito no relatório | Relatório sai vazio |
 | Vendas / produtos / serviços / estoque | Postgres do Telovis Barber | `GET /internal/relatorio-sob-demanda` | Mensagem de erro graciosa ao gestor |
 | `agente_custos` | Postgres do Telovis Barber | `POST /internal/agente-custo` e `POST /internal/ai-tokens/debitar` (escrita) | Telemetria perdida, atendimento intacto |
+| `metas_diarias` (`tenant_id`, `unidade`, `data`, `meta_total`; único por tenant + unidade + data) | Postgres do Telovis Barber | `POST /internal/meta-confirmada` (escrita indireta, upsert feito pelo backend) | Meta não é gravada; o gestor vê a falha |
+| `vendas` e `jornada_unidade` (base da distribuição da meta) | Postgres do Telovis Barber | Lidas pelo backend em `services/metasSegmentadas.js`, nunca pelo Brainiac | Sem histórico: distribuição igual entre os dias abertos, com aviso |
 | `ai_tokens` (`tenant_id`, `saldo`, `updated_at`) | Postgres do Telovis Barber | `GET /internal/brainiac-contexto` (leitura do saldo) e `POST /internal/ai-tokens/debitar` (débito) | Sem linha = chat executivo não contratado |
 | `ai_tokens_movimentos` (`tipo` crédito/débito, `tokens`, `saldo_apos`, `agente_custo_id`, `observacao`) | Postgres do Telovis Barber | Escrita indireta, pelo débito | Extrato da carteira; é o que a tela do admin lista |
 | Retrato do chat executivo (`dados.unidades[]`: financeiro por período, detalhe do mês, meta, clientes, histórico, recorrência, agenda, operação) | Montado em `services/brainiacContexto.js` | `GET /internal/brainiac-contexto` (WhatsApp) ou no corpo do `chat-web` (web) | O LLM responde que não tem os dados |

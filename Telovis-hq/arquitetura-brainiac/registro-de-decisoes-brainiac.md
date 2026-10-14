@@ -288,6 +288,22 @@ Isso NÃO fecha a pergunta #4 da tabela abaixo por dois motivos: (1) não foi po
 
 ---
 
+## RD-018 — Meta diária do mês montada pelo canal admin, em 2 passos
+**Data:** 2026-09-10 (registrada retroativamente em 2026-10-14, a partir do commit `b355b40`)
+**Contexto:** o Telovis Barber já distribuía a meta do mês pelos dias na tela web (`POST /metas-diarias/sugerir`). O gestor queria fazer o mesmo pelo WhatsApp do admin.
+**Decisão:** fluxo em 2 passos.
+1. "monta a meta de outubro" → o Brainiac extrai mês, ano, unidade e valor e pede a proposta ao backend (`GET /internal/meta-sugerida`). Responde com a distribuição e guarda **só os parâmetros** em memória.
+2. "confirmar" → o Brainiac manda os mesmos parâmetros para `POST /internal/meta-confirmada`. O backend **recalcula** a distribuição e grava.
+- O Brainiac nunca devolve o array de dias. O backend é a fonte da verdade, e o passo 1 é só pré-visualização.
+- A distribuição não usa IA. O backend pesa cada dia da semana pelo faturamento histórico (90 dias recentes, misturados 60/40 com o mesmo mês do ano anterior quando há base) e o texto de explicação é templado. Custo zero.
+- IA só para entender o pedido, com um gate barato: o classificador só roda se a mensagem contém "meta". O "confirmar" é detectado sem IA.
+- A meta tem prioridade sobre relatório e chat executivo no roteamento do canal admin.
+**Alternativas descartadas:** gravar o que o Brainiac mostrou no passo 1. Isso foi rejeitado porque o histórico pode mudar entre os passos e o payload vindo do bot não é confiável.
+**Impacto:** novo estado em memória (`_PROPOSTAS_META`, TTL 30 min). Um restart perde a proposta, e o gestor só precisa pedir de novo.
+**Rastreio:** `telovis-brainiac/main.py` (`_classificar_pedido_meta`, `_formatar_proposta_meta`, `_tentar_confirmar_meta`, bloco de meta em `webhook_evolution_admin`), `telovis-barber/backend/services/metasSegmentadas.js`, `routes/internal.js` (`meta-sugerida`, `meta-confirmada`).
+
+---
+
 ## Decisões em aberto — precisam do Willians
 
 | # | Questão | Por que importa |

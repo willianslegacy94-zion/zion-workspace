@@ -226,6 +226,7 @@ puramente de marca e o papel permanece "mensageiro + raio-X". Ver
 | Cutover do backend do Telovis Barber para o Brainiac | `notificar-admin` já aponta para o Brainiac (nota de rastreio da RD-010); o restante do canal admin não foi confirmado |
 | Chat executivo | No ar no WhatsApp e no sistema web; validado em produção em 2026-10-14 com o tenant Barbearia Gabriel (RD-014 a RD-017) |
 | Carteira de tokens | Ativada pela Holding na edição do tenant (RD-016) |
+| Meta diária pelo WhatsApp | No código desde 2026-09-10 (RD-018); uso em produção não verificado nesta revisão |
 
 Por isso o `status` deste conjunto de artefatos é `experimental`, não `stable`.
 

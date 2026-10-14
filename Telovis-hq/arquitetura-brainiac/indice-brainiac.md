@@ -31,7 +31,7 @@ Código-fonte: `telovis-brainiac/` — repositório próprio
 | Documento | Agente | O que cobre |
 |---|---|---|
 | [[prd-brainiac]] | @pm | Contexto, problema, objetivo, usuário, hipótese, escopo, métricas e a divergência entre o nome e o papel real |
-| [[requisitos-funcionais-brainiac]] | @pm | RFs em 5 módulos: contexto de cliente, notificação do admin, relatório sob demanda, observabilidade, chat executivo |
+| [[requisitos-funcionais-brainiac]] | @pm | RFs em 6 módulos: contexto de cliente, notificação do admin, relatório sob demanda, observabilidade, chat executivo, meta diária |
 
 ---
 

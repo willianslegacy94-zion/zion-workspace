@@ -241,7 +241,7 @@ o mesmo esquema (o chamador é a Evolution API) e precisaria de outra estratégi
 
 | Limite | Origem | Impacto |
 |---|---|---|
-| Estado só em memória | `_ULTIMO_ALERTA_TELEGRAM`, `IDS_ENVIADOS_PELO_BRAINIAC` | **Uma réplica só.** Escalar horizontalmente quebra tanto o cooldown quanto a supressão de eco |
+| Estado só em memória | `_ULTIMO_ALERTA_TELEGRAM`, `IDS_ENVIADOS_PELO_BRAINIAC`, `_PROPOSTAS_META` | **Uma réplica só.** Escalar horizontalmente quebra o cooldown, a supressão de eco e a confirmação de meta (o "confirmar" pode cair numa réplica que não tem a proposta) |
 | I/O bloqueante em rota `async` | `requests` dentro de `async def` | Chamada lenta à OpenRouter (até 15s) bloqueia o event loop |
 | Sem retry | Todos os envios | Mensagem perdida é perdida; só gera alerta |
 | Set de ids esvaziado por inteiro aos 200 | `_registrar_envio_proprio` | Em volume alto, eco pode voltar a ser tratado como pergunta |

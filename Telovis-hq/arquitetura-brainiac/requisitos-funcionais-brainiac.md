@@ -236,6 +236,39 @@ adivinhar uma unidade que não foi dita explicitamente** — na dúvida, `null`.
 
 ---
 
+## Módulo 6 — Meta diária pelo canal admin
+
+**Ordem de roteamento no webhook do admin**, depois da autorização (RF-09):
+1. Há proposta de meta pendente e a mensagem é confirmação → confirma (RF-21).
+2. A mensagem contém "meta" e o classificador diz `gerar` → propõe (RF-20).
+3. O classificador de relatório reconhece um tipo → relatório (RF-13).
+4. Senão → chat executivo (RF-16) ou mensagem de ajuda (RF-12).
+
+### RF-19 — Entender o pedido de meta
+- Gate sem custo: `_classificar_pedido_meta` só roda se o texto contém "meta".
+- LLM com `OPENROUTER_MODEL`, `temperature 0.0`, timeout 15s, JSON estrito: `acao` (`gerar` ou null), `mes` (1–12), `ano`, `unidade` (só se citada), `meta_mes` (ex.: "25 mil" → 25000).
+- Sem ano: se o mês já passou neste ano, usa o ano seguinte.
+- Qualquer falha ou ambiguidade vira `acao: None` e a mensagem segue para o classificador de relatório.
+- Custo reportado em `/internal/agente-custo` com origem `brainiac_classificar_meta` (RF-15).
+
+### RF-20 — Propor a distribuição
+- `GET /internal/meta-sugerida` com `tenant_id`, `ano`, `mes`, `telefone_solicitante` e, se houver, `unidade` e `meta_mes`; timeout 25s.
+- Sem unidade, o backend devolve uma proposta por unidade ativa.
+- Sem `meta_mes`, o backend sugere: média dos 3 meses anteriores + 5%.
+- Resposta ao gestor: por unidade, a meta do mês, a soma dos dias, a explicação e os avisos. No fim, "Responda *CONFIRMAR*" ou "mande a meta do mês que você quer".
+- Sem histórico nem valor informado → pede o valor ("meta de outubro 25 mil"), sem guardar proposta.
+- 403 → não responde (telefone não é o admin).
+- Guarda em `_PROPOSTAS_META[tenant_id:telefone]`: `ano`, `mes`, `criado_em` e `[{unidade, meta_mes}]`. Os dias não são guardados.
+
+### RF-21 — Confirmar e gravar
+- Confirmação detectada sem IA: o texto inteiro (sem pontuação final) está em `_CONFIRMACOES_META` ("confirmar", "pode salvar", "manda ver", ...) ou começa com "confirma"/"confirmar"/"confirmado"/"confirmo".
+- Proposta com mais de 30 min é descartada antes da checagem.
+- `POST /internal/meta-confirmada` **uma vez por unidade**, timeout 20s. O backend recalcula com os mesmos parâmetros e faz upsert em `metas_diarias`, ignorando dias fechados e dias com meta zero.
+- Respostas: tudo salvo → "✅ Meta de outubro/2026 salva — N dia(s) atualizados"; parcial → informa em quais unidades falhou; nada salvo → "Não consegui salvar".
+- A proposta é removida da memória depois da tentativa, com sucesso ou não.
+
+---
+
 ## Pontos de atenção observados no código
 
 | ID | Observação | Severidade | Rastreio |
@@ -246,6 +279,8 @@ adivinhar uma unidade que não foi dita explicitamente** — na dúvida, `null`.
 | PA-04 | `TIPOS_RELATORIO` é um `set`, e `_mensagem_ajuda_relatorio` itera sobre ele. A ordem dos itens da mensagem de ajuda pode variar entre execuções do processo | Baixa (cosmética) | `TIPOS_RELATORIO`, `_mensagem_ajuda_relatorio` |
 | PA-05 | Sem retry automático em nenhum envio: o alerta Telegram avisa, mas a mensagem perdida não é reenviada | Média | RF-06, RF-13; herdado do Cortex (RD-008 de [[registro-de-decisoes-cortex]]) |
 | PA-06 | `_reportar_custo_agente` faz `int(tenant_id)` sem guarda — se `tenant_id` vier não numérico, a telemetria falha (capturada, sem impacto no fluxo) | Baixa | `_reportar_custo_agente` |
+| PA-07 | `_PROPOSTAS_META` não tem limpeza ativa: uma proposta expirada só sai quando o mesmo gestor manda outra mensagem. Em volume baixo isso é irrelevante, mas o dicionário só cresce até um restart | Baixa | `_PROPOSTAS_META`, `_TTL_PROPOSTA_META_SEGUNDOS` |
+| PA-08 | Qualquer mensagem que contém "meta" paga uma chamada ao classificador de meta antes do de relatório, por exemplo "bati a meta ontem?". O resultado é correto (cai no relatório ou no chat), mas são duas chamadas de IA | Baixa | gate `"meta" in texto.lower()` |
 
 ---
 

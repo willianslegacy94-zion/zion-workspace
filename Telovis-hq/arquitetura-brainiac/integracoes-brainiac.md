@@ -147,6 +147,8 @@ Autenticação: header `X-Internal-Key: {INTERNAL_SERVICE_KEY}`, validado por
 | `/internal/relatorio-sob-demanda` | GET | `tenant_id`, `tipo`, `periodo_dias`, `telefone_solicitante`, `unidade?` | 10s | `webhook_evolution_admin` |
 | `/internal/agente-custo` | POST | corpo JSON de telemetria | 5s | `_reportar_custo_agente` |
 | `/internal/brainiac-contexto` | GET | `tenant_id`, `telefone_solicitante` | 20s | `_chat_executivo` (RF-16) |
+| `/internal/meta-sugerida` | GET | `tenant_id`, `ano`, `mes`, `telefone_solicitante`, `unidade?`, `meta_mes?` | 25s | `webhook_evolution_admin` — proposta de meta, não grava (RF-20) |
+| `/internal/meta-confirmada` | POST | `tenant_id`, `unidade`, `ano`, `mes`, `meta_mes`, `telefone_solicitante` | 20s | `_tentar_confirmar_meta` — recalcula e grava em `metas_diarias` (RF-21) |
 | `/internal/ai-tokens/debitar` | POST | `tenant_id`, `modelo`, `origem`, `prompt_tokens`, `completion_tokens`, `total_tokens`, `custo_usd` | 5s | `_chat_executivo` — grava custo e debita a carteira juntos |
 
 ### Contratos de erro relevantes
@@ -156,6 +158,8 @@ Autenticação: header `X-Internal-Key: {INTERNAL_SERVICE_KEY}`, validado por
 | 401 | `X-Internal-Key` ausente/errada | Vira erro genérico; **causa provável se `INTERNAL_SERVICE_KEY` não bater com a do backend** |
 | 403 | `/relatorio-sob-demanda` — telefone não é o admin | Encerra sem responder |
 | 404 | `/brainiac-contexto` — tenant sem carteira de tokens | Cai na mensagem de ajuda |
+| 404 | `/meta-confirmada` — unidade não existe | Entra na lista de falhas da resposta |
+| 422 | `/meta-confirmada` — sem meta do mês e sem histórico para sugerir | Entra na lista de falhas da resposta |
 | 402 | `/brainiac-contexto` — saldo esgotado (`motivo: saldo_esgotado`) ou assinatura vencida | Não chama o LLM |
 | 404 | `/tenant-by-slug` — slug não existe ou tenant inativo | Ignora a mensagem |
 | 422 | `tipo` fora de `TIPOS_RELATORIO_SOB_DEMANDA` | Não deveria ocorrer: o Brainiac valida antes |
