@@ -1,5 +1,7 @@
 import Link from "next/link";
 import AddMemberForm from "@/components/dashboard/AddMemberForm";
+import InviteActions from "@/components/dashboard/InviteActions";
+import { ROLE_LABEL } from "@/components/dashboard/ui";
 import MemberActions from "@/components/dashboard/MemberActions";
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
@@ -26,7 +28,7 @@ export default async function ManageSpacePage({ params }: { params: Promise<{ sl
     );
   }
 
-  const [owner, members, desks] = await Promise.all([
+  const [owner, members, desks, invites] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: space.ownerId },
       select: { name: true, email: true },
@@ -41,7 +43,13 @@ export default async function ManageSpacePage({ params }: { params: Promise<{ sl
       select: { key: true, user: { select: { name: true } } },
       orderBy: { key: "asc" },
     }),
+    prisma.invite.findMany({
+      where: { spaceId: space.id },
+      select: { id: true, email: true, role: true, expiresAt: true },
+      orderBy: { createdAt: "asc" },
+    }),
   ]);
+  const now = Date.now();
 
   return (
     <main className="mx-auto max-w-3xl p-6 sm:p-8">
@@ -64,10 +72,38 @@ export default async function ManageSpacePage({ params }: { params: Promise<{ sl
       <section className="mt-8">
         <h2 className="text-lg font-semibold">Adicionar pessoa</h2>
         <p className="mb-3 mt-1 text-sm text-slate-400">
-          A pessoa precisa já ter uma conta. Ainda não enviamos convite por e-mail.
+          Quem já tem conta entra na hora. Quem não tem recebe um convite por e-mail
+          (válido por 7 dias) e entra ao criar a conta pelo link.
         </p>
         <AddMemberForm slug={space.slug} />
       </section>
+
+      {invites.length > 0 && (
+        <section className="mt-10">
+          <h2 className="text-lg font-semibold">
+            Convites pendentes <span className="text-sm font-normal text-slate-500">({invites.length})</span>
+          </h2>
+          <ul className="mt-3 divide-y divide-slate-800 rounded-xl border border-slate-800">
+            {invites.map((inv) => {
+              const expired = inv.expiresAt.getTime() <= now;
+              return (
+                <li key={inv.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{inv.email}</p>
+                    <p className={`text-xs ${expired ? "text-red-400" : "text-slate-500"}`}>
+                      {ROLE_LABEL[parseRole(inv.role) ?? "MEMBER"]} ·{" "}
+                      {expired
+                        ? "expirado — reenvie para gerar um link novo"
+                        : `expira em ${inv.expiresAt.toLocaleDateString("pt-BR")}`}
+                    </p>
+                  </div>
+                  <InviteActions slug={space.slug} inviteId={inv.id} />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <section className="mt-10">
         <h2 className="text-lg font-semibold">

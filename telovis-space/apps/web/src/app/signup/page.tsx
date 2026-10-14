@@ -5,9 +5,10 @@ import { getCurrentUser, safeNext } from "@/lib/auth/session";
 export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; email?: string }>;
 }) {
-  const next = safeNext((await searchParams).next);
+  const query = await searchParams;
+  const next = safeNext(query.next);
   if (await getCurrentUser()) redirect(next);
 
   return (
@@ -15,7 +16,7 @@ export default async function SignupPage({
       <div className="w-full max-w-sm">
         <h1 className="text-3xl font-bold">Criar conta</h1>
         <p className="mt-2 text-slate-400">TeloVis Space</p>
-        <AuthForm mode="signup" next={next} />
+        <AuthForm mode="signup" next={next} email={typeof query.email === "string" ? query.email : undefined} />
       </div>
     </main>
   );

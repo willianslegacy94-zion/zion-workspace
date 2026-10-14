@@ -9,9 +9,20 @@ import { parseRole } from "@/lib/space/access";
 import { checkSlug, getAdminSpace, slugify } from "@/lib/space/admin";
 import { DEFAULT_MAP } from "@/lib/space/spaces";
 import { notifyRealtime } from "@/lib/realtime/notify";
+import { sendInvite, type InviteSent } from "@/lib/space/invites";
 import { freeDesk } from "@telovis/protocol";
 
-export type FormState = { error?: string; ok?: string; values?: Record<string, string> } | undefined;
+export type FormState =
+  | {
+      error?: string;
+      ok?: string;
+      values?: Record<string, string>;
+      /** Link do convite, para copiar quando o e-mail não saiu. */
+      inviteLink?: string;
+    }
+  | undefined;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function field(form: FormData, key: string): string {
   const v = form.get(key);
@@ -60,8 +71,16 @@ export async function createSpace(_: FormState, form: FormData): Promise<FormSta
   redirect(`/dashboard/${slug}`);
 }
 
+function inviteResult(email: string, sent: InviteSent): FormState {
+  if (sent.email.delivered) return { ok: `Convite enviado para ${email}.` };
+  return {
+    ok: `Convite criado para ${email}, mas o e-mail não saiu (${sent.email.reason}). Envie o link:`,
+    inviteLink: sent.link,
+  };
+}
+
 export async function addMember(_: FormState, form: FormData): Promise<FormState> {
-  const { space } = await requireAdmin(form);
+  const { user, space } = await requireAdmin(form);
   const email = field(form, "email").toLowerCase();
   const role = parseRole(field(form, "role")) ?? "MEMBER";
   const values = { email, role };
@@ -71,10 +90,11 @@ export async function addMember(_: FormState, form: FormData): Promise<FormState
     select: { id: true, name: true },
   });
   if (!invitee) {
-    return {
-      values,
-      error: "Nenhuma conta com este e-mail. Peça para a pessoa criar a conta primeiro.",
-    };
+    // Sem conta: convite por e-mail; ela entra ao criar a conta pelo link.
+    if (!EMAIL_RE.test(email)) return { values, error: "E-mail inválido." };
+    const sent = await sendInvite({ space, email, role, inviter: user });
+    revalidatePath(`/dashboard/${space.slug}`);
+    return inviteResult(email, sent);
   }
   if (invitee.id === space.ownerId) return { values, error: `${invitee.name} é o dono deste escritório.` };
 
@@ -131,5 +151,29 @@ export async function adminReleaseDesk(form: FormData) {
   const key = field(form, "deskKey");
   const { count } = await prisma.desk.deleteMany({ where: { spaceId: space.id, key } });
   if (count > 0) await notifyRealtime({ type: "desk.updated", space: space.slug, desk: freeDesk(key) });
+  revalidatePath(`/dashboard/${space.slug}`);
+}
+
+/** Gera um link novo (o antigo deixa de valer) e manda o e-mail de novo. */
+export async function resendInvite(_: FormState, form: FormData): Promise<FormState> {
+  const { user, space } = await requireAdmin(form);
+  const invite = await prisma.invite.findFirst({
+    where: { id: field(form, "inviteId"), spaceId: space.id },
+    select: { email: true, role: true },
+  });
+  if (!invite) return { error: "Convite não encontrado." };
+  const sent = await sendInvite({
+    space,
+    email: invite.email,
+    role: parseRole(invite.role) ?? "MEMBER",
+    inviter: user,
+  });
+  revalidatePath(`/dashboard/${space.slug}`);
+  return inviteResult(invite.email, sent);
+}
+
+export async function cancelInvite(form: FormData) {
+  const { space } = await requireAdmin(form);
+  await prisma.invite.deleteMany({ where: { id: field(form, "inviteId"), spaceId: space.id } });
   revalidatePath(`/dashboard/${space.slug}`);
 }

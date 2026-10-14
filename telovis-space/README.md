@@ -85,9 +85,16 @@ Testes do algoritmo de proximidade: `npm test`.
   `room:join` só aceita o space do ticket, e o nome exibido vem do ticket, não
   do cliente.
 - **Dashboard**: qualquer usuário cria um space (mapa padrão) e vira dono.
-  ADMINs adicionam pessoas por e-mail (a conta precisa existir), trocam papel e
-  removem. Toda action refaz a checagem de admin: `slug` e `memberId` chegam
-  como campos do formulário e não são confiáveis.
+  ADMINs adicionam pessoas por e-mail, trocam papel e removem. Toda action refaz
+  a checagem de admin: `slug` e `memberId` chegam como campos do formulário e
+  não são confiáveis.
+- **Convites**: e-mail sem conta vira um `Invite` (7 dias; o banco guarda só o
+  SHA-256 do token) e recebe o link `/convite/[token]`. Lá a pessoa cria a conta
+  (e-mail já preenchido) ou faz login e aceita; só aceita quem está logado com
+  o **mesmo e-mail** do convite. Aceito, vira `SpaceMember` e o convite some.
+  Reenviar gera token novo (o link antigo morre); cancelar apaga. E-mail pela API
+  do Resend (`RESEND_API_KEY` + `EMAIL_FROM`); sem eles, o dashboard mostra o
+  link para copiar e o servidor o loga. `APP_URL` monta o link.
 - Se o ticket é recusado (sessão expirou, vínculo removido), o socket não tenta
   de novo, a mídia é desligada e a HUD pede para recarregar.
 
@@ -235,8 +242,9 @@ navegador lerem e posicionarem o jogador.
   login. Não há limpeza periódica de sessões expiradas.
 - **Escala**: estado das salas em memória (uma instância). Para várias, Redis +
   `@socket.io/redis-adapter`.
-- **Dashboard**: sem convite por e-mail (só adiciona quem já tem conta), sem
-  métricas de uso, sem renomear/excluir space nem transferir a posse.
+- **Dashboard**: sem métricas de uso, sem renomear/excluir space nem transferir
+  a posse. Convites sem rate limit nem limpeza dos expirados (ficam listados
+  como "expirado" até reenviar ou cancelar).
 - **Avatar**: `User.avatarSprite` (da spec) segue sem uso, reservado para
   spritesheets enviados.
 - **Ausência**: não desliga mic/câmera nem silencia quem está ausente; sem texto

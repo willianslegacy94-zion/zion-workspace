@@ -24,6 +24,7 @@ model User {
   sessions     Session[]
   ownedSpaces  Space[]
   desks        Desk[]
+  invitesSent  Invite[]
   createdAt    DateTime      @default(now())
 }
 
@@ -49,6 +50,7 @@ model Space {
   owner      User          @relation(fields: [ownerId], references: [id])
   members    SpaceMember[]
   desks      Desk[]
+  invites    Invite[]
   createdAt  DateTime      @default(now())
 }
 
@@ -78,4 +80,22 @@ model Desk {
 
   @@unique([spaceId, key]) // uma pessoa por mesa
   @@unique([spaceId, userId]) // uma mesa por pessoa em cada space
+}
+
+/// Convite por e-mail para quem ainda não tem conta. O link leva o token cru;
+/// aqui fica só o SHA-256 dele (como em Session). Aceitar exige estar logado
+/// com o mesmo e-mail; o convite é apagado ao ser aceito.
+model Invite {
+  id          String   @id @default(uuid())
+  spaceId     String
+  space       Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  email       String
+  role        String   @default("MEMBER") // ADMIN, MEMBER, GUEST
+  tokenHash   String   @unique
+  invitedById String
+  invitedBy   User     @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([spaceId, email]) // reenviar troca o token do convite existente
 }

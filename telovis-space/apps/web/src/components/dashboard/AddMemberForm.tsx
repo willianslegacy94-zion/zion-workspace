@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { addMember } from "@/app/dashboard/actions";
+import InviteLink from "./InviteLink";
 import { inputClass, primaryButtonClass, ROLE_LABEL } from "./ui";
 
 export default function AddMemberForm({ slug }: { slug: string }) {
@@ -54,6 +55,7 @@ export default function AddMemberForm({ slug }: { slug: string }) {
           {state.ok}
         </p>
       )}
+      {state?.inviteLink && <InviteLink link={state.inviteLink} />}
     </form>
   );
 }

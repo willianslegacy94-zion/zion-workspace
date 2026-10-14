@@ -67,7 +67,8 @@ export async function login(_: AuthFormState, form: FormData): Promise<AuthFormS
   redirect(safeNext(field(form, "next")));
 }
 
-export async function logout(): Promise<void> {
+/** `next` opcional no formulário (ex.: voltar ao convite depois de sair). */
+export async function logout(form?: FormData): Promise<void> {
   await destroySession();
-  redirect("/");
+  redirect(safeNext(form?.get("next")));
 }
