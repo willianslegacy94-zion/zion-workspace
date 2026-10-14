@@ -17,6 +17,7 @@ import { createSpaceSocket, type SpaceSocket } from "@/lib/space/socket";
 import { MediaController, type MediaState } from "@/lib/media/media-controller";
 import ChatPanel from "./ChatPanel";
 import DeskSetupDialog from "./DeskSetupDialog";
+import StatusMenu from "./StatusMenu";
 
 // ssr:false só é permitido em Client Components — por isso o carregamento do
 // Phaser fica aqui e não na page (Server Component).
@@ -170,6 +171,7 @@ export default function SpaceClient(props: Props) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {session && <StatusMenu socket={session.socket} connection={status.kind} />}
           <div className="hidden rounded-lg bg-black/60 px-3 py-2 text-xs text-slate-400 backdrop-blur sm:block">
             WASD / setas para andar · Enter para conversar
           </div>

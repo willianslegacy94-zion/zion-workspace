@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { isVehicle, type Vehicle } from "@telovis/protocol";
+import { DIRECTIONS, isVehicle, type Direction, type Vehicle } from "@telovis/protocol";
 
 export interface PrivateZone {
   id: string;
@@ -95,4 +95,23 @@ export function parseVehicleStations(map: Phaser.Tilemaps.Tilemap): VehicleStati
   return layer.objects.flatMap((o) =>
     isVehicle(o.name) ? [{ vehicle: o.name, x: o.x ?? 0, y: o.y ?? 0 }] : [],
   );
+}
+
+export interface Seat {
+  x: number;
+  y: number;
+  /** Para onde o avatar olha sentado (a mesa à frente). */
+  facing: Direction;
+}
+
+/** Assentos soltos (camada `seats`): pontos com a propriedade `facing`. */
+export function parseSeats(map: Phaser.Tilemaps.Tilemap): Seat[] {
+  const layer = map.getObjectLayer("seats");
+  if (!layer) return [];
+  return layer.objects.flatMap((o) => {
+    const props = (o.properties ?? []) as { name: string; value: unknown }[];
+    const facing = props.find((p) => p.name === "facing")?.value;
+    if (!DIRECTIONS.includes(facing as Direction)) return [];
+    return [{ x: o.x ?? 0, y: o.y ?? 0, facing: facing as Direction }];
+  });
 }

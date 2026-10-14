@@ -11,13 +11,17 @@ import {
 // Desenho do avatar em canvas 2D puro, sem Phaser: usado pela cena (via
 // avatar.ts) e pela prévia do Customizer.
 //
-// Layout do spritesheet: 12 quadros de 24×24 numa linha. Para cada direção
-// (na ordem de DIR_ORDER) há 3 quadros: parado, passo A, passo B.
+// Layout do spritesheet: 16 quadros de 24×24 numa linha. Para cada direção
+// (na ordem de DIR_ORDER) há 3 quadros: parado, passo A, passo B. Depois, um
+// quadro "sentado" por direção (SIT_BASE + índice da direção).
 
 export const AVATAR_SIZE = 24;
 export const DIR_ORDER: Direction[] = ["down", "left", "right", "up"];
 export const FRAMES_PER_DIR = 3;
-export const SHEET_FRAMES = DIR_ORDER.length * FRAMES_PER_DIR;
+export const SIT_BASE = DIR_ORDER.length * FRAMES_PER_DIR;
+export const SHEET_FRAMES = SIT_BASE + DIR_ORDER.length;
+/** Valor de `frame` em drawAvatarFrame para a pose sentada. */
+export const SIT_FRAME = 3;
 
 const OUTLINE = "#111827";
 
@@ -35,6 +39,7 @@ export function drawAvatarSheet(ctx: CanvasRenderingContext2D, look: AvatarLook)
     for (let f = 0; f < FRAMES_PER_DIR; f++) {
       drawAvatarFrame(ctx, (d * FRAMES_PER_DIR + f) * AVATAR_SIZE, dir, f, look);
     }
+    drawAvatarFrame(ctx, (SIT_BASE + d) * AVATAR_SIZE, dir, SIT_FRAME, look);
   });
 }
 
@@ -59,10 +64,31 @@ export function drawAvatarFrame(
   // Passo A levanta a perna/braço "esquerdos" da tela, passo B os direitos.
   const liftA = frame === 1 ? 1 : 0;
   const liftB = frame === 2 ? 1 : 0;
+  // Sentado: tronco e cabeça 2px mais baixos, pernas dobradas.
+  const sit = frame === SIT_FRAME;
+  const dy = sit ? 2 : 0;
 
   const parts: Rect[] = [];
 
-  if (side) {
+  if (sit) {
+    if (dir === "down") {
+      // Colo largo (coxas vindo para a frente) e os pés logo abaixo.
+      parts.push([6, 17, 12, 3, pants], [8, 20, 3, 2, OUTLINE], [13, 20, 3, 2, OUTLINE]);
+    } else if (side) {
+      // Coxa na horizontal para o lado em que olha, canela descendo.
+      const fx = dir === "left" ? 6 : 12;
+      const shinX = dir === "left" ? 6 : 16;
+      parts.push([fx, 17, 6, 3, pants], [shinX, 19, 2, 3, pants]);
+    }
+    // De costas, o encosto da cadeira cobre as pernas: nada a desenhar.
+    if (side) {
+      parts.push([8, 11 + dy, 8, 6, shirt]);
+      parts.push([dir === "left" ? 9 : 13, 12 + dy, 2, 4, shirtDark]);
+    } else {
+      parts.push([7, 11 + dy, 10, 6, shirt]);
+      parts.push([5, 12 + dy, 2, 4, shirtDark], [17, 12 + dy, 2, 4, shirtDark]);
+    }
+  } else if (side) {
     // Perfil: pernas se abrem para frente/trás.
     const stride = frame === 0 ? 0 : 2;
     parts.push([10 - stride, 17, 3, 4, pants], [11 + stride, 17, 3, 4, pants]);
@@ -75,8 +101,12 @@ export function drawAvatarFrame(
     parts.push([5, 12 + liftB, 2, 5, shirtDark], [17, 12 + liftA, 2, 5, shirtDark]);
   }
 
-  parts.push([7, 2, 10, 9, skin]);
-  parts.push(...hairRects(HAIR_STYLES[look.hairStyle], dir, hair));
+  parts.push([7, 2 + dy, 10, 9, skin]);
+  parts.push(
+    ...hairRects(HAIR_STYLES[look.hairStyle], dir, hair).map(
+      ([x, y, w, h, c]): Rect => [x, y + dy, w, h, c],
+    ),
+  );
 
   // Sombra no chão (sem contorno).
   ctx.fillStyle = "rgba(0,0,0,0.25)";
@@ -92,12 +122,12 @@ export function drawAvatarFrame(
   // Olhos.
   ctx.fillStyle = OUTLINE;
   if (dir === "down") {
-    ctx.fillRect(ox + 9, 6, 1, 2);
-    ctx.fillRect(ox + 14, 6, 1, 2);
+    ctx.fillRect(ox + 9, 6 + dy, 1, 2);
+    ctx.fillRect(ox + 14, 6 + dy, 1, 2);
   } else if (dir === "left") {
-    ctx.fillRect(ox + 8, 6, 1, 2);
+    ctx.fillRect(ox + 8, 6 + dy, 1, 2);
   } else if (dir === "right") {
-    ctx.fillRect(ox + 15, 6, 1, 2);
+    ctx.fillRect(ox + 15, 6 + dy, 1, 2);
   }
 }
 

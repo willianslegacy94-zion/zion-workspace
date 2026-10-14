@@ -1,7 +1,9 @@
 import Phaser from "phaser";
 import {
+  AWAY_STATUS_LABELS,
   EARSHOT_RADIUS,
   freeDesk,
+  type AwayStatus,
   type AvatarLook,
   type ChatMessage,
   type DeskOwner,
@@ -23,16 +25,18 @@ import {
   areaAt,
   parseAreas,
   parseDeskSlots,
+  parseSeats,
   parseVehicleStations,
   parseZones,
   zoneAt,
   type DeskSlot,
   type MapArea,
   type PrivateZone,
+  type Seat,
   type VehicleStation,
 } from "../zones";
 import { DESK_H, DESK_TEX_H, DESK_W, deskTextureKey, drawDesk } from "../desk-draw";
-import { AVATAR_SIZE, ensureAvatar, idleFrame, walkAnimKey } from "../avatar";
+import { AVATAR_SIZE, ensureAvatar, idleFrame, sitFrame, walkAnimKey } from "../avatar";
 import { ensureVehicle } from "../vehicle";
 import { VEHICLE_ANCHOR, VEHICLE_FRAME, vehicleFrame, vehicleInFront } from "../vehicle-draw";
 
@@ -47,6 +51,7 @@ export interface NearbyPeer {
   name: string;
   distance: number;
   reason: DecisionReason;
+  status: AwayStatus | null;
 }
 
 export interface ZoneInfo {
@@ -111,6 +116,13 @@ const DESK_REACH = 40;
 const VEHICLE_REACH = 36;
 /** Troca de quadro das rodas em movimento. */
 const WHEEL_FRAME_MS = 110;
+/** Parado este tempo perto de um assento, o avatar senta sozinho. */
+const SIT_DELAY_MS = 350;
+const SIT_REACH = 16;
+/** Índice de "Em pé" em DESK_MODELS: mesa sem cadeira. */
+const STANDING_DESK_MODEL = 1;
+/** Avatar de quem está ausente fica meio apagado. */
+const AWAY_ALPHA = 0.55;
 
 type MoveKeys = Record<
   "W" | "A" | "S" | "D" | "UP" | "DOWN" | "LEFT" | "RIGHT",
@@ -128,6 +140,8 @@ interface AvatarView {
   bubbleTimer: Phaser.Time.TimerEvent | null;
   vehicle: Vehicle | null;
   vehicleSprite: Phaser.GameObjects.Sprite | null;
+  name: string;
+  status: AwayStatus | null;
 }
 
 interface RemoteAvatar extends AvatarView {
@@ -150,6 +164,7 @@ interface SentState {
   moving: boolean;
   zoneId: string | null;
   vehicle: Vehicle | null;
+  sitting: boolean;
 }
 
 export class OfficeScene extends Phaser.Scene {
@@ -167,6 +182,9 @@ export class OfficeScene extends Phaser.Scene {
   private stations: VehicleStation[] = [];
   private focusedStation: VehicleStation | null = null;
   private lastVehicleFocusKey = "";
+  private seats: Seat[] = [];
+  private sitting = false;
+  private idleSince = 0;
   private radius!: Phaser.GameObjects.Arc;
   private minimap!: Phaser.Cameras.Scene2D.Camera;
   private viewportBox!: Phaser.GameObjects.Rectangle;
@@ -306,6 +324,8 @@ export class OfficeScene extends Phaser.Scene {
       .setVisible(false);
     this.minimap.ignore(this.deskHighlight);
 
+    this.seats = parseSeats(map);
+
     // --- Garagens de kart e patinete -----------------------------------------
     this.stations = parseVehicleStations(map);
     const spots = this.add.graphics().setDepth(DEPTH.areas);
@@ -371,6 +391,7 @@ export class OfficeScene extends Phaser.Scene {
     socket.on("chat:message", this.onChatMessage);
     socket.on("session:revoked", this.onSessionRevoked);
     socket.on("desk:updated", this.onDeskUpdated);
+    socket.on("player:status", this.onPlayerStatus);
     if (socket.connected) this.join();
     else this.ctx.onStatus({ kind: "connecting" });
 
@@ -433,6 +454,8 @@ export class OfficeScene extends Phaser.Scene {
     const vy = typing ? 0 : Number(k.S.isDown || k.DOWN.isDown) - Number(k.W.isDown || k.UP.isDown);
 
     // Normaliza para a diagonal não ser √2 mais rápida.
+    this.updateSitting(vx !== 0 || vy !== 0);
+
     const speed = SPEED[this.me.vehicle ?? "walk"];
     const velocity = new Phaser.Math.Vector2(vx, vy).normalize().scale(speed);
     const { sprite } = this.me;
@@ -443,7 +466,7 @@ export class OfficeScene extends Phaser.Scene {
     else if (vx < 0) this.direction = "left";
     else if (vx > 0) this.direction = "right";
 
-    this.animate(this.me, this.direction, vx !== 0 || vy !== 0);
+    this.animate(this.me, this.direction, vx !== 0 || vy !== 0, this.sitting);
     this.radius.setPosition(sprite.x, sprite.y);
     this.positionDecor(this.me);
   }
@@ -457,6 +480,7 @@ export class OfficeScene extends Phaser.Scene {
       moving: sprite.body!.velocity.lengthSq() > 0,
       zoneId: this.currentZone?.id ?? null,
       vehicle: this.me.vehicle,
+      sitting: this.sitting,
     };
   }
 
@@ -494,7 +518,8 @@ export class OfficeScene extends Phaser.Scene {
       prev.direction === next.direction &&
       prev.moving === next.moving &&
       prev.zoneId === next.zoneId &&
-      prev.vehicle === next.vehicle
+      prev.vehicle === next.vehicle &&
+      prev.sitting === next.sitting
     ) {
       return;
     }
@@ -503,7 +528,8 @@ export class OfficeScene extends Phaser.Scene {
       !prev ||
       prev.moving !== next.moving ||
       prev.zoneId !== next.zoneId ||
-      prev.vehicle !== next.vehicle;
+      prev.vehicle !== next.vehicle ||
+      prev.sitting !== next.sitting;
     if (!urgent && time - this.lastEmitAt < MOVE_EMIT_INTERVAL_MS) return;
 
     this.ctx.socket.emit("player:move", next);
@@ -568,6 +594,57 @@ export class OfficeScene extends Phaser.Scene {
           }
         : null,
     );
+  }
+
+  // --- Sentar ------------------------------------------------------------------
+
+  /**
+   * Andar levanta; ficar parado perto de um assento (cadeira de mesa, cadeira
+   * de sala, puff) senta: o avatar encaixa no lugar e vira para a mesa.
+   */
+  private updateSitting(moving: boolean) {
+    const now = this.time.now;
+    if (moving || this.me.vehicle) {
+      this.sitting = false;
+      this.idleSince = now;
+      return;
+    }
+    if (this.sitting || now - this.idleSince < SIT_DELAY_MS) return;
+
+    const seat = this.nearestSeat();
+    if (!seat) return;
+    this.me.sprite.body!.reset(seat.x, seat.y);
+    this.direction = seat.facing;
+    this.sitting = true;
+  }
+
+  private nearestSeat(): Seat | null {
+    const { x, y } = this.me.sprite;
+    let best: Seat | null = null;
+    let bestDist = SIT_REACH;
+    const consider = (seat: Seat) => {
+      const d = Math.hypot(seat.x - x, seat.y - y);
+      if (d < bestDist) {
+        best = seat;
+        bestDist = d;
+      }
+    };
+    this.seats.forEach(consider);
+    for (const view of this.desks.values()) {
+      if (view.state.owner && view.state.setup.model === STANDING_DESK_MODEL) continue;
+      consider({ x: view.slot.x + DESK_W / 2, y: view.slot.y + DESK_H + 12, facing: "up" });
+    }
+    return best;
+  }
+
+  // --- Ausência -----------------------------------------------------------------
+
+  private setStatus(view: AvatarView, status: AwayStatus | null) {
+    view.status = status;
+    view.label.setText(status ? `${view.name} · ${AWAY_STATUS_LABELS[status]}` : view.name);
+    view.sprite.setAlpha(status ? AWAY_ALPHA : 1);
+    view.vehicleSprite?.setAlpha(status ? AWAY_ALPHA : 1);
+    view.label.setFontStyle(status ? "italic" : "normal");
   }
 
   // --- Veículos ----------------------------------------------------------------
@@ -637,10 +714,24 @@ export class OfficeScene extends Phaser.Scene {
     const dot = this.add.circle(x, y, 28, dotColor).setDepth(DEPTH.overlay);
     this.cameras.main.ignore(dot);
 
-    return { label, dot, bubble: null, bubbleTimer: null, vehicle: null, vehicleSprite: null };
+    return {
+      label,
+      dot,
+      bubble: null,
+      bubbleTimer: null,
+      vehicle: null,
+      vehicleSprite: null,
+      name,
+      status: null,
+    };
   }
 
-  private animate(view: AvatarView, direction: Direction, moving: boolean) {
+  private animate(view: AvatarView, direction: Direction, moving: boolean, sitting: boolean) {
+    if (sitting && !view.vehicleSprite) {
+      view.sprite.anims.stop();
+      view.sprite.setFrame(sitFrame(direction));
+      return;
+    }
     if (view.vehicleSprite) {
       // Em cima do veículo o avatar fica parado; quem "anda" são as rodas.
       view.sprite.anims.stop();
@@ -679,7 +770,7 @@ export class OfficeScene extends Phaser.Scene {
       sprite.y += (state.y - sprite.y) * t;
       // Continua animando enquanto ainda está "chegando" na posição final.
       const settling = Math.abs(state.x - sprite.x) + Math.abs(state.y - sprite.y) > 1;
-      this.animate(remote, state.direction, state.moving || settling);
+      this.animate(remote, state.direction, state.moving || settling, state.sitting && !settling);
       this.positionDecor(remote);
       ring.setPosition(sprite.x, sprite.y + 9).setDepth(DEPTH.ring);
     }
@@ -690,6 +781,7 @@ export class OfficeScene extends Phaser.Scene {
     if (existing) {
       existing.state = { ...player };
       this.setVehicle(existing, player.vehicle);
+      this.setStatus(existing, player.status);
       return;
     }
     // O visual vem do servidor (que o recebeu assinado no ticket), então todo
@@ -706,6 +798,7 @@ export class OfficeScene extends Phaser.Scene {
     const remote: RemoteAvatar = { ...decor, sprite, textureKey, ring, state: { ...player } };
     this.remotes.set(player.id, remote);
     this.setVehicle(remote, player.vehicle);
+    this.setStatus(remote, player.status);
   }
 
   private removeRemote(id: string) {
@@ -771,13 +864,14 @@ export class OfficeScene extends Phaser.Scene {
           name: remote.state.name,
           distance: Math.round(decision.distance),
           reason: decision.reason,
+          status: remote.state.status,
         });
       }
     }
     nearby.sort((a, b) => a.distance - b.distance);
 
     // Só avisa o React quando a lista muda, não a cada 200ms.
-    const key = nearby.map((p) => `${p.id}:${p.reason}`).join("|");
+    const key = nearby.map((p) => `${p.id}:${p.reason}:${p.status}`).join("|");
     if (key !== this.lastNearbyKey) {
       this.lastNearbyKey = key;
       this.ctx.onNearbyChange(nearby);
@@ -885,6 +979,18 @@ export class OfficeScene extends Phaser.Scene {
     if (this.focusedDesk === desk.key) this.lastFocusKey = "";
   };
 
+  private onPlayerStatus = ({ id, status }: { id: string; status: AwayStatus | null }) => {
+    if (this.disposed) return;
+    if (id === this.selfId) {
+      this.setStatus(this.me, status);
+      return;
+    }
+    const remote = this.remotes.get(id);
+    if (!remote) return;
+    remote.state.status = status;
+    this.setStatus(remote, status);
+  };
+
   private onPlayerLeft = (id: string) => {
     if (this.disposed) return;
     this.removeRemote(id);
@@ -910,6 +1016,7 @@ export class OfficeScene extends Phaser.Scene {
     socket.off("chat:message", this.onChatMessage);
     socket.off("session:revoked", this.onSessionRevoked);
     socket.off("desk:updated", this.onDeskUpdated);
+    socket.off("player:status", this.onPlayerStatus);
   }
 }
 

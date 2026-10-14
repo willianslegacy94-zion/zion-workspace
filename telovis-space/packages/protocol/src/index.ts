@@ -9,10 +9,12 @@
 import type { AvatarLook } from "./avatar";
 import type { DeskState } from "./desk";
 import type { Vehicle } from "./vehicle";
+import type { AwayStatus } from "./presence";
 
 export * from "./avatar";
 export * from "./desk";
 export * from "./vehicle";
+export * from "./presence";
 
 export type Direction = "up" | "down" | "left" | "right";
 
@@ -33,11 +35,15 @@ export interface PlayerState {
   zoneId: string | null;
   /** Veículo em que está andando, ou null a pé. */
   vehicle: Vehicle | null;
+  /** Sentado numa cadeira (pose parada, virado para a mesa). */
+  sitting: boolean;
+  /** Ausência ("Almoço", "Volto já"…), ou null quando disponível. */
+  status: AwayStatus | null;
 }
 
 export type PlayerMove = Pick<
   PlayerState,
-  "id" | "x" | "y" | "direction" | "moving" | "zoneId" | "vehicle"
+  "id" | "x" | "y" | "direction" | "moving" | "zoneId" | "vehicle" | "sitting"
 >;
 
 /**
@@ -118,6 +124,7 @@ export interface ClientToServerEvents {
   "room:join": (payload: JoinPayload, ack: (res: JoinAck) => void) => void;
   "player:move": (payload: MovePayload) => void;
   "chat:send": (payload: { text: string }, ack: (res: ChatAck) => void) => void;
+  "status:set": (payload: { status: AwayStatus | null }) => void;
 }
 
 export interface ServerToClientEvents {
@@ -126,6 +133,8 @@ export interface ServerToClientEvents {
   /** Visual trocado no Customizer, com a pessoa já na sala. */
   "player:updated": (update: { id: string; avatar: AvatarLook }) => void;
   "player:left": (playerId: string) => void;
+  /** Mudança de ausência; vai também para quem mudou (confirmação). */
+  "player:status": (update: { id: string; status: AwayStatus | null }) => void;
   /** Enviado logo antes de o servidor derrubar a conexão (ex.: removido do space). */
   "session:revoked": (reason: string) => void;
   /** Alguém pegou, montou ou liberou uma mesa. */

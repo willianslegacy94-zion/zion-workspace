@@ -11,7 +11,7 @@ import {
   type ServerToClientEvents,
 } from "@telovis/protocol";
 import { RoomRegistry } from "./rooms.js";
-import { parseChat, parseJoin, parseMove } from "./validation.js";
+import { parseChat, parseJoin, parseMove, parseStatus } from "./validation.js";
 import { createLivekitCredentials } from "./livekit.js";
 import { loadTicketSecret, verifyTicket } from "./auth.js";
 import { readInternalEvent } from "./internal.js";
@@ -22,6 +22,7 @@ interface SocketData {
   spaceId?: string;
   lastMoveAt: number;
   lastChatAt: number;
+  lastStatusAt: number;
 }
 
 type AppSocket = Socket<ClientToServerEvents, ServerToClientEvents, {}, SocketData>;
@@ -35,6 +36,7 @@ const CORS_ORIGIN = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
 // ~30Hz é cliente com bug ou abusivo, e o excesso é descartado sem aviso.
 const MIN_MOVE_INTERVAL_MS = 33;
 const MIN_CHAT_INTERVAL_MS = 500;
+const MIN_STATUS_INTERVAL_MS = 300;
 
 const TICKET_SECRET = loadTicketSecret();
 
@@ -130,6 +132,7 @@ io.on("connection", (socket) => {
   socket.join(userRoom(socket.data.user.sub));
   socket.data.lastMoveAt = 0;
   socket.data.lastChatAt = 0;
+  socket.data.lastStatusAt = 0;
 
   socket.on("room:join", async (raw, ack) => {
     if (typeof ack !== "function") return;
@@ -157,6 +160,8 @@ io.on("connection", (socket) => {
       moving: false,
       zoneId: null,
       vehicle: null,
+      sitting: false,
+      status: null,
     };
 
     let livekit: LivekitCredentials | null = null;
@@ -230,6 +235,19 @@ io.on("connection", (socket) => {
     const message = { id: randomUUID(), playerId: sender.id, name: sender.name, text, at: now };
     io.to([...recipients, sender.id]).emit("chat:message", message);
     ack({ ok: true, delivered: recipients.length });
+  });
+
+  socket.on("status:set", (raw) => {
+    const { spaceId } = socket.data;
+    const player = spaceId ? rooms.get(spaceId, socket.id) : undefined;
+    if (!spaceId || !player) return;
+    const status = parseStatus(raw);
+    if (status === undefined || status === player.status) return;
+    const now = Date.now();
+    if (now - socket.data.lastStatusAt < MIN_STATUS_INTERVAL_MS) return;
+    socket.data.lastStatusAt = now;
+    player.status = status;
+    io.to(spaceId).emit("player:status", { id: socket.id, status });
   });
 
   socket.on("disconnect", () => leaveCurrentRoom(socket));

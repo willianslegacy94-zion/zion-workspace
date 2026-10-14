@@ -2,13 +2,15 @@
 // formato que o Tiled exporta. Substitua por assets de pixel art de verdade
 // quando existirem — a cena só depende dos nomes das camadas:
 //   floor, walls, furniture, decor (tile layers)
-//   zones, areas, desks, vehicles, objects (object layers)
+//   zones, areas, desks, vehicles, seats, objects (object layers)
 //
 // - walls/furniture colidem; decor (cadeiras, puffs) não.
 // - zones: salas privadas (propriedade zoneId) — áudio só entre quem está dentro.
 // - areas: áreas abertas com nome no chão (cozinha, café…), áudio por proximidade.
 // - desks: posições de mesa que cada pessoa pode pegar e montar (nome = id).
 // - vehicles: garagens; pontos chamados "kart" ou "patinete".
+// - seats: pontos onde o avatar senta sozinho ao parar; propriedade `facing`
+//   (up/down/left/right) diz para onde olha. Mesas já trazem a própria cadeira.
 // - objects: ponto "spawn".
 //
 // Uso: node scripts/generate-placeholder-assets.mjs
@@ -340,18 +342,25 @@ for (const x of [29, 30, 31]) set(walls, x, 0, T.whiteboard);
 set(walls, 39, 0, T.whiteboard);
 set(walls, 45, 0, T.whiteboard);
 
+// Assentos (camada seats): cadeira desenhada em decor + ponto para sentar.
+const SEATS = [];
+const seat = (x, y, facing, tile = T.chair) => {
+  set(decor, x, y, tile);
+  SEATS.push([x, y, facing]);
+};
+
 // Sala Atlântico: mesa longa com cadeiras.
 fill(furniture, 27, 4, 33, 5, T.meetingTable);
 for (let x = 27; x <= 33; x++) {
-  set(decor, x, 3, T.chair);
-  set(decor, x, 6, T.chair);
+  seat(x, 3, "down");
+  seat(x, 6, "up");
 }
 set(furniture, 25, 1, T.plant);
 set(furniture, 35, 1, T.plant);
 // Sala 1:1: mesinha e duas cadeiras.
 fill(furniture, 39, 4, 39, 5, T.meetingTable);
-set(decor, 38, 4, T.chair);
-set(decor, 40, 5, T.chair);
+seat(38, 4, "right");
+seat(40, 5, "left");
 set(furniture, 41, 1, T.plant);
 // Sala Foco: sofá e estante.
 fill(furniture, 44, 2, 47, 2, T.sofaBackTop);
@@ -361,7 +370,7 @@ set(furniture, 48, 2, T.bookshelf);
 
 // Recepção: balcão, plantas, estante, sofá de espera.
 fill(furniture, 4, 2, 8, 2, T.reception);
-set(decor, 6, 1, T.chair);
+seat(6, 1, "down");
 for (const [x, y] of [[1, 1], [12, 1], [23, 1], [1, 9]]) set(furniture, x, y, T.plant);
 for (const x of [18, 19, 20]) set(furniture, x, 1, T.bookshelf);
 fill(furniture, 15, 7, 17, 7, T.sofaBackBottom);
@@ -376,7 +385,7 @@ fill(furniture, 36, 13, 39, 13, T.sofaBackTop);
 fill(furniture, 36, 18, 39, 18, T.sofaBackBottom);
 set(furniture, 37, 15, T.coffeeTable);
 set(furniture, 38, 16, T.coffeeTable);
-for (const [x, y] of [[42, 15], [44, 15], [43, 17]]) set(decor, x, y, T.beanbag);
+for (const [x, y] of [[42, 15], [44, 15], [43, 17]]) seat(x, y, "down", T.beanbag);
 for (const [x, y] of [[32, 11], [48, 19], [32, 19]]) set(furniture, x, y, T.plant);
 set(furniture, 48, 11, T.bookshelf);
 
@@ -391,8 +400,8 @@ fill(furniture, 43, 21, 47, 21, T.counter);
 set(furniture, 46, 21, T.coffeeMachine);
 fill(furniture, 38, 25, 43, 26, T.diningTable);
 for (let x = 38; x <= 43; x++) {
-  set(decor, x, 24, T.chair);
-  set(decor, x, 27, T.chair);
+  seat(x, 24, "down");
+  seat(x, 27, "up");
 }
 set(furniture, 48, 30, T.plant);
 set(furniture, 32, 30, T.plant);
@@ -480,8 +489,8 @@ const map = {
   tilewidth: TILE,
   tileheight: TILE,
   compressionlevel: -1,
-  nextlayerid: 10,
-  nextobjectid: 400,
+  nextlayerid: 11,
+  nextobjectid: 600,
   tilesets: [
     {
       firstgid: 1,
@@ -534,6 +543,23 @@ const map = {
         visible: true,
       })),
     ),
+    objectLayer(
+      10,
+      "seats",
+      SEATS.map(([x, y, facing], i) => ({
+        id: 500 + i,
+        name: "seat",
+        type: "seat",
+        point: true,
+        x: x * TILE + TILE / 2,
+        y: y * TILE + TILE / 2,
+        width: 0,
+        height: 0,
+        rotation: 0,
+        visible: true,
+        properties: [{ name: "facing", type: "string", value: facing }],
+      })),
+    ),
     objectLayer(8, "objects", [
       { id: 20, name: "spawn", type: "", point: true, x: 10 * TILE, y: 5 * TILE, width: 0, height: 0, rotation: 0, visible: true },
     ]),
@@ -544,4 +570,4 @@ mkdirSync(join(root, "maps"), { recursive: true });
 mkdirSync(join(root, "tilesets"), { recursive: true });
 writeFileSync(join(root, "tilesets", "office-tiles.png"), png(TILES * TILE, TILE, img));
 writeFileSync(join(root, "maps", "office.json"), JSON.stringify(map));
-console.log(`ok: mapa ${W}×${H}, ${TILES} tiles, ${desks.length} mesas, ${VEHICLE_SPOTS.length} vagas`);
+console.log(`ok: mapa ${W}×${H}, ${TILES} tiles, ${desks.length} mesas, ${VEHICLE_SPOTS.length} vagas, ${SEATS.length} assentos`);

@@ -1,10 +1,12 @@
 import {
   CHAT_MAX_LENGTH,
   DIRECTIONS,
+  isAwayStatus,
   isVehicle,
   SPACE_ID_PATTERN,
   type Direction,
   type JoinPayload,
+  type AwayStatus,
   type MovePayload,
 } from "@telovis/protocol";
 
@@ -33,13 +35,14 @@ export function parseJoin(raw: unknown): JoinPayload | null {
 
 export function parseMove(raw: unknown): MovePayload | null {
   if (typeof raw !== "object" || raw === null) return null;
-  const { x, y, direction, moving, zoneId, vehicle } = raw as Record<string, unknown>;
+  const { x, y, direction, moving, zoneId, vehicle, sitting } = raw as Record<string, unknown>;
   if (!isCoord(x) || !isCoord(y)) return null;
   if (!DIRECTIONS.includes(direction as Direction)) return null;
   if (typeof moving !== "boolean") return null;
   const zone = parseZoneId(zoneId);
   if (zone === undefined) return null;
   if (vehicle !== null && !isVehicle(vehicle)) return null;
+  if (typeof sitting !== "boolean") return null;
   return {
     x: Math.round(x),
     y: Math.round(y),
@@ -47,6 +50,7 @@ export function parseMove(raw: unknown): MovePayload | null {
     moving,
     zoneId: zone,
     vehicle,
+    sitting,
   };
 }
 
@@ -58,4 +62,12 @@ export function parseChat(raw: unknown): string | null {
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean || clean.length > CHAT_MAX_LENGTH) return null;
   return clean;
+}
+
+/** `undefined` = payload inválido; null = disponível. */
+export function parseStatus(raw: unknown): AwayStatus | null | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const { status } = raw as Record<string, unknown>;
+  if (status === null) return null;
+  return isAwayStatus(status) ? status : undefined;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CHAT_MAX_LENGTH, type ChatMessage } from "@telovis/protocol";
+import { AWAY_STATUS_LABELS, CHAT_MAX_LENGTH, type ChatMessage } from "@telovis/protocol";
 import type { NearbyPeer } from "@/game/scenes/OfficeScene";
 import type { SpaceSocket } from "@/lib/space/socket";
 
@@ -86,6 +86,9 @@ export default function ChatPanel({
                 <span className="text-xs text-emerald-300/70">
                   {p.reason === "same-zone" ? "sala" : `${p.distance}px`}
                 </span>
+                {p.status && (
+                  <span className="ml-1 text-xs text-amber-300">· {AWAY_STATUS_LABELS[p.status]}</span>
+                )}
               </li>
             ))}
           </ul>

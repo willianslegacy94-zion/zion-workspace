@@ -7,6 +7,7 @@ import {
   drawAvatarSheet,
   FRAMES_PER_DIR,
   SHEET_FRAMES,
+  SIT_BASE,
 } from "./avatar-draw";
 
 // Ponte entre o desenho (avatar-draw.ts) e o Phaser: um spritesheet por
@@ -17,6 +18,10 @@ export { AVATAR_SIZE };
 
 export function idleFrame(direction: Direction): number {
   return DIR_ORDER.indexOf(direction) * FRAMES_PER_DIR;
+}
+
+export function sitFrame(direction: Direction): number {
+  return SIT_BASE + DIR_ORDER.indexOf(direction);
 }
 
 export function walkAnimKey(textureKey: string, direction: Direction): string {

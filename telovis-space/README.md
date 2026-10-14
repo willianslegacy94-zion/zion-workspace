@@ -155,6 +155,7 @@ obrigatórias):
 | `areas` | retângulos com nome | áreas abertas (café, cozinha…): nome no chão e na HUD, áudio por proximidade |
 | `desks` | retângulos 64×32 | posições de mesa; o **nome** do objeto é a chave (`mesa-01`) |
 | `vehicles` | pontos `kart` / `patinete` | garagens: perto do ponto, **E** sobe no veículo |
+| `seats` | pontos com `facing` | cadeiras soltas: parado ali, o avatar senta virado para `facing` |
 | `objects` | ponto `spawn` | onde se nasce |
 
 Um mapa só pode usar um tileset por enquanto.
@@ -180,6 +181,21 @@ Um mapa só pode usar um tileset por enquanto.
   prévia do diálogo. Campos acrescentados depois (`model`, `chairModel`,
   `screenColor`) assumem o padrão quando faltam no JSON já salvo; campo novo
   entra em `ADDED_LATER`.
+
+## Sentar e ausência
+
+- Parado ~0,35s perto de um assento, o avatar senta: encaixa no lugar e vira
+  para a mesa. Valem as cadeiras das mesas (menos mesa em pé) e os pontos da
+  camada `seats` (salas, cozinha, recepção, puffs do café). Andar levanta; de
+  veículo não senta. `sitting` vai no `player:move`.
+- Status no botão da HUD: Disponível, Ausente, Volto já, Almoço, Café. Quem
+  está ausente aparece apagado, com o status ao lado do nome (também na lista
+  "Perto de você").
+- Ausência automática após 5 min sem teclado/mouse; volta sozinha na próxima
+  atividade. Status escolhido à mão só sai pelo menu.
+- O status vai por `status:set` → `player:status` (para a sala toda, inclusive
+  quem mudou). Não é gravado: o servidor esquece a cada reconexão e o cliente
+  reenvia ao entrar de novo. Ausente não desliga mic/câmera.
 
 ## Kart e patinete
 
@@ -223,6 +239,6 @@ navegador lerem e posicionarem o jogador.
   métricas de uso, sem renomear/excluir space nem transferir a posse.
 - **Avatar**: `User.avatarSprite` (da spec) segue sem uso, reservado para
   spritesheets enviados.
-- **Mesas**: a mesa não "senta" o avatar (ele só fica em pé na cadeira) e não há
-  status de ausência ("volto já") na mesa.
+- **Ausência**: não desliga mic/câmera nem silencia quem está ausente; sem texto
+  livre de status.
 - Upload de mapa e Shadcn/UI ainda não existem.
