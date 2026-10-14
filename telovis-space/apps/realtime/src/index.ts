@@ -6,6 +6,7 @@ import {
   type ClientToServerEvents,
   type LivekitCredentials,
   type PlayerState,
+  type RealtimeInternalEvent,
   type RealtimeTicketClaims,
   type ServerToClientEvents,
 } from "@telovis/protocol";
@@ -13,6 +14,7 @@ import { RoomRegistry } from "./rooms.js";
 import { parseChat, parseJoin, parseMove } from "./validation.js";
 import { createLivekitCredentials } from "./livekit.js";
 import { loadTicketSecret, verifyTicket } from "./auth.js";
+import { readInternalEvent } from "./internal.js";
 
 interface SocketData {
   /** Preenchido pelo io.use(): quem é e em qual space pode entrar. */
@@ -44,6 +46,18 @@ const httpServer = createServer((req, res) => {
     res.end(JSON.stringify({ ok: true, ...rooms.stats() }));
     return;
   }
+  if (req.url === "/internal/events" && req.method === "POST") {
+    readInternalEvent(req, TICKET_SECRET)
+      .then(({ status, event }) => {
+        if (event) applyInternalEvent(event);
+        res.writeHead(status).end();
+      })
+      .catch((err) => {
+        console.error("[internal] falha ao processar evento", err);
+        res.writeHead(500).end();
+      });
+    return;
+  }
   res.writeHead(404).end();
 });
 
@@ -64,6 +78,45 @@ io.use(async (socket, next) => {
   next();
 });
 
+/** Sala por usuário: todas as abas/conexões de uma pessoa. */
+const userRoom = (userId: string) => `user:${userId}`;
+
+function socketsOfUser(userId: string): AppSocket[] {
+  const ids = io.sockets.adapter.rooms.get(userRoom(userId)) ?? new Set<string>();
+  return [...ids].flatMap((id) => io.sockets.sockets.get(id) ?? []);
+}
+
+/** Mudanças feitas no Next que precisam valer para quem já está conectado. */
+function applyInternalEvent(event: RealtimeInternalEvent) {
+  if (event.type === "desk.updated") {
+    io.to(event.space).emit("desk:updated", event.desk);
+    return;
+  }
+  for (const socket of socketsOfUser(event.userId)) {
+    const { user } = socket.data;
+    switch (event.type) {
+      case "member.removed":
+        // O ticket já não seria renovado; aqui a saída vale na hora.
+        if (user.space !== event.space) break;
+        socket.emit("session:revoked", "Você foi removido deste escritório.");
+        socket.disconnect(true);
+        break;
+      case "member.role":
+        if (user.space === event.space) user.role = event.role;
+        break;
+      case "avatar.updated": {
+        user.avatar = event.avatar;
+        const { spaceId } = socket.data;
+        const player = spaceId ? rooms.get(spaceId, socket.id) : undefined;
+        if (!spaceId || !player) break;
+        player.avatar = event.avatar;
+        io.to(spaceId).emit("player:updated", { id: socket.id, avatar: event.avatar });
+        break;
+      }
+    }
+  }
+}
+
 function leaveCurrentRoom(socket: AppSocket) {
   const { spaceId } = socket.data;
   if (!spaceId) return;
@@ -74,6 +127,7 @@ function leaveCurrentRoom(socket: AppSocket) {
 }
 
 io.on("connection", (socket) => {
+  socket.join(userRoom(socket.data.user.sub));
   socket.data.lastMoveAt = 0;
   socket.data.lastChatAt = 0;
 

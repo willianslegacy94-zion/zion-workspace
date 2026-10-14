@@ -13,6 +13,7 @@ telovis-space/
 │       ├── index.ts          # conexão, room:join, player:move, disconnect
 │       ├── rooms.ts          # estado em memória por space
 │       ├── auth.ts           # valida o ticket do handshake (io.use)
+│       ├── internal.ts       # POST /internal/events (Next → realtime)
 │       ├── validation.ts     # validação dos payloads do cliente
 │       └── livekit.ts        # token LiveKit com identity = socket.id
 └── apps/web/                 # Next.js 16 (App Router) + Phaser + Tailwind v4
@@ -40,6 +41,7 @@ telovis-space/
         │   └── zones.ts               # zonas privadas da camada `zones` do Tiled
         └── lib/
             ├── auth/                  # senha (scrypt), sessão (cookie + tabela), ticket JWT
+            ├── realtime/notify.ts     # avisa o realtime de mudanças no banco
             ├── proximity/proximity.ts # algoritmo distância → ativar/mutar + volume
             ├── media/media-controller.ts # aplica as decisões no LiveKit
             └── space/                 # socket client, resolução e acesso ao space
@@ -136,21 +138,70 @@ Testes do algoritmo de proximidade: `npm test`.
 
 ## Mapas do Tiled
 
-A cena espera estas camadas (nomes exatos): `floor`, `walls`, `furniture`
-(tile layers; qualquer tile em `walls`/`furniture` colide), `zones` (retângulos
-com `zoneId`) e `objects` (um ponto chamado `spawn`). Um mapa só pode usar um
-tileset por enquanto.
+O mapa padrão (`scripts/generate-placeholder-assets.mjs`, 50×32 tiles) tem
+recepção, área de trabalho com 18 mesas, três salas de reunião privadas (Sala
+Atlântico, Sala 1:1, Sala Foco), café/descanso e cozinha.
+
+A cena lê estas camadas (nomes exatos; só `floor`, `walls` e `furniture` são
+obrigatórias):
+
+| Camada | Tipo | Uso |
+|---|---|---|
+| `floor` | tiles | piso |
+| `walls`, `furniture` | tiles | qualquer tile colide |
+| `decor` | tiles | cadeiras, puffs: desenhados, sem colisão |
+| `zones` | retângulos com `zoneId` | salas privadas (áudio/chat só entre quem está dentro) |
+| `areas` | retângulos com nome | áreas abertas (café, cozinha…): nome no chão e na HUD, áudio por proximidade |
+| `desks` | retângulos 64×32 | posições de mesa; o **nome** do objeto é a chave (`mesa-01`) |
+| `objects` | ponto `spawn` | onde se nasce |
+
+Um mapa só pode usar um tileset por enquanto.
+
+## Mesas pessoais
+
+- Perto da cadeira de uma mesa livre, **E** (ou clique no aviso) pega a mesa e
+  abre o setup: telas (notebook, 1 ou 2 monitores), tampo, cor da cadeira,
+  planta, caneca, luminária. Na sua mesa, **E** abre o setup de novo.
+- Uma mesa por pessoa em cada space; pegar outra muda de lugar levando o setup.
+  Duas pessoas na mesma mesa ao mesmo tempo: o banco (`@@unique`) desempata.
+- O servidor só aceita chaves que existem na camada `desks` do mapa do space.
+- Não vale no `demo` (é compartilhado) nem para convidados (GUEST).
+- O admin vê e libera mesas em `/dashboard/[slug]`; quem é removido do space
+  tem a mesa liberada.
+- O setup é um `DeskSetup` de índices (`packages/protocol/src/desk.ts`), mesmo
+  esquema do avatar. Desenho em `game/desk-draw.ts`, usado pela cena e pela
+  prévia do diálogo.
+
+## Mudanças ao vivo (Next → realtime)
+
+Quando algo muda no banco e precisa valer para quem já está conectado, o Next
+chama `POST /internal/events` no realtime (`lib/realtime/notify.ts`), com um JWT
+de audiência `telovis-realtime-internal` assinado pelo mesmo
+`REALTIME_TICKET_SECRET`. Eventos:
+
+- `member.removed`: o realtime avisa (`session:revoked`) e derruba as conexões
+  da pessoa naquele space na hora.
+- `member.role`: atualiza o papel na conexão aberta.
+- `avatar.updated`: troca o visual para todos (`player:updated`).
+- `desk.updated`: repassa a mesa para a sala (`desk:updated`).
+
+É melhor esforço: se o realtime estiver fora, o banco já foi gravado e o ticket
+de 60s continua barrando a próxima conexão. `REALTIME_INTERNAL_URL` (no `.env`
+do web) é o endereço do realtime visto pelo servidor Next.
+
+Em desenvolvimento, a cena fica em `window.__officeScene` para testes de
+navegador lerem e posicionarem o jogador.
 
 ## Pendências conhecidas
 
 - **Auth**: sem recuperação de senha, verificação de e-mail ou rate limit no
-  login. Remover alguém de um space não derruba a conexão já aberta (só barra a
-  próxima reconexão). Não há limpeza periódica de sessões expiradas.
+  login. Não há limpeza periódica de sessões expiradas.
 - **Escala**: estado das salas em memória (uma instância). Para várias, Redis +
   `@socket.io/redis-adapter`.
 - **Dashboard**: sem convite por e-mail (só adiciona quem já tem conta), sem
   métricas de uso, sem renomear/excluir space nem transferir a posse.
-- **Avatar**: trocar o visual não atualiza ao vivo quem já está na sala (só
-  após voltar ao space). `User.avatarSprite` (da spec) segue sem uso, reservado
-  para spritesheets enviados.
+- **Avatar**: `User.avatarSprite` (da spec) segue sem uso, reservado para
+  spritesheets enviados.
+- **Mesas**: a mesa não "senta" o avatar (ele só fica em pé na cadeira) e não há
+  status de ausência ("volto já") na mesa.
 - Upload de mapa e Shadcn/UI ainda não existem.

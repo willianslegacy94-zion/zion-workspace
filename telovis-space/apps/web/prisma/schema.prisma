@@ -23,6 +23,7 @@ model User {
   spaceMembers SpaceMember[]
   sessions     Session[]
   ownedSpaces  Space[]
+  desks        Desk[]
   createdAt    DateTime      @default(now())
 }
 
@@ -47,6 +48,7 @@ model Space {
   ownerId    String
   owner      User          @relation(fields: [ownerId], references: [id])
   members    SpaceMember[]
+  desks      Desk[]
   createdAt  DateTime      @default(now())
 }
 
@@ -60,4 +62,20 @@ model SpaceMember {
   joinedAt DateTime @default(now())
 
   @@unique([userId, spaceId])
+}
+
+/// Mesa de trabalho pessoal. `key` é o nome do objeto na camada `desks` do
+/// mapa; o setup é um DeskSetup de @telovis/protocol.
+model Desk {
+  id        String   @id @default(uuid())
+  spaceId   String
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  key       String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setup     Json
+  updatedAt DateTime @updatedAt
+
+  @@unique([spaceId, key]) // uma pessoa por mesa
+  @@unique([spaceId, userId]) // uma mesa por pessoa em cada space
 }

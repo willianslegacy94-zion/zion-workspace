@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { AVATAR_FIELDS, parseAvatarLook } from "@telovis/protocol";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, safeNext } from "@/lib/auth/session";
+import { notifyRealtime } from "@/lib/realtime/notify";
 
 export type AvatarFormState = { error?: string } | undefined;
 
@@ -17,7 +18,7 @@ export async function saveAvatar(_: AvatarFormState, form: FormData): Promise<Av
   if (!look) return { error: "Visual inválido. Recarregue a página e tente de novo." };
 
   await prisma.user.update({ where: { id: user.id }, data: { avatar: { ...look } } });
-  // Quem está no escritório recebe o visual novo no próximo ticket, ou seja,
-  // ao voltar para a página do space.
+  // Abas abertas em algum escritório trocam de visual na hora para todos.
+  await notifyRealtime({ type: "avatar.updated", userId: user.id, avatar: look });
   redirect(safeNext(form.get("next"), "/"));
 }

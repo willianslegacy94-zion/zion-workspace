@@ -8,6 +8,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { parseRole } from "@/lib/space/access";
 import { checkSlug, getAdminSpace, slugify } from "@/lib/space/admin";
 import { DEFAULT_MAP } from "@/lib/space/spaces";
+import { notifyRealtime } from "@/lib/realtime/notify";
+import { freeDesk } from "@telovis/protocol";
 
 export type FormState = { error?: string; ok?: string; values?: Record<string, string> } | undefined;
 
@@ -91,15 +93,43 @@ export async function updateMemberRole(form: FormData) {
   const role = parseRole(field(form, "role"));
   if (!role) return;
   // spaceId no where: um admin de um space não mexe em membros de outro.
-  await prisma.spaceMember.updateMany({
+  const member = await prisma.spaceMember.findFirst({
     where: { id: field(form, "memberId"), spaceId: space.id },
-    data: { role },
+    select: { id: true, userId: true },
   });
+  if (!member) return;
+  await prisma.spaceMember.update({ where: { id: member.id }, data: { role } });
+  await notifyRealtime({ type: "member.role", userId: member.userId, space: space.slug, role });
   revalidatePath(`/dashboard/${space.slug}`);
 }
 
 export async function removeMember(form: FormData) {
   const { space } = await requireAdmin(form);
-  await prisma.spaceMember.deleteMany({ where: { id: field(form, "memberId"), spaceId: space.id } });
+  const member = await prisma.spaceMember.findFirst({
+    where: { id: field(form, "memberId"), spaceId: space.id },
+    select: { id: true, userId: true },
+  });
+  if (!member) return;
+  const desk = await prisma.desk.findUnique({
+    where: { spaceId_userId: { spaceId: space.id, userId: member.userId } },
+    select: { key: true },
+  });
+  await prisma.$transaction([
+    prisma.spaceMember.delete({ where: { id: member.id } }),
+    // A mesa de quem sai volta a ficar livre.
+    prisma.desk.deleteMany({ where: { spaceId: space.id, userId: member.userId } }),
+  ]);
+  // Quem está dentro do escritório sai na hora, não só na próxima reconexão.
+  await notifyRealtime({ type: "member.removed", userId: member.userId, space: space.slug });
+  if (desk) await notifyRealtime({ type: "desk.updated", space: space.slug, desk: freeDesk(desk.key) });
+  revalidatePath(`/dashboard/${space.slug}`);
+}
+
+/** Admin libera a mesa de alguém (ex.: pessoa saiu da equipe ou trocou de time). */
+export async function adminReleaseDesk(form: FormData) {
+  const { space } = await requireAdmin(form);
+  const key = field(form, "deskKey");
+  const { count } = await prisma.desk.deleteMany({ where: { spaceId: space.id, key } });
+  if (count > 0) await notifyRealtime({ type: "desk.updated", space: space.slug, desk: freeDesk(key) });
   revalidatePath(`/dashboard/${space.slug}`);
 }

@@ -7,8 +7,10 @@
 // consegue mover o avatar de outra pessoa nem publicar em outra sala.
 
 import type { AvatarLook } from "./avatar";
+import type { DeskState } from "./desk";
 
 export * from "./avatar";
+export * from "./desk";
 
 export type Direction = "up" | "down" | "left" | "right";
 
@@ -64,6 +66,19 @@ export type SpaceRole = "ADMIN" | "MEMBER" | "GUEST";
 
 export const REALTIME_TICKET_AUDIENCE = "telovis-realtime";
 
+/**
+ * Eventos que o Next manda ao realtime (POST /internal/events) quando algo
+ * muda no banco e precisa valer para quem já está conectado. Autenticados por
+ * JWT HS256 com o mesmo segredo do ticket, mas outra audiência.
+ */
+export const REALTIME_INTERNAL_AUDIENCE = "telovis-realtime-internal";
+
+export type RealtimeInternalEvent =
+  | { type: "member.removed"; userId: string; space: string }
+  | { type: "member.role"; userId: string; space: string; role: SpaceRole }
+  | { type: "avatar.updated"; userId: string; avatar: AvatarLook }
+  | { type: "desk.updated"; space: string; desk: DeskState };
+
 export interface LivekitCredentials {
   url: string;
   token: string;
@@ -104,7 +119,13 @@ export interface ClientToServerEvents {
 export interface ServerToClientEvents {
   "player:joined": (player: PlayerState) => void;
   "player:moved": (move: PlayerMove) => void;
+  /** Visual trocado no Customizer, com a pessoa já na sala. */
+  "player:updated": (update: { id: string; avatar: AvatarLook }) => void;
   "player:left": (playerId: string) => void;
+  /** Enviado logo antes de o servidor derrubar a conexão (ex.: removido do space). */
+  "session:revoked": (reason: string) => void;
+  /** Alguém pegou, montou ou liberou uma mesa. */
+  "desk:updated": (desk: DeskState) => void;
   /** Entregue só a quem está no alcance do remetente — e ao próprio remetente. */
   "chat:message": (message: ChatMessage) => void;
 }

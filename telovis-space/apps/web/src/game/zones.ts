@@ -38,3 +38,42 @@ export function zoneAt(zones: PrivateZone[], x: number, y: number): PrivateZone 
   }
   return null;
 }
+
+export interface MapArea {
+  name: string;
+  bounds: Phaser.Geom.Rectangle;
+}
+
+/**
+ * Áreas abertas com nome (camada `areas`): cozinha, café, área de trabalho.
+ * Só rótulo e orientação — o áudio nelas segue a proximidade normal.
+ */
+export function parseAreas(map: Phaser.Tilemaps.Tilemap): MapArea[] {
+  const layer = map.getObjectLayer("areas");
+  if (!layer) return [];
+  return layer.objects
+    .filter((o) => o.name && o.width !== undefined && o.height !== undefined)
+    .map((o) => ({
+      name: o.name,
+      bounds: new Phaser.Geom.Rectangle(o.x ?? 0, o.y ?? 0, o.width!, o.height!),
+    }));
+}
+
+export function areaAt(areas: MapArea[], x: number, y: number): MapArea | null {
+  return areas.find((a) => a.bounds.contains(x, y)) ?? null;
+}
+
+export interface DeskSlot {
+  key: string;
+  x: number;
+  y: number;
+}
+
+/** Posições de mesa (camada `desks`): o nome do objeto é a chave. */
+export function parseDeskSlots(map: Phaser.Tilemaps.Tilemap): DeskSlot[] {
+  const layer = map.getObjectLayer("desks");
+  if (!layer) return [];
+  return layer.objects
+    .filter((o) => o.name)
+    .map((o) => ({ key: o.name, x: o.x ?? 0, y: o.y ?? 0 }));
+}

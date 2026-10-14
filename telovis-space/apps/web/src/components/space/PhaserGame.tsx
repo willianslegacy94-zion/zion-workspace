@@ -20,7 +20,7 @@ export default function PhaserGame(props: Props) {
     propsRef.current = props;
   });
 
-  const { socket, media, spaceId, mapJsonUrl, tilesetUrl, playerName, avatar } = props;
+  const { socket, media, spaceId, userId, mapJsonUrl, tilesetUrl, playerName, avatar } = props;
 
   useEffect(() => {
     const parent = containerRef.current;
@@ -47,20 +47,26 @@ export default function PhaserGame(props: Props) {
       socket,
       media,
       spaceId,
+      userId,
       playerName,
+      // Só o retrato inicial; depois o socket (desk:updated) mantém em dia.
+      // Fora das dependências para não recriar o jogo a cada mudança.
+      desks: propsRef.current.desks,
       avatar,
       mapJsonUrl,
       tilesetUrl,
       onStatus: (s) => propsRef.current.onStatus(s),
       onNearbyChange: (p) => propsRef.current.onNearbyChange(p),
       onZoneChange: (z) => propsRef.current.onZoneChange(z),
+      onAreaChange: (a) => propsRef.current.onAreaChange(a),
+      onDeskFocus: (d) => propsRef.current.onDeskFocus(d),
     };
     game.scene.add("OfficeScene", OfficeScene, true, data);
 
     return () => {
       game.destroy(true);
     };
-  }, [socket, media, spaceId, mapJsonUrl, tilesetUrl, playerName, avatar]);
+  }, [socket, media, spaceId, userId, mapJsonUrl, tilesetUrl, playerName, avatar]);
 
   return <div ref={containerRef} className="absolute inset-0" />;
 }

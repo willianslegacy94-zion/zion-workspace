@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma";
 import { parseRole } from "@/lib/space/access";
 import { getAdminSpace } from "@/lib/space/admin";
+import { adminReleaseDesk } from "../actions";
 
 export default async function ManageSpacePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -25,7 +26,7 @@ export default async function ManageSpacePage({ params }: { params: Promise<{ sl
     );
   }
 
-  const [owner, members] = await Promise.all([
+  const [owner, members, desks] = await Promise.all([
     prisma.user.findUniqueOrThrow({
       where: { id: space.ownerId },
       select: { name: true, email: true },
@@ -34,6 +35,11 @@ export default async function ManageSpacePage({ params }: { params: Promise<{ sl
       where: { spaceId: space.id },
       select: { id: true, role: true, user: { select: { id: true, name: true, email: true } } },
       orderBy: { joinedAt: "asc" },
+    }),
+    prisma.desk.findMany({
+      where: { spaceId: space.id },
+      select: { key: true, user: { select: { name: true } } },
+      orderBy: { key: "asc" },
     }),
   ]);
 
@@ -86,8 +92,36 @@ export default async function ManageSpacePage({ params }: { params: Promise<{ sl
           ))}
         </ul>
         <p className="mt-3 text-xs text-slate-500">
-          Quem for removido perde o acesso na próxima vez que entrar ou reconectar.
+          Quem for removido sai do escritório na hora e a mesa dele fica livre.
         </p>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="text-lg font-semibold">
+          Mesas ocupadas <span className="text-sm font-normal text-slate-500">({desks.length})</span>
+        </h2>
+        {desks.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-400">
+            Ninguém pegou mesa ainda. No escritório, chegue perto de uma mesa livre e aperte E.
+          </p>
+        ) : (
+          <ul className="mt-3 divide-y divide-slate-800 rounded-xl border border-slate-800">
+            {desks.map((d) => (
+              <li key={d.key} className="flex items-center justify-between gap-3 p-3 text-sm">
+                <span>
+                  <span className="font-mono text-slate-400">{d.key}</span> · {d.user.name}
+                </span>
+                <form action={adminReleaseDesk}>
+                  <input type="hidden" name="slug" value={space.slug} />
+                  <input type="hidden" name="deskKey" value={d.key} />
+                  <button type="submit" className="rounded-lg px-2 py-1 text-red-400 hover:bg-red-500/10">
+                    Liberar
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </main>
   );

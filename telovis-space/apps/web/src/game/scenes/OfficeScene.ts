@@ -1,8 +1,12 @@
 import Phaser from "phaser";
 import {
   EARSHOT_RADIUS,
+  freeDesk,
   type AvatarLook,
   type ChatMessage,
+  type DeskOwner,
+  type DeskSetup,
+  type DeskState,
   type Direction,
   type PlayerMove,
   type PlayerState,
@@ -14,7 +18,17 @@ import {
   type DecisionReason,
   type MediaDecisions,
 } from "@/lib/proximity/proximity";
-import { parseZones, zoneAt, type PrivateZone } from "../zones";
+import {
+  areaAt,
+  parseAreas,
+  parseDeskSlots,
+  parseZones,
+  zoneAt,
+  type DeskSlot,
+  type MapArea,
+  type PrivateZone,
+} from "../zones";
+import { DESK_H, DESK_TEX_H, DESK_W, deskTextureKey, drawDesk } from "../desk-draw";
 import { AVATAR_SIZE, ensureAvatar, idleFrame, walkAnimKey } from "../avatar";
 
 export type SceneStatus =
@@ -35,17 +49,30 @@ export interface ZoneInfo {
   name: string;
 }
 
+/** Mesa ao alcance do jogador local (para a HUD oferecer pegar/montar). */
+export interface DeskFocus {
+  key: string;
+  owner: DeskOwner | null;
+  mine: boolean;
+  setup: DeskSetup;
+}
+
 export interface OfficeSceneData {
   socket: SpaceSocket;
   media: MediaController;
   spaceId: string;
+  userId: string;
   playerName: string;
+  /** Mesas com dono no carregamento; depois, `desk:updated` mantém em dia. */
+  desks: DeskState[];
   avatar: AvatarLook;
   mapJsonUrl: string;
   tilesetUrl: string;
   onStatus: (status: SceneStatus) => void;
   onNearbyChange: (peers: NearbyPeer[]) => void;
   onZoneChange: (zone: ZoneInfo | null) => void;
+  onAreaChange: (area: string | null) => void;
+  onDeskFocus: (desk: DeskFocus | null) => void;
 }
 
 const SPEED = 160; // px/s
@@ -58,7 +85,10 @@ const MINIMAP_MARGIN = { x: 12, y: 64 }; // abaixo do cabeçalho da HUD
 
 // Camadas de desenho. Avatares usam depth = y (quem está mais embaixo na tela
 // fica na frente); decoração de mundo fica abaixo deles, textos acima.
-const DEPTH = { zones: 1, radius: 2, ring: 3, overlay: 100_000 } as const;
+const DEPTH = { areas: 1, zones: 1, radius: 2, ring: 3, overlay: 100_000 } as const;
+
+/** Distância (px) do jogador até a cadeira para a mesa entrar em foco. */
+const DESK_REACH = 40;
 
 
 type MoveKeys = Record<
@@ -83,6 +113,13 @@ interface RemoteAvatar extends AvatarView {
   ring: Phaser.GameObjects.Ellipse;
 }
 
+interface DeskView {
+  slot: DeskSlot;
+  state: DeskState;
+  image: Phaser.GameObjects.Image;
+  label: Phaser.GameObjects.Text;
+}
+
 interface SentState {
   x: number;
   y: number;
@@ -97,6 +134,12 @@ export class OfficeScene extends Phaser.Scene {
   private keys!: MoveKeys;
   private zones: PrivateZone[] = [];
   private zoneHighlights = new Map<string, Phaser.GameObjects.Rectangle>();
+  private areas: MapArea[] = [];
+  private currentArea: string | null = null;
+  private desks = new Map<string, DeskView>();
+  private deskHighlight!: Phaser.GameObjects.Rectangle;
+  private focusedDesk: string | null = null;
+  private lastFocusKey = "";
   private radius!: Phaser.GameObjects.Arc;
   private minimap!: Phaser.Cameras.Scene2D.Camera;
   private viewportBox!: Phaser.GameObjects.Rectangle;
@@ -116,6 +159,8 @@ export class OfficeScene extends Phaser.Scene {
   // do Phaser roda no frame seguinte, então callbacks de rede da instância
   // antiga ainda podem chegar. Esta flag faz eles virarem no-op.
   private disposed = false;
+  /** O servidor expulsou esta sessão: não mostrar "Reconectando…". */
+  private revoked = false;
 
   constructor() {
     super("OfficeScene");
@@ -140,6 +185,8 @@ export class OfficeScene extends Phaser.Scene {
     map.createLayer("floor", tileset);
     const walls = map.createLayer("walls", tileset);
     const furniture = map.createLayer("furniture", tileset);
+    // Cadeiras, puffs etc.: desenhados, mas sem colisão. Opcional no mapa.
+    if (map.getLayerIndex("decor") !== null) map.createLayer("decor", tileset);
     // Qualquer tile presente nas camadas de parede/móveis bloqueia passagem.
     walls?.setCollisionByExclusion([-1]);
     furniture?.setCollisionByExclusion([-1]);
@@ -174,6 +221,64 @@ export class OfficeScene extends Phaser.Scene {
       this.minimap.ignore(title);
     }
 
+    // --- Áreas abertas (nome no chão) ----------------------------------------
+    this.areas = parseAreas(map);
+    for (const area of this.areas) {
+      // Centro da borda de baixo: os cantos de cima costumam ter móveis
+      // encostados na parede (geladeira, planta, balcão).
+      const label = this.add
+        .text(area.bounds.centerX, area.bounds.bottom - 6, area.name.toUpperCase(), {
+          fontFamily: "monospace",
+          fontSize: "14px",
+          fontStyle: "bold",
+          color: "#1f2433",
+        })
+        .setOrigin(0.5, 1)
+        .setAlpha(0.28)
+        .setDepth(DEPTH.areas)
+        .setResolution(2);
+      this.minimap.ignore(label);
+    }
+
+    // --- Mesas de trabalho ---------------------------------------------------
+    const claimed = new Map(this.ctx.desks.map((d) => [d.key, d]));
+    const deskBodies: Phaser.GameObjects.Zone[] = [];
+    for (const slot of parseDeskSlots(map)) {
+      const state = claimed.get(slot.key) ?? freeDesk(slot.key);
+      const image = this.add
+        .image(slot.x, slot.y, this.ensureDeskTexture(state))
+        .setOrigin(0)
+        // Quem passa atrás do tampo fica atrás; quem está na cadeira, na frente.
+        .setDepth(slot.y + DESK_H);
+      const label = this.add
+        .text(slot.x + DESK_W / 2, slot.y + DESK_TEX_H, "", {
+          fontFamily: "monospace",
+          fontSize: "9px",
+          color: "#f8fafc",
+          backgroundColor: "#00000066",
+          padding: { x: 2, y: 0 },
+        })
+        .setOrigin(0.5, 0)
+        .setDepth(slot.y + DESK_H)
+        .setResolution(2);
+      this.minimap.ignore(label);
+      const view: DeskView = { slot, state, image, label };
+      this.desks.set(slot.key, view);
+      this.renderDesk(view);
+
+      // Só o tampo colide (a cadeira fica livre para "sentar").
+      const body = this.add.zone(slot.x + DESK_W / 2, slot.y + DESK_H / 2, DESK_W - 4, DESK_H - 8);
+      this.physics.add.existing(body, true);
+      deskBodies.push(body);
+    }
+    this.deskHighlight = this.add
+      .rectangle(0, 0, DESK_W + 6, DESK_TEX_H + 4)
+      .setOrigin(0)
+      .setStrokeStyle(2, 0xfacc15, 0.9)
+      .setDepth(DEPTH.overlay - 1)
+      .setVisible(false);
+    this.minimap.ignore(this.deskHighlight);
+
     // --- Jogador local -------------------------------------------------------
     const spawn = map.findObject("objects", (o) => o.name === "spawn");
     const spawnX = (spawn?.x ?? map.widthInPixels / 2) + Phaser.Math.Between(-24, 24);
@@ -186,6 +291,7 @@ export class OfficeScene extends Phaser.Scene {
     sprite.setSize(14, 8).setOffset(5, 15);
     if (walls) this.physics.add.collider(sprite, walls);
     if (furniture) this.physics.add.collider(sprite, furniture);
+    if (deskBodies.length) this.physics.add.collider(sprite, deskBodies);
 
     this.me = {
       ...this.createDecor(this.ctx.playerName, "#bbf7d0", 0x22c55e, spawnX, spawnY),
@@ -220,10 +326,18 @@ export class OfficeScene extends Phaser.Scene {
     socket.on("connect_error", this.onConnectError);
     socket.on("player:joined", this.onPlayerJoined);
     socket.on("player:moved", this.onPlayerMoved);
+    socket.on("player:updated", this.onPlayerUpdated);
     socket.on("player:left", this.onPlayerLeft);
     socket.on("chat:message", this.onChatMessage);
+    socket.on("session:revoked", this.onSessionRevoked);
+    socket.on("desk:updated", this.onDeskUpdated);
     if (socket.connected) this.join();
     else this.ctx.onStatus({ kind: "connecting" });
+
+    // Só em dev: deixa testes de navegador lerem/posicionarem o jogador.
+    if (process.env.NODE_ENV !== "production") {
+      (window as unknown as { __officeScene?: OfficeScene }).__officeScene = this;
+    }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.teardown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.teardown, this);
@@ -233,6 +347,7 @@ export class OfficeScene extends Phaser.Scene {
     this.updateLocalMovement();
     this.updateRemotes(delta);
     this.updateZone();
+    this.updateDeskFocus();
 
     const view = this.cameras.main.worldView;
     this.viewportBox.setPosition(view.x, view.y).setSize(view.width, view.height);
@@ -301,6 +416,12 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   private updateZone() {
+    const area = areaAt(this.areas, this.me.sprite.x, this.me.sprite.y)?.name ?? null;
+    if (area !== this.currentArea) {
+      this.currentArea = area;
+      this.ctx.onAreaChange(area);
+    }
+
     const zone = zoneAt(this.zones, this.me.sprite.x, this.me.sprite.y);
     if (zone?.id === this.currentZone?.id) return;
 
@@ -338,6 +459,63 @@ export class OfficeScene extends Phaser.Scene {
     this.ctx.socket.emit("player:move", next);
     this.lastSent = next;
     this.lastEmitAt = time;
+  }
+
+  // --- Mesas ------------------------------------------------------------------
+
+  private ensureDeskTexture(state: DeskState): string {
+    const claimed = state.owner !== null;
+    const key = deskTextureKey(state.setup, claimed);
+    if (this.textures.exists(key)) return key;
+    const tex = this.textures.createCanvas(key, DESK_W, DESK_TEX_H);
+    if (!tex) throw new Error("Falha ao criar a textura da mesa");
+    drawDesk(tex.getContext(), state.setup, claimed);
+    tex.refresh();
+    return key;
+  }
+
+  private renderDesk(view: DeskView) {
+    view.image.setTexture(this.ensureDeskTexture(view.state));
+    const owner = view.state.owner;
+    view.label.setText(owner ? owner.name : "").setVisible(owner !== null);
+  }
+
+  /** Mesa cuja cadeira está ao alcance do jogador, ou null. */
+  private updateDeskFocus() {
+    const { x, y } = this.me.sprite;
+    let best: DeskView | null = null;
+    let bestDist = DESK_REACH;
+    for (const view of this.desks.values()) {
+      const seatX = view.slot.x + DESK_W / 2;
+      const seatY = view.slot.y + DESK_H + 12;
+      const d = Math.hypot(seatX - x, seatY - y);
+      if (d < bestDist) {
+        best = view;
+        bestDist = d;
+      }
+    }
+
+    this.focusedDesk = best?.slot.key ?? null;
+    if (best) this.deskHighlight.setPosition(best.slot.x - 3, best.slot.y - 2);
+    this.deskHighlight.setVisible(best !== null);
+
+    // Só avisa o React quando muda a mesa ou o estado dela.
+    const state = best?.state;
+    const key = state
+      ? `${state.key}|${state.owner?.userId ?? ""}|${deskTextureKey(state.setup, true)}`
+      : "";
+    if (key === this.lastFocusKey) return;
+    this.lastFocusKey = key;
+    this.ctx.onDeskFocus(
+      state
+        ? {
+            key: state.key,
+            owner: state.owner,
+            mine: state.owner?.userId === this.ctx.userId,
+            setup: state.setup,
+          }
+        : null,
+    );
   }
 
   // --- Avatares ----------------------------------------------------------------
@@ -518,7 +696,7 @@ export class OfficeScene extends Phaser.Scene {
   };
 
   private onDisconnect = () => {
-    if (this.disposed) return;
+    if (this.disposed || this.revoked) return;
     // Ao reconectar o socket.id muda, então a identidade de mídia também:
     // o `connect` dispara um novo join, que traz um token LiveKit novo.
     this.selfId = null;
@@ -553,6 +731,42 @@ export class OfficeScene extends Phaser.Scene {
     if (remote) Object.assign(remote.state, move);
   };
 
+  private onPlayerUpdated = ({ id, avatar }: { id: string; avatar: AvatarLook }) => {
+    if (this.disposed) return;
+    const view = id === this.selfId ? this.me : this.remotes.get(id);
+    if (!view) return;
+    if (view !== this.me) (view as RemoteAvatar).state.avatar = avatar;
+    // A animação em curso aponta para a textura antiga; trocar a textura e
+    // deixar o próximo frame reaplicar parado/andando com a nova chave.
+    view.textureKey = ensureAvatar(this, avatar);
+    view.sprite.anims.stop();
+    view.sprite.setTexture(view.textureKey, idleFrame(this.directionOf(view)));
+  };
+
+  private directionOf(view: AvatarView): Direction {
+    return view === this.me ? this.direction : (view as RemoteAvatar).state.direction;
+  }
+
+  private onSessionRevoked = (reason: string) => {
+    if (this.disposed) return;
+    this.revoked = true;
+    this.selfId = null;
+    this.clearRemotes();
+    void this.ctx.media.disconnect();
+    this.ctx.onNearbyChange([]);
+    this.ctx.onStatus({ kind: "error", message: reason });
+  };
+
+  private onDeskUpdated = (desk: DeskState) => {
+    if (this.disposed) return;
+    const view = this.desks.get(desk.key);
+    if (!view) return;
+    view.state = desk;
+    this.renderDesk(view);
+    // Força reenviar o foco se for a mesa em que o jogador está.
+    if (this.focusedDesk === desk.key) this.lastFocusKey = "";
+  };
+
   private onPlayerLeft = (id: string) => {
     if (this.disposed) return;
     this.removeRemote(id);
@@ -573,13 +787,20 @@ export class OfficeScene extends Phaser.Scene {
     socket.off("connect_error", this.onConnectError);
     socket.off("player:joined", this.onPlayerJoined);
     socket.off("player:moved", this.onPlayerMoved);
+    socket.off("player:updated", this.onPlayerUpdated);
     socket.off("player:left", this.onPlayerLeft);
     socket.off("chat:message", this.onChatMessage);
+    socket.off("session:revoked", this.onSessionRevoked);
+    socket.off("desk:updated", this.onDeskUpdated);
   }
 }
 
-/** Movimento fica travado enquanto o foco está num campo de texto da HUD. */
+/**
+ * Movimento fica travado enquanto o foco está num campo de texto da HUD ou
+ * com um diálogo aberto (marcado com data-game-modal).
+ */
 function isTyping(): boolean {
+  if (document.querySelector("[data-game-modal]")) return true;
   const el = document.activeElement;
   return (
     el instanceof HTMLInputElement ||

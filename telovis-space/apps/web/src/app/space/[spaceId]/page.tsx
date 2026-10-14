@@ -2,6 +2,8 @@ import Link from "next/link";
 import SpaceClient from "@/components/space/SpaceClient";
 import { requireUser } from "@/lib/auth/session";
 import { getSpaceAccess } from "@/lib/space/access";
+import { listClaimedDesks } from "@/lib/space/desks";
+import { DEMO_SLUG } from "@/lib/space/spaces";
 
 export default async function SpacePage({ params }: { params: Promise<{ spaceId: string }> }) {
   const { spaceId } = await params;
@@ -26,15 +28,27 @@ export default async function SpacePage({ params }: { params: Promise<{ spaceId:
     );
   }
 
-  const { space } = access;
+  const { space, role } = access;
+  const isDemo = space.slug === DEMO_SLUG;
+  const desks = isDemo ? [] : await listClaimedDesks(space.slug);
+  // Mesmas regras de desk-actions.ts (que é quem decide de verdade).
+  const deskBlockedReason = isDemo
+    ? "O escritório demo é compartilhado: mesas fixas só nos escritórios da equipe."
+    : role === "GUEST"
+      ? "Convidados não têm mesa fixa."
+      : null;
+
   return (
     <SpaceClient
       spaceId={space.slug}
       spaceName={space.name}
       mapJsonUrl={space.mapJsonUrl}
       tilesetUrl={space.tilesetUrl}
+      userId={user.id}
       playerName={user.name}
       avatar={user.avatar}
+      desks={desks}
+      deskBlockedReason={deskBlockedReason}
     />
   );
 }
