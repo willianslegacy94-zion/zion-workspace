@@ -66,6 +66,19 @@ emitir `TrackUnsubscribed`). O `MediaController` passou a guardar o elemento de 
 
 ---
 
+## [2026-10-15] — Balão "falando" sobre o avatar
+
+**Motivo:** Willians pediu um indicador visual de quem está falando no microfone.
+**Impacto:** balão pixel art com pontinhos animados (`game/speaking.ts`) sobre a cabeça, ligado pelo
+evento `ActiveSpeakersChanged` do LiveKit (`MediaController.isSpeaking`). RF-035.
+**Decisão:** o SFU informa quem fala na sala inteira, mas o balão só aparece para você mesmo e para
+colegas cuja mídia está ativa para você — mostrar quem fala numa sala privada ou longe entregaria
+uma conversa que você não pode ouvir.
+**Status:** aplicado e testado (duas contas, microfone simulado: balão perto, some longe; quem está
+com mic desligado não ganha balão).
+
+---
+
 ## Pendências abertas
 
 | Pendência | Precisa de |

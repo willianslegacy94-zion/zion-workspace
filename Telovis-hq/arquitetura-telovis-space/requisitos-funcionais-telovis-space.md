@@ -53,6 +53,7 @@ Status por RF: **feito** (implementado e testado localmente) ou **pendente**.
 | RF-032 | "Mutar" = cancelar assinatura no SFU (economiza banda) | feito |
 | RF-033 | Chat de texto com a mesma regra, aplicada no servidor; balão sobre o avatar | feito |
 | RF-034 | Botões de mic e câmera na HUD | feito |
+| RF-035 | Balão "falando" sobre a cabeça enquanto há voz no microfone; só para quem você consegue ouvir | feito |
 
 ## Módulo 5 — Avatar, mesas, veículos e presença
 
