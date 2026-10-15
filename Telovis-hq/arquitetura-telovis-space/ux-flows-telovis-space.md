@@ -3,7 +3,7 @@ status: draft
 domain: telovis-space
 source: claude
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 owner: willians
 ---
 
@@ -31,9 +31,11 @@ Atrito conhecido: sem Resend, o dono precisa copiar o link e mandar por fora (Wh
 
 ```
 andar até um colega → ao entrar em 150px o anel verde aparece e o áudio/vídeo liga
-→ falar → afastar → mídia corta acima de 170px
+→ falar (balão "falando" acende sobre quem fala) → afastar → mídia corta acima de 170px
 ```
 Testado em 2026-10-14 com duas contas e mídia simulada: liga perto, corta longe, religa ao voltar.
+Balão "falando" testado em 2026-10-15: aparece perto, some longe. Voz muito baixa pode não acender
+o balão (limiar de detecção do LiveKit) — validar com microfone real.
 
 ## 4. Reunião fechada
 

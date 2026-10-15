@@ -3,7 +3,7 @@ status: draft
 domain: telovis-space
 source: claude
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 owner: willians
 ---
 
@@ -18,13 +18,13 @@ estes documentos registram o porquê e o estado.
 
 ---
 
-## Onde paramos (2026-10-14)
+## Onde paramos (2026-10-15)
 
 - **Implementado e testado localmente:** login/conta, acesso por membro, dashboard, mapa com
   áreas e salas privadas, proximidade de áudio/vídeo e chat, customizer de avatar, mesas
   pessoais, kart/patinete, sentar e status de ausência, convites por e-mail, métricas de uso,
-  LiveKit local no `docker-compose`.
-- **Git:** 8 commits do Space na branch `feat/telovis-space`; PR #2
+  LiveKit local no `docker-compose`, balão "falando" sobre o avatar (RF-035).
+- **Git:** 9 commits do Space na branch `feat/telovis-space` (último: `be170a0`); PR #2
   (https://github.com/willianslegacy94-zion/zion-workspace/pull/2). O PR também carrega 2
   commits do vesale e 1 doc do gw-coreai que não estão na `main` — decidir antes do merge.
 - **Parado em:** deploy (passo 3). Decidido: **LiveKit Cloud** para mídia, **convites por e-mail

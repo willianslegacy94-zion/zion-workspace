@@ -3,7 +3,7 @@ status: draft
 domain: telovis-space
 source: claude
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 owner: willians
 ---
 
@@ -37,6 +37,8 @@ owner: willians
 | Mic / Câmera | inferior direito | liga/desliga; verde quando ligado |
 | Vídeos remotos | canto superior direito | tiles 160×112 de quem está ao alcance |
 | Avisos de interação | sobre o mapa | "E para pegar mesa / subir no kart" |
+| Balão "falando" | sobre a cabeça do avatar | pixel art 16×14 com 3 pontinhos esmeralda animados (`game/speaking.ts`); acima do nome, empurra o balão do chat para cima |
+| Balão de chat | sobre a cabeça do avatar | última mensagem por 6s |
 | Diálogo de setup da mesa | modal | modelo, telas, cores, cadeira, acessórios, com prévia |
 
 ## Planejado

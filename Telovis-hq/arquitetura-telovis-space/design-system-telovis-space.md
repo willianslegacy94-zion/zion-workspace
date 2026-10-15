@@ -3,7 +3,7 @@ status: draft
 domain: telovis-space
 source: claude
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 owner: willians
 ---
 
@@ -19,7 +19,10 @@ owner: willians
 3. **Verde = conectado.** Esmeralda marca o que está ativo: anel sob o colega cuja mídia está
    ligada, status Disponível, botões de mic/câmera ligados.
 4. **Estado legível sem som.** Círculo do raio de 150px em volta de você, salas que acendem ao
-   entrar, ausente aparece apagado com o status ao lado do nome.
+   entrar, ausente aparece apagado com o status ao lado do nome, balão "falando" sobre quem está
+   com voz no microfone.
+5. **Não mostrar o que você não pode ouvir.** Indicadores de conversa (balão "falando", balão de
+   chat) só aparecem para quem está ao seu alcance ou na sua sala privada.
 
 ## Cores
 

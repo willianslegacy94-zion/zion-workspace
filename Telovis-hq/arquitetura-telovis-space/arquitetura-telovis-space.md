@@ -3,7 +3,7 @@ status: draft
 domain: telovis-space
 source: claude
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 owner: willians
 ---
 
@@ -46,6 +46,9 @@ telovis-space/
 - **Mídia:** o token LiveKit usa `identity = socket.id`, definido pelo servidor. A proximidade é
   calculada no cliente a cada 200ms e aplicada assinando/cancelando faixas (autoSubscribe
   desligado). O chat aplica `canHear` **no servidor**.
+- **Quem está falando:** vem do evento `ActiveSpeakersChanged` do LiveKit (detecção no SFU). O SFU
+  avisa a sala inteira; o filtro "só quem você ouve" é aplicado no cliente, na cena, junto com a
+  decisão de proximidade.
 
 ## Desenvolvimento local
 
