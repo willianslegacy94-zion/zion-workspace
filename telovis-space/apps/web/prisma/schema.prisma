@@ -25,6 +25,7 @@ model User {
   ownedSpaces  Space[]
   desks        Desk[]
   invitesSent  Invite[]
+  visits       Visit[]
   createdAt    DateTime      @default(now())
 }
 
@@ -51,6 +52,7 @@ model Space {
   members    SpaceMember[]
   desks      Desk[]
   invites    Invite[]
+  visits     Visit[]
   createdAt  DateTime      @default(now())
 }
 
@@ -98,4 +100,23 @@ model Invite {
   createdAt   DateTime @default(now())
 
   @@unique([spaceId, email]) // reenviar troca o token do convite existente
+}
+
+/// Uma visita = uma conexão numa sala, do join até sair. Registrada pelo
+/// realtime (POST /api/internal/visits) para as métricas do dashboard.
+model Visit {
+  id          String   @id @default(uuid())
+  spaceId     String
+  space       Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt   DateTime
+  endedAt     DateTime
+  messages    Int      @default(0)
+  /// Segundos com alguém ao alcance de voz.
+  talkSeconds Int      @default(0)
+  /// zoneId → segundos em cada sala privada.
+  zones       Json     @default("{}")
+
+  @@index([spaceId, startedAt])
 }

@@ -15,6 +15,7 @@ export * from "./avatar";
 export * from "./desk";
 export * from "./vehicle";
 export * from "./presence";
+export * from "./usage";
 
 export type Direction = "up" | "down" | "left" | "right";
 

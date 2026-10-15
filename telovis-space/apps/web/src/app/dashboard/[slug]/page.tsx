@@ -61,12 +61,20 @@ export default async function ManageSpacePage({ params }: { params: Promise<{ sl
           <h1 className="text-2xl font-semibold">{space.name}</h1>
           <p className="text-sm text-slate-500">/space/{space.slug}</p>
         </div>
-        <Link
-          href={`/space/${space.slug}`}
-          className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400"
-        >
-          Entrar
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            href={`/dashboard/${space.slug}/metricas`}
+            className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm hover:border-slate-500"
+          >
+            Métricas
+          </Link>
+          <Link
+            href={`/space/${space.slug}`}
+            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400"
+          >
+            Entrar
+          </Link>
+        </div>
       </header>
 
       <section className="mt-8">

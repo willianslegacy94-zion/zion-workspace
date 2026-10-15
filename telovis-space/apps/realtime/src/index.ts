@@ -15,6 +15,7 @@ import { parseChat, parseJoin, parseMove, parseStatus } from "./validation.js";
 import { createLivekitCredentials } from "./livekit.js";
 import { loadTicketSecret, verifyTicket } from "./auth.js";
 import { readInternalEvent } from "./internal.js";
+import { TALK_SAMPLE_MS, UsageTracker } from "./usage.js";
 
 interface SocketData {
   /** Preenchido pelo io.use(): quem é e em qual space pode entrar. */
@@ -41,6 +42,14 @@ const MIN_STATUS_INTERVAL_MS = 300;
 const TICKET_SECRET = loadTicketSecret();
 
 const rooms = new RoomRegistry();
+
+// Métricas de uso vão para o Next, que grava no banco.
+const WEB_INTERNAL_URL = (process.env.WEB_INTERNAL_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+const usage = new UsageTracker(`${WEB_INTERNAL_URL}/api/internal/visits`, TICKET_SECRET);
+usage.startFlushing();
+setInterval(() => {
+  for (const players of rooms.byRoom()) usage.sampleTalk(players);
+}, TALK_SAMPLE_MS).unref();
 
 const httpServer = createServer((req, res) => {
   if (req.url === "/health") {
@@ -123,6 +132,7 @@ function leaveCurrentRoom(socket: AppSocket) {
   const { spaceId } = socket.data;
   if (!spaceId) return;
   rooms.leave(spaceId, socket.id);
+  usage.end(socket.id);
   socket.leave(spaceId);
   socket.to(spaceId).emit("player:left", socket.id);
   socket.data.spaceId = undefined;
@@ -174,6 +184,7 @@ io.on("connection", (socket) => {
     if (socket.disconnected) return;
 
     const others = rooms.join(payload.spaceId, player);
+    usage.start(socket.id, payload.spaceId, user.sub);
     socket.data.spaceId = payload.spaceId;
     socket.join(payload.spaceId);
     socket.to(payload.spaceId).emit("player:joined", player);
@@ -195,6 +206,7 @@ io.on("connection", (socket) => {
 
     const move = { id: socket.id, ...payload };
     if (!rooms.move(spaceId, move)) return;
+    usage.zone(socket.id, move.zoneId);
 
     // Posição em movimento é descartável (a próxima corrige), então vai como
     // volatile. A parada (moving=false) precisa chegar, então vai confiável.
@@ -234,6 +246,7 @@ io.on("connection", (socket) => {
 
     const message = { id: randomUUID(), playerId: sender.id, name: sender.name, text, at: now };
     io.to([...recipients, sender.id]).emit("chat:message", message);
+    usage.message(socket.id);
     ack({ ok: true, delivered: recipients.length });
   });
 
@@ -258,8 +271,11 @@ httpServer.listen(PORT, () => {
 });
 
 function shutdown() {
-  io.close(() => process.exit(0));
-  setTimeout(() => process.exit(1), 5_000).unref();
+  // Fecha as visitas abertas e tenta entregá-las antes de sair.
+  setTimeout(() => process.exit(1), 8_000).unref();
+  io.close(() => {
+    usage.shutdown().finally(() => process.exit(0));
+  });
 }
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);

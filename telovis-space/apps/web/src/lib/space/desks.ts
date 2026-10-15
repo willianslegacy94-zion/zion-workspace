@@ -12,7 +12,7 @@ import { prisma } from "@/lib/prisma";
 const PUBLIC_DIR = path.join(process.cwd(), "public");
 const deskKeysCache = new Map<string, Promise<Set<string>>>();
 
-async function loadMapJson(mapJsonUrl: string): Promise<unknown> {
+export async function loadMapJson(mapJsonUrl: string): Promise<unknown> {
   if (/^https?:\/\//.test(mapJsonUrl)) {
     const res = await fetch(mapJsonUrl);
     if (!res.ok) throw new Error(`mapa ${mapJsonUrl}: HTTP ${res.status}`);

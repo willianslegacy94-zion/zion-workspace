@@ -42,6 +42,11 @@ export class RoomRegistry {
     if (room.size === 0) this.rooms.delete(spaceId);
   }
 
+  /** Jogadores de cada sala ocupada. */
+  *byRoom(): Iterable<PlayerState[]> {
+    for (const room of this.rooms.values()) yield [...room.values()];
+  }
+
   stats() {
     let players = 0;
     for (const room of this.rooms.values()) players += room.size;

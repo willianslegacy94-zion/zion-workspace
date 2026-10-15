@@ -236,13 +236,39 @@ do web) é o endereço do realtime visto pelo servidor Next.
 Em desenvolvimento, a cena fica em `window.__officeScene` para testes de
 navegador lerem e posicionarem o jogador.
 
+## Métricas de uso
+
+`/dashboard/[slug]/metricas` (só ADMIN), últimos 7, 30 ou 90 dias:
+
+- tempo no escritório, pessoas ativas, pico de pessoas ao mesmo tempo, tempo
+  conversando (alguém ao alcance de voz) e mensagens;
+- gráfico por dia, tabela por pessoa (tempo, dias ativos, média, última vez) e
+  tempo em cada sala privada.
+
+Como é coletado: o realtime abre uma "visita" por conexão no `room:join` e
+fecha ao sair (`apps/realtime/src/usage.ts`). Conta tempo por sala privada,
+amostra a cada 10s quem tem alguém ao alcance e soma mensagens — o texto do
+chat não sai do realtime. As visitas encerradas vão em lotes para
+`POST /api/internal/visits` do Next (JWT com audiência `telovis-web-usage`,
+mesmo `REALTIME_TICKET_SECRET`), que grava em `Visit`. Se o Next estiver fora,
+ficam na fila e vão na próxima rodada (15s). Visita aberta é gravada em
+trechos de 5 min, então a página mostra quem está conectado agora com até 5 min
+de atraso. Visitas < 5s não contam; > 24h são cortadas. `WEB_INTERNAL_URL` (no `.env` do realtime) é o endereço do Next.
+
+A conta (`lib/metrics/summarize.ts`, com testes) une os intervalos de quem abre
+duas abas, divide por dia no fuso de `METRICS_TZ_OFFSET_MINUTES` (padrão
+Brasília) e recorta ao período.
+
 ## Pendências conhecidas
 
 - **Auth**: sem recuperação de senha, verificação de e-mail ou rate limit no
   login. Não há limpeza periódica de sessões expiradas.
 - **Escala**: estado das salas em memória (uma instância). Para várias, Redis +
   `@socket.io/redis-adapter`.
-- **Dashboard**: sem métricas de uso, sem renomear/excluir space nem transferir
+- **Métricas**: se o realtime cair sem desligar direito, perde o trecho aberto
+  (até 5 min) e o que estava na fila; sem exportar CSV nem apagar histórico
+  antigo.
+- **Dashboard**: sem renomear/excluir space nem transferir
   a posse. Convites sem rate limit nem limpeza dos expirados (ficam listados
   como "expirado" até reenviar ou cancelar).
 - **Avatar**: `User.avatarSprite` (da spec) segue sem uso, reservado para
