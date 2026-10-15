@@ -1,0 +1,38 @@
+# Postgres local do TeloVis Space. Porta 5450 para não brigar com outros
+# Postgres da máquina.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: telovis_space_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: telovis_space
+    ports:
+      - "127.0.0.1:5450:5432"
+    volumes:
+      - telovis_space_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d telovis_space"]
+      interval: 2s
+      retries: 15
+
+  # LiveKit local para testar áudio/vídeo sem conta no LiveKit Cloud.
+  # Chave/segredo fixos de desenvolvimento (iguais ao .env.example do realtime).
+  # --node-ip 127.0.0.1: o navegador da própria máquina alcança a mídia pelo
+  # localhost; para testar de outro aparelho na rede, troque pelo IP da máquina.
+  livekit:
+    image: livekit/livekit-server:v1.9
+    container_name: telovis_space_livekit
+    command:
+      - --dev
+      - --bind=0.0.0.0
+      - --node-ip=127.0.0.1
+      - "--keys=devkey: telovis-livekit-dev-secret-0123456789"
+    ports:
+      - "127.0.0.1:7880:7880" # sinalização (ws)
+      - "127.0.0.1:7881:7881" # mídia via TCP
+      - "127.0.0.1:7882:7882/udp" # mídia via UDP
+
+volumes:
+  telovis_space_pg:

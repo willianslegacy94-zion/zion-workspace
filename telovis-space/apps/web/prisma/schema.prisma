@@ -1,0 +1,122 @@
+// TeloVis Space — schema Prisma (spec, seção 5).
+// Prisma 7: a URL do banco fica em prisma.config.ts, não no datasource.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  /// scrypt: "salt:hash" em hex (ver src/lib/auth/password.ts)
+  passwordHash String
+  avatarSprite String        @default("default_avatar.png")
+  /// Visual do Customizer: AvatarLook de @telovis/protocol (índices nas
+  /// paletas). null = padrão derivado do nome.
+  avatar       Json?
+  spaceMembers SpaceMember[]
+  sessions     Session[]
+  ownedSpaces  Space[]
+  desks        Desk[]
+  invitesSent  Invite[]
+  visits       Visit[]
+  createdAt    DateTime      @default(now())
+}
+
+/// Sessão de login. O cookie guarda o token cru; aqui fica só o SHA-256 dele,
+/// então um vazamento do banco não dá sessões válidas.
+model Session {
+  id        String   @id // sha256(token) em hex
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Space {
+  id         String        @id @default(uuid())
+  name       String
+  slug       String        @unique
+  mapJsonUrl String // URL do .json exportado do Tiled
+  tilesetUrl String // URL da imagem do tileset
+  ownerId    String
+  owner      User          @relation(fields: [ownerId], references: [id])
+  members    SpaceMember[]
+  desks      Desk[]
+  invites    Invite[]
+  visits     Visit[]
+  createdAt  DateTime      @default(now())
+}
+
+model SpaceMember {
+  id       String   @id @default(uuid())
+  userId   String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spaceId  String
+  space    Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  role     String   @default("MEMBER") // ADMIN, MEMBER, GUEST
+  joinedAt DateTime @default(now())
+
+  @@unique([userId, spaceId])
+}
+
+/// Mesa de trabalho pessoal. `key` é o nome do objeto na camada `desks` do
+/// mapa; o setup é um DeskSetup de @telovis/protocol.
+model Desk {
+  id        String   @id @default(uuid())
+  spaceId   String
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  key       String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  setup     Json
+  updatedAt DateTime @updatedAt
+
+  @@unique([spaceId, key]) // uma pessoa por mesa
+  @@unique([spaceId, userId]) // uma mesa por pessoa em cada space
+}
+
+/// Convite por e-mail para quem ainda não tem conta. O link leva o token cru;
+/// aqui fica só o SHA-256 dele (como em Session). Aceitar exige estar logado
+/// com o mesmo e-mail; o convite é apagado ao ser aceito.
+model Invite {
+  id          String   @id @default(uuid())
+  spaceId     String
+  space       Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  email       String
+  role        String   @default("MEMBER") // ADMIN, MEMBER, GUEST
+  tokenHash   String   @unique
+  invitedById String
+  invitedBy   User     @relation(fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([spaceId, email]) // reenviar troca o token do convite existente
+}
+
+/// Uma visita = uma conexão numa sala, do join até sair. Registrada pelo
+/// realtime (POST /api/internal/visits) para as métricas do dashboard.
+model Visit {
+  id          String   @id @default(uuid())
+  spaceId     String
+  space       Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt   DateTime
+  endedAt     DateTime
+  messages    Int      @default(0)
+  /// Segundos com alguém ao alcance de voz.
+  talkSeconds Int      @default(0)
+  /// zoneId → segundos em cada sala privada.
+  zones       Json     @default("{}")
+
+  @@index([spaceId, startedAt])
+}
