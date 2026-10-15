@@ -144,6 +144,10 @@ Testes do algoritmo de proximidade: `npm test`.
   mudança quando a pessoa volta ao space.
 - Círculo do raio de 150px em volta de você (some dentro de zonas) e anel verde
   nos colegas cuja mídia está ativa.
+- Balão "falando" (pixel art, pontinhos animados) sobre a cabeça enquanto o
+  LiveKit detecta voz no microfone (`ActiveSpeakersChanged`). Você vê o seu e o
+  dos colegas que consegue ouvir; quem está longe ou em outra sala privada não
+  mostra balão. Com mensagem de chat ao mesmo tempo, o balão do chat sobe.
 - Zonas com contorno sempre visível; ao entrar, a sala acende e a HUD avisa
   "conversa privada".
 - Minimapa (câmera extra do Phaser) com pontos dos jogadores e o retângulo da

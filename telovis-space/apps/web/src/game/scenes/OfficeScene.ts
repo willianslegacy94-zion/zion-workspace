@@ -38,6 +38,7 @@ import {
 import { DESK_H, DESK_TEX_H, DESK_W, deskTextureKey, drawDesk } from "../desk-draw";
 import { AVATAR_SIZE, ensureAvatar, idleFrame, sitFrame, walkAnimKey } from "../avatar";
 import { ensureVehicle } from "../vehicle";
+import { SPEAKING_FRAMES, SPEAKING_FRAME_MS, ensureSpeaking, speakingKey } from "../speaking";
 import { VEHICLE_ANCHOR, VEHICLE_FRAME, vehicleFrame, vehicleInFront } from "../vehicle-draw";
 
 export type SceneStatus =
@@ -138,6 +139,8 @@ interface AvatarView {
   dot: Phaser.GameObjects.Arc;
   bubble: Phaser.GameObjects.Text | null;
   bubbleTimer: Phaser.Time.TimerEvent | null;
+  /** Balão "falando", visível enquanto o LiveKit detecta voz. */
+  speaking: Phaser.GameObjects.Image;
   vehicle: Vehicle | null;
   vehicleSprite: Phaser.GameObjects.Sprite | null;
   name: string;
@@ -407,6 +410,7 @@ export class OfficeScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
+    this.updateSpeaking(time);
     this.updateLocalMovement();
     this.updateRemotes(delta);
     this.updateZone();
@@ -714,11 +718,16 @@ export class OfficeScene extends Phaser.Scene {
     const dot = this.add.circle(x, y, 28, dotColor).setDepth(DEPTH.overlay);
     this.cameras.main.ignore(dot);
 
+    ensureSpeaking(this);
+    const speaking = this.add.image(x, y, speakingKey(0)).setOrigin(0.5, 1).setVisible(false);
+    this.minimap.ignore(speaking);
+
     return {
       label,
       dot,
       bubble: null,
       bubbleTimer: null,
+      speaking,
       vehicle: null,
       vehicleSprite: null,
       name,
@@ -756,7 +765,10 @@ export class OfficeScene extends Phaser.Scene {
     }
     const top = y - AVATAR_SIZE / 2;
     view.label.setPosition(x, top).setDepth(DEPTH.overlay + y);
-    view.bubble?.setPosition(x, top - 14).setDepth(DEPTH.overlay + 1_000 + y);
+    view.speaking.setPosition(x, top - 14).setDepth(DEPTH.overlay + 1_000 + y);
+    // Falando e com mensagem ao mesmo tempo: o balão do chat sobe.
+    const bubbleY = view.speaking.visible ? top - 14 - view.speaking.height - 2 : top - 14;
+    view.bubble?.setPosition(x, bubbleY).setDepth(DEPTH.overlay + 1_000 + y);
     view.dot.setPosition(x, y);
   }
 
@@ -805,7 +817,15 @@ export class OfficeScene extends Phaser.Scene {
     const remote = this.remotes.get(id);
     if (!remote) return;
     remote.bubbleTimer?.remove();
-    const parts = [remote.sprite, remote.label, remote.dot, remote.ring, remote.bubble, remote.vehicleSprite];
+    const parts = [
+      remote.sprite,
+      remote.label,
+      remote.dot,
+      remote.ring,
+      remote.bubble,
+      remote.speaking,
+      remote.vehicleSprite,
+    ];
     for (const obj of parts) {
       obj?.destroy();
     }
@@ -838,6 +858,27 @@ export class OfficeScene extends Phaser.Scene {
       view.bubble = null;
       view.bubbleTimer = null;
     });
+  }
+
+  /**
+   * Balão "falando": o seu quando o LiveKit detecta voz no seu microfone; o
+   * dos colegas só se a mídia deles está ativa para você. O SFU avisa quem
+   * fala na sala inteira, mas mostrar o balão de quem está numa sala privada
+   * ou longe entregaria uma conversa que você não pode ouvir.
+   */
+  private updateSpeaking(time: number) {
+    const media = this.ctx.media;
+    const frame = Math.floor(time / SPEAKING_FRAME_MS) % SPEAKING_FRAMES;
+    this.setSpeaking(this.me, this.selfId !== null && media.isSpeaking(this.selfId), frame);
+    for (const [id, remote] of this.remotes) {
+      const audible = this.lastDecisions.get(id)?.active ?? false;
+      this.setSpeaking(remote, audible && media.isSpeaking(id), frame);
+    }
+  }
+
+  private setSpeaking(view: AvatarView, on: boolean, frame: number) {
+    view.speaking.setVisible(on);
+    if (on) view.speaking.setTexture(speakingKey(frame));
   }
 
   // --- Proximidade → mídia ---------------------------------------------------

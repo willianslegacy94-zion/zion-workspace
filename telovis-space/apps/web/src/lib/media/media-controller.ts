@@ -48,6 +48,8 @@ export class MediaController {
    * e o elemento ficaria congelado na tela; por isso guardamos aqui.
    */
   private elements = new Map<RemoteTrack, HTMLMediaElement>();
+  /** Identities que o LiveKit detectou falando agora (inclui a local). */
+  private speaking = new Set<string>();
 
   /** @param container elemento onde os <video>/<audio> remotos são inseridos. */
   constructor(private readonly container: HTMLElement) {}
@@ -78,8 +80,13 @@ export class MediaController {
       .on(RoomEvent.AudioPlaybackStatusChanged, () =>
         this.setState({ canPlayAudio: room.canPlaybackAudio }),
       )
+      .on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        if (this.room === room) this.speaking = new Set(speakers.map((p) => p.identity));
+      })
       .on(RoomEvent.Disconnected, () => {
-        if (this.room === room) this.setState({ ...INITIAL_STATE });
+        if (this.room !== room) return;
+        this.speaking.clear();
+        this.setState({ ...INITIAL_STATE });
       });
 
     await room.connect(credentials.url, credentials.token, { autoSubscribe: false });
@@ -93,6 +100,7 @@ export class MediaController {
     this.room = null;
     if (room) await room.disconnect();
     this.elements.clear();
+    this.speaking.clear();
     this.container.replaceChildren();
     this.setState({ ...INITIAL_STATE });
   }
@@ -109,6 +117,11 @@ export class MediaController {
         this.applyToPublication(pub, decision);
       }
     }
+  }
+
+  /** O SFU detectou voz nesta identity (= socket.id) agora. */
+  isSpeaking(identity: string): boolean {
+    return this.speaking.has(identity);
   }
 
   async setMicrophone(on: boolean): Promise<void> {
