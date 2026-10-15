@@ -51,7 +51,7 @@ telovis-space/
 
 ```bash
 npm install
-docker compose up -d                 # Postgres em :5450
+docker compose up -d                 # Postgres em :5450 + LiveKit em :7880
 cp apps/web/.env.example apps/web/.env
 cp apps/realtime/.env.example apps/realtime/.env
 # preencha REALTIME_TICKET_SECRET com o MESMO valor nos dois .env
@@ -66,6 +66,13 @@ entra no `demo`). Entre com duas delas em navegadores/janelas anônimas
 diferentes e abra `/space/hq`. Sem as
 variáveis `LIVEKIT_*` o servidor sincroniza só posição (a HUD avisa); com elas,
 a mídia liga e desliga conforme a proximidade.
+
+O `docker-compose.yml` traz um LiveKit de desenvolvimento, e o
+`apps/realtime/.env.example` já aponta para ele (`ws://localhost:7880`,
+`devkey`). Ele anuncia a mídia em `127.0.0.1`, então só vale para navegadores
+da própria máquina; para testar de outro aparelho, troque `--node-ip` pelo IP
+da máquina na rede. Em produção, use o LiveKit Cloud ou um servidor próprio com
+TLS.
 
 Testes do algoritmo de proximidade: `npm test`.
 

@@ -42,6 +42,12 @@ export class MediaController {
   private decisions: MediaDecisions = new Map();
   private state: MediaState = INITIAL_STATE;
   private listeners = new Set<(s: MediaState) => void>();
+  /**
+   * Elemento de cada faixa remota. O livekit-client já chama track.detach()
+   * antes de emitir TrackUnsubscribed, então o detach() no evento volta vazio
+   * e o elemento ficaria congelado na tela; por isso guardamos aqui.
+   */
+  private elements = new Map<RemoteTrack, HTMLMediaElement>();
 
   /** @param container elemento onde os <video>/<audio> remotos são inseridos. */
   constructor(private readonly container: HTMLElement) {}
@@ -86,6 +92,7 @@ export class MediaController {
     const room = this.room;
     this.room = null;
     if (room) await room.disconnect();
+    this.elements.clear();
     this.container.replaceChildren();
     this.setState({ ...INITIAL_STATE });
   }
@@ -133,16 +140,20 @@ export class MediaController {
     if (track instanceof RemoteAudioTrack) {
       track.setVolume(this.decisions.get(participant.identity)?.volume ?? 0);
     }
+    this.elements.get(track)?.remove();
     const el = track.attach();
     el.dataset.identity = participant.identity;
     if (track.kind === Track.Kind.Video) {
       el.className = "h-28 w-40 rounded-lg bg-black object-cover shadow-lg";
     }
     this.container.appendChild(el);
+    this.elements.set(track, el);
   }
 
   private detach(track: RemoteTrack) {
-    for (const el of track.detach()) el.remove();
+    track.detach();
+    this.elements.get(track)?.remove();
+    this.elements.delete(track);
   }
 
   private setState(patch: Partial<MediaState>) {
