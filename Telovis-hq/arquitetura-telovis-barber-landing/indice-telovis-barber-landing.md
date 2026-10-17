@@ -14,7 +14,7 @@ Todos os arquivos vivem em `Telovis-hq/arquitetura-telovis-barber-landing/`, com
 
 **Código-fonte:** pasta local `Desktop/Ops/telovis-barber/telovis-barber-landing/`, com dois remotes de mesmo histórico: `lovable` → `github.com/willianslegacy94-zion/telovis-pro-canvas` (privado, sincronizado com a Lovable) e `origin` → `github.com/willianslegacy94-zion/telovis-barber-landing` (público).
 
-**Produção:** **https://telovispro.com**, publicada pela Lovable (projeto `0b8ffaca-8f5b-4b8d-a353-2aea2557060c`, D-23). A VPS antiga (`kernellwc.online/vendas/`) ainda serve a v1 e **não deve receber `git pull`**.
+**Produção:** **https://telovispro.com**, publicada pela Lovable (projeto `0b8ffaca-8f5b-4b8d-a353-2aea2557060c`, D-23). A URL antiga (`kernellwc.online/vendas/`) foi desativada e responde 404 (D-25).
 
 **Identidade visual (v3):** paleta clara do sistema (creme `#F7F4EC` + dourado `#A9791E` + ônix `#1C1A14`), Playfair Display + Inter, logo com T dourado + pincel + navalha fechada em `public/assets/tl-logo.png` (D-21). Nunca usar o navy/verde da Telovis Tech na LP (D-13). Rodapé com o CNPJ da TeloVis Tech (D-22).
 
@@ -44,7 +44,7 @@ Todos os arquivos vivem em `Telovis-hq/arquitetura-telovis-barber-landing/`, com
 
 | Documento | O que cobre |
 |---|---|
-| [[registro-de-decisoes-telovis-barber-landing]] | 24 decisões cronológicas. **v1 (D-01 a D-11):** remoção de preços, benchmarking Trinks/BarberCode, diferenciais sem expor spec, mentoria, rebrand Telovis Barber, rename do repo, `/vendas/` como path de deploy, incidente na VPS errada (sem impacto), chave SSH dedicada, primeiro deploy. **v2 (D-12 a D-18):** nome TL Barber, versão navy/verde descartada, estrutura da LP Telovis Tech, paleta/fontes do sistema + logo oficial, contatos e formulário → WhatsApp, push sem atualizar a VPS, artes TL Barber. **v3 (D-19 a D-24):** público salões + barbearias + estética, nome TeloVis Pro, logo com pincel e navalha fechada, CNPJ da TeloVis Tech no rodapé, hospedagem na Lovable em `telovispro.com`, artes TeloVis Pro ([[telovis-pro-prospeccao.png]] e [[telovis-pro-status.png]]) |
+| [[registro-de-decisoes-telovis-barber-landing]] | 24 decisões cronológicas. **v1 (D-01 a D-11):** remoção de preços, benchmarking Trinks/BarberCode, diferenciais sem expor spec, mentoria, rebrand Telovis Barber, rename do repo, `/vendas/` como path de deploy, incidente na VPS errada (sem impacto), chave SSH dedicada, primeiro deploy. **v2 (D-12 a D-18):** nome TL Barber, versão navy/verde descartada, estrutura da LP Telovis Tech, paleta/fontes do sistema + logo oficial, contatos e formulário → WhatsApp, push sem atualizar a VPS, artes TL Barber. **v3 (D-19 a D-24):** público salões + barbearias + estética, nome TeloVis Pro, logo com pincel e navalha fechada, CNPJ da TeloVis Tech no rodapé, hospedagem na Lovable em `telovispro.com`, artes TeloVis Pro ([[telovis-pro-prospeccao.png]] e [[telovis-pro-status.png]]), URL antiga `/vendas` desativada (D-25) |
 
 Artes antigas (D-18) mantidas nesta pasta como histórico: [[tl-barber-prospeccao.png]] e [[tl-barber-status.png]].
 

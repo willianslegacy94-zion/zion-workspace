@@ -277,3 +277,14 @@ Decisões cronológicas que moldaram a LP. Cada entrada registra o contexto, a a
 **Telas fictícias:** misturam os três nichos (coloração, escova, corte + barba, manicure, limpeza de pele; profissionais Carla, Rafael, Ana e Juliana; "Seu Espaço"). Mesma regra de nunca usar print real.
 **Gap:** desta vez o QR **não** foi conferido por decodificação (sem leitor de QR no ambiente). Conferir com a câmera antes de disparar.
 **Onde ficam:** `telovis-barber-landing/divulgacao/` (fora do git; fonte em `fonte/arte.html`). As artes antigas do TL Barber foram para `divulgacao/antigo/`. Cópia dos PNGs nesta pasta do vault. Substitui D-18.
+
+---
+
+## D-25 — URL antiga `kernellwc.online/vendas` desativada (404, sem redirecionar)
+
+**Data:** 2026-10-17
+**Decisão:** `/vendas` e tudo abaixo dele respondem **404**. Pedido do Willians: "quero desativar, não quero que redirecione pra lugar nenhum".
+**Como:** no Nginx do host (`/etc/nginx/sites-available/kernellwc.online`, VPS de hostname `kernel`), os quatro blocos de `/vendas` (o `= /vendas`, os `deny` de `.git` e `.md` e o `alias` para `/var/www/telovis-barber-landing/`) viraram um só: `location ^~ /vendas { return 404; }`. O `^~` impede que o caminho caia no `location /` do app. Editado in-place com `perl` (o bloco SSL do certbot não pode ser sobrescrito), `nginx -t` ok, reload feito pelo Willians. A cópia versionada `telovis-barber/deploy/nginx-kernellwc.conf` foi atualizada igual (commit `f9148db`).
+**Alternativa descartada:** 301 para `telovispro.com` (commit `97d6eac`, substituído antes de aplicar), porque o Willians não queria redirecionamento; e só apagar os blocos, que faria `/vendas` abrir o app do sistema.
+**Verificado:** `/vendas`, `/vendas/`, `/vendas/index.html` e `/vendas/DEPLOY.md` respondem 404; `kernellwc.online/` (sistema) segue 200.
+**Pendências:** a pasta `/var/www/telovis-barber-landing` ficou no disco sem uso (pode ser apagada). O backup do arquivo do Nginx provavelmente **não** foi criado (o comando de cópia foi interrompido com Ctrl+C na colagem).

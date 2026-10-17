@@ -89,7 +89,7 @@ Ver `DEPLOY.md` no repo da LP (onde mexer em cada coisa, rodar local, avisos).
 | LP → Google Fonts | saída | `<link>` CSS | nenhuma | Ativo |
 | LP → telovistech.com | saída | link no rodapé | nenhuma | Ativo |
 | Repo ↔ Lovable | duas vias | git (`telovis-pro-canvas`, branch `main`) | GitHub App da Lovable | Ativo |
-| VPS `kernellwc.online/vendas/` | — | estático (v1, Telovis Barber) | — | **Legado**: não atualizar (D-23) |
+| VPS `kernellwc.online/vendas/` | — | — | — | **Desativado** (404, D-25) |
 
 Sem integração com o backend do Telovis Barber nem com Brainiac/Kalel.
 
@@ -121,7 +121,7 @@ Página única servida pela infraestrutura da Lovable/Cloudflare; não há garga
 
 **Local:** `npm install`, `npm run dev`. O `npx vite preview` não roda essa build no Windows (saída para Cloudflare); usar o dev server.
 
-**VPS antiga:** `/var/www/telovis-barber-landing` em `kernellwc.online` ainda serve a v1 em `/vendas/`. Não rodar `git pull` lá (sem `index.html` na raiz, a página sairia do ar). Pendência: desligar o bloco `/vendas/` ou redirecionar para `telovispro.com` (`telovis-barber/deploy/nginx-kernellwc.conf`).
+**VPS antiga:** `kernellwc.online/vendas` foi **desativado em 2026-10-17** (D-25): responde 404, sem redirecionar. A pasta `/var/www/telovis-barber-landing` não é mais servida.
 
 ---
 
